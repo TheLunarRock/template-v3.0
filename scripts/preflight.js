@@ -79,6 +79,17 @@ async function preflight() {
       const staticPages = fs.readdirSync('.next/server/app').filter(f => f.endsWith('.html')).length;
       log.info(`静的ページ数: ${staticPages}`);
     }
+    
+    // ビルド後の境界チェック
+    log.info('ビルド後の境界チェック...');
+    const boundaryCheck = runCommand('pnpm check:boundaries', true);
+    if (!boundaryCheck.success || (boundaryCheck.output && boundaryCheck.output.includes('エラー'))) {
+      log.error('本番ビルドに境界違反が含まれています');
+      results.critical = true;
+      results.errors++;
+    } else {
+      log.success('境界チェック合格');
+    }
   } else {
     log.error('ビルドに失敗しました - デプロイ不可');
     results.critical = true;
@@ -199,6 +210,43 @@ async function preflight() {
     }
   }
   
+  // 4.5. フィーチャー別検証
+  log.section('フィーチャー別検証');
+  const featuresDir = 'src/features';
+  if (fs.existsSync(featuresDir)) {
+    const features = fs.readdirSync(featuresDir)
+      .filter(f => !f.startsWith('_') && fs.statSync(path.join(featuresDir, f)).isDirectory());
+    
+    log.info(`${features.length}個のフィーチャーを検証中...`);
+    
+    let criticalError = false;
+    for (const feature of features) {
+      const indexPath = path.join(featuresDir, feature, 'index.ts');
+      const indexJsPath = path.join(featuresDir, feature, 'index.js');
+      
+      if (!fs.existsSync(indexPath) && !fs.existsSync(indexJsPath)) {
+        log.error(`${feature}: index.tsが存在しません`);
+        results.errors++;
+        continue;
+      }
+      
+      // フック公開の最終確認
+      const actualPath = fs.existsSync(indexPath) ? indexPath : indexJsPath;
+      const content = fs.readFileSync(actualPath, 'utf8');
+      if (content.match(/export\s*{[^}]*\buse[A-Z]/)) {
+        log.error(`🔴 ${feature}: フックが公開されています（本番環境では致命的）`);
+        results.critical = true;
+        criticalError = true;
+        break; // 致命的エラーなので即座に中断
+      }
+    }
+    
+    if (!criticalError && results.errors === 0) {
+      log.success('全フィーチャーが本番デプロイ可能です');
+      results.passed++;
+    }
+  }
+  
   // 5. デプロイ設定の確認
   log.section('デプロイ設定チェック');
   
@@ -262,9 +310,16 @@ ${readyToDeploy ?
 
 ${readyToDeploy ? `
 ${colors.dim}推奨デプロイコマンド:
+
+標準デプロイ:
   Vercel:  vercel --prod
   Netlify: netlify deploy --prod
-  その他:   ${getPackageManagerCommand('run')} start${colors.reset}` : ''}
+  
+フィーチャーベース安全デプロイ（推奨）:
+  pnpm check:boundaries && vercel --prod
+  
+デプロイ前の最終確認:
+  pnpm validate:all${colors.reset}` : ''}
 ${colors.blue}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${colors.reset}
 `);
 

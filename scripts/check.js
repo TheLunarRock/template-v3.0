@@ -94,7 +94,6 @@ async function check() {
   const requiredDirs = [
     'src/app',
     'src/features',
-    'src/components',
     'src/styles'
   ];
   
@@ -110,6 +109,64 @@ async function check() {
   if (structureValid) {
     log.success('フィーチャーベース構造が正しく維持されています');
     results.passed++;
+  }
+  
+  // 4.5. フィーチャー境界チェック
+  log.section('フィーチャー境界チェック');
+  const boundaryResult = runCommand('pnpm check:boundaries', true);
+  if (boundaryResult.success) {
+    log.success('フィーチャー境界違反は検出されませんでした');
+    results.passed++;
+  } else {
+    const output = boundaryResult.error?.stdout || '';
+    if (output.includes('エラー: 0') || output.includes('✗ エラー: 0')) {
+      log.success('境界チェック合格');
+      results.passed++;
+    } else {
+      log.error('フィーチャー境界違反が検出されました');
+      log.info('詳細: pnpm check:boundaries --verbose');
+      results.errors++;
+    }
+  }
+  
+  // 4.6. フィーチャー健全性チェック
+  log.section('フィーチャー健全性');
+  const featuresDir = 'src/features';
+  if (fs.existsSync(featuresDir)) {
+    const features = fs.readdirSync(featuresDir)
+      .filter(f => !f.startsWith('_') && !f.startsWith('.') && fs.statSync(path.join(featuresDir, f)).isDirectory());
+    
+    let healthyCount = 0;
+    let hookExportViolations = [];
+    
+    for (const feature of features) {
+      const indexPath = path.join(featuresDir, feature, 'index.ts');
+      const indexJsPath = path.join(featuresDir, feature, 'index.js');
+      
+      if (fs.existsSync(indexPath) || fs.existsSync(indexJsPath)) {
+        const actualPath = fs.existsSync(indexPath) ? indexPath : indexJsPath;
+        const content = fs.readFileSync(actualPath, 'utf8');
+        
+        // フック公開チェック
+        if (content.match(/export\s*{[^}]*\buse[A-Z]/)) {
+          log.error(`${feature}: フックがindex.tsから公開されています（違反）`);
+          hookExportViolations.push(feature);
+          results.errors++;
+        } else {
+          healthyCount++;
+        }
+      } else {
+        log.warning(`${feature}: index.tsが存在しません`);
+        results.warnings++;
+      }
+    }
+    
+    if (healthyCount === features.length) {
+      log.success(`全${features.length}フィーチャーが健全です`);
+      results.passed++;
+    } else if (hookExportViolations.length > 0) {
+      log.error(`🔴 致命的エラー: ${hookExportViolations.join(', ')}がフックを公開しています`);
+    }
   }
   
   // 5. 設定ファイルの検証
@@ -131,11 +188,26 @@ async function check() {
   
   // CLAUDE.md
   if (fs.existsSync('CLAUDE.md')) {
-    log.success('CLAUDE.mdが存在します');
-    results.passed++;
+    const claudeContent = fs.readFileSync('CLAUDE.md', 'utf8');
+    if (claudeContent.includes('SuperClaude') && 
+        claudeContent.includes('フックは絶対にindex.tsから公開しない')) {
+      log.success('CLAUDE.mdは必要な内容を含んでいます');
+      results.passed++;
+    } else {
+      log.warning('CLAUDE.mdに必要なセクションが不足しています');
+      results.warnings++;
+    }
   } else {
     log.error('CLAUDE.mdが見つかりません');
     results.errors++;
+  }
+  
+  // PROJECT_INFO.md
+  if (fs.existsSync('PROJECT_INFO.md')) {
+    log.success('PROJECT_INFO.mdが存在します');
+    results.passed++;
+  } else {
+    log.info('PROJECT_INFO.mdが見つかりません（プロジェクト固有設定用）');
   }
   
   // 6. GitHub Actions設定チェック
