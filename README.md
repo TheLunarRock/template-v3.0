@@ -1,6 +1,7 @@
-# SuperClaude Template v3.0
+# SuperClaude Template v3.0 - Claude Code専用
 
-最高の開発体験を提供する、フィーチャーベース開発 + SuperClaude + 完全なテスト環境を備えたNext.jsテンプレート。
+100% Claude Code実装用のNext.jsテンプレート。人間はコードを書きません。
+フィーチャーベース開発 + SuperClaude統合 + 完全自動化環境。
 
 ## 🚀 Quick Start
 
@@ -40,29 +41,27 @@ src/
 └── styles/       # Global styles
 ```
 
-## 📦 Available Scripts
+## 📦 Claude Code専用コマンド
 
-### Development
-- `pnpm dev` - Start development server
-- `pnpm build` - Build for production
-- `pnpm start` - Start production server
-- `pnpm setup:project` - Complete initial setup (recommended)
-- `pnpm setup:quick` - Quick setup without browser install
+### Claude Code実装フロー
+```bash
+pnpm claude:start      # 実装開始（状態確認）
+pnpm claude:implement  # フィーチャー作成
+pnpm claude:validate   # 実装検証
+pnpm claude:complete   # 完了確認
+```
 
-### Testing
-- `pnpm test:unit` - Run unit tests
-- `pnpm test:e2e` - Run E2E tests
-- `pnpm test:e2e:ui` - Playwright UI mode
-- `pnpm test` - Run all tests
+### 自動化コマンド
+- `pnpm create:feature [name]` - フィーチャー自動生成（手動作成禁止）
+- `pnpm check:boundaries` - 境界違反検出
+- `pnpm fix:boundaries` - 違反自動修正
+- `pnpm validate:all` - 全検証実行（完了条件）
 
-### Quality Checks
-- `pnpm check` - Run health checks
-- `pnpm check:boundaries` - Check feature boundaries
-- `pnpm preflight` - Pre-deployment verification
-- `pnpm validate:all` - Run all validations
-
-### Feature Creation
-- `pnpm create:feature [name]` - Create new feature with tests
+### 開発コマンド
+- `pnpm dev` - 開発サーバー起動
+- `pnpm build` - プロダクションビルド
+- `pnpm test` - テスト実行
+- `pnpm typecheck` - 型チェック
 
 ## 🤖 Claude Code Integration
 

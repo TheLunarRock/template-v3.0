@@ -1,4 +1,9 @@
-# Claude Code Development Guide - SuperClaude Edition
+# Claude Code専用実装ガイド - SuperClaude Template v3.0
+
+## 🤖 重要：このテンプレートは100% Claude Code実装用
+
+**人間はコードを書きません。全ての実装はClaude Codeが行います。**
+このドキュメントはClaude Codeの実装ルールです。曖昧さを排除し、自動判断可能な内容のみ記載しています。
 
 ## 🚨 なぜフックを公開してはいけないのか（30秒理解）
 
@@ -163,19 +168,50 @@ const MyUserCard = ({ userId }) => { /* 独自実装 */ }
 
 *測定根拠: 実際のプロジェクトでの平均値
 
-## 🎯 実装チェックリスト
+## 🤖 Claude Code実装の自動フロー
 
-### Claude Code実装時の確認事項
+### 実装開始時（必須実行）
+```bash
+git status                    # 現在の状態確認
+pnpm check:boundaries        # 既存構造の把握
+```
 
-- [ ] **フィーチャー構造** - `src/features/[機能名]/`に作成
-- [ ] **import形式** - 全て`@/features/[名前]`形式
-- [ ] **フック非公開** - index.tsから絶対に公開しない
-- [ ] **API関数公開** - 純粋な関数として公開
-- [ ] **UI非共有** - 各フィーチャーが独自実装
-- [ ] **境界チェック実行** - `pnpm check:boundaries`が成功
-- [ ] **型定義** - any型を使用しない
-- [ ] **フォント** - `font-rounded`を全テキストに適用
-- [ ] **SuperClaude** - 適切なフラグが自動適用されている
+### フィーチャー作成時（必須使用）
+```bash
+pnpm create:feature [name]   # 自動生成を使用（手動作成禁止）
+```
+
+### 実装完了時（必須実行）
+```bash
+pnpm check:boundaries        # 境界違反チェック
+pnpm fix:boundaries          # 違反の自動修正
+pnpm typecheck              # 型チェック
+pnpm test                   # テスト実行
+pnpm build                  # ビルド確認
+```
+
+### エラー時の自動対応表
+| エラー種別 | 実行コマンド | 次のアクション |
+|-----------|-------------|--------------|
+| 境界違反 | `pnpm fix:boundaries` | 自動修正される |
+| 型エラー | `pnpm typecheck` | エラー箇所を修正 |
+| テスト失敗 | `pnpm test:unit` | 失敗テストを修正 |
+| ビルドエラー | `pnpm build` | エラーログを解析 |
+
+## 🎯 実装完了の定義
+
+以下が全て成功したら実装完了：
+```bash
+pnpm validate:all   # 全チェックが通る
+```
+
+### Claude Codeの禁止事項（絶対）
+
+1. **フィーチャー間の共有** → 禁止（重複を許容）
+2. **フック公開** → 禁止（内部実装）
+3. **手動ディレクトリ作成** → 禁止（create:feature使用）
+4. **判断の保留** → 禁止（ルールに従う）
+5. **any型の使用** → 禁止（適切な型定義）
 
 ## 🔵 Git/GitHub設定
 
