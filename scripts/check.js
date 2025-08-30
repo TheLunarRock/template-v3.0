@@ -1,0 +1,222 @@
+#!/usr/bin/env node
+
+const { execSync } = require('child_process');
+const fs = require('fs');
+const path = require('path');
+const { detectPackageManager, getPackageManagerCommand } = require('./utils');
+
+// 色付きコンソール出力
+const colors = {
+  reset: '\x1b[0m',
+  green: '\x1b[32m',
+  yellow: '\x1b[33m',
+  blue: '\x1b[34m',
+  red: '\x1b[31m',
+  dim: '\x1b[2m'
+};
+
+const log = {
+  info: (msg) => console.log(`${colors.blue}ℹ${colors.reset} ${msg}`),
+  success: (msg) => console.log(`${colors.green}✓${colors.reset} ${msg}`),
+  warning: (msg) => console.log(`${colors.yellow}⚠${colors.reset} ${msg}`),
+  error: (msg) => console.log(`${colors.red}✗${colors.reset} ${msg}`),
+  section: (msg) => console.log(`\n${colors.blue}━━━ ${msg} ━━━${colors.reset}\n`)
+};
+
+// コマンド実行
+const runCommand = (command, silent = false) => {
+  try {
+    if (!silent) log.info(`実行中: ${command}`);
+    const output = execSync(command, { 
+      stdio: silent ? 'pipe' : 'inherit',
+      encoding: 'utf8'
+    });
+    return { success: true, output };
+  } catch (error) {
+    return { success: false, error };
+  }
+};
+
+// チェック結果の集計
+const results = {
+  passed: 0,
+  warnings: 0,
+  errors: 0
+};
+
+// メイン処理
+async function check() {
+  console.log('\n🔍 プロジェクトの健全性チェックを開始します\n');
+  
+  // 1. TypeScript型チェック
+  log.section('TypeScript型チェック');
+  const tsResult = runCommand('npx tsc --noEmit', true);
+  if (tsResult.success) {
+    log.success('TypeScriptの型チェックが成功しました');
+    results.passed++;
+  } else {
+    log.error('TypeScriptの型エラーがあります');
+    console.log(colors.dim + tsResult.error.stdout + colors.reset);
+    results.errors++;
+  }
+  
+  // 2. ビルドテスト
+  log.section('ビルドテスト');
+  const buildResult = runCommand(`${getPackageManagerCommand('run')} build`, true);
+  if (buildResult.success) {
+    log.success('ビルドが正常に完了しました');
+    results.passed++;
+  } else {
+    log.error('ビルドエラーが発生しました');
+    results.errors++;
+  }
+  
+  // 3. 依存関係の脆弱性チェック
+  log.section('セキュリティチェック');
+  const auditResult = runCommand(getPackageManagerCommand('auditProd'), true);
+  if (auditResult.success) {
+    log.success('既知の脆弱性は見つかりませんでした');
+    results.passed++;
+  } else {
+    const output = auditResult.error.stdout || '';
+    if (output.includes('found 0 vulnerabilities')) {
+      log.success('既知の脆弱性は見つかりませんでした');
+      results.passed++;
+    } else {
+      const pm = detectPackageManager();
+      log.warning(`脆弱性が検出されました（${getPackageManagerCommand('auditFix')} を実行してください）`);
+      results.warnings++;
+    }
+  }
+  
+  // 4. フィーチャー構造チェック
+  log.section('プロジェクト構造チェック');
+  const requiredDirs = [
+    'src/app',
+    'src/features',
+    'src/components',
+    'src/styles'
+  ];
+  
+  let structureValid = true;
+  for (const dir of requiredDirs) {
+    if (!fs.existsSync(dir)) {
+      log.error(`必須ディレクトリが見つかりません: ${dir}`);
+      structureValid = false;
+      results.errors++;
+    }
+  }
+  
+  if (structureValid) {
+    log.success('フィーチャーベース構造が正しく維持されています');
+    results.passed++;
+  }
+  
+  // 5. 設定ファイルの検証
+  log.section('設定ファイルチェック');
+  
+  // Tailwind設定
+  if (fs.existsSync('tailwind.config.ts') || fs.existsSync('tailwind.config.js')) {
+    const configFile = fs.existsSync('tailwind.config.ts') ? 'tailwind.config.ts' : 'tailwind.config.js';
+    const tailwindConfig = fs.readFileSync(configFile, 'utf8');
+    
+    if (tailwindConfig.includes('M PLUS Rounded 1c')) {
+      log.success('丸文字フォント設定が正しく設定されています');
+      results.passed++;
+    } else {
+      log.error('丸文字フォント設定が見つかりません');
+      results.errors++;
+    }
+  }
+  
+  // CLAUDE.md
+  if (fs.existsSync('CLAUDE.md')) {
+    log.success('CLAUDE.mdが存在します');
+    results.passed++;
+  } else {
+    log.error('CLAUDE.mdが見つかりません');
+    results.errors++;
+  }
+  
+  // 6. GitHub Actions設定チェック
+  log.section('GitHub Actions設定チェック');
+  const workflowsDir = '.github/workflows';
+  if (fs.existsSync(workflowsDir)) {
+    const workflows = fs.readdirSync(workflowsDir).filter(f => f.endsWith('.yml') || f.endsWith('.yaml'));
+    let allValid = true;
+    
+    for (const workflow of workflows) {
+      const content = fs.readFileSync(path.join(workflowsDir, workflow), 'utf8');
+      try {
+        // 基本的な構文チェック
+        if (!content.includes('name:') || !content.includes('on:')) {
+          log.warning(`${workflow}: 必須フィールドが不足している可能性があります`);
+          allValid = false;
+          results.warnings++;
+        }
+      } catch (error) {
+        log.error(`${workflow}: 読み取りエラー`);
+        allValid = false;
+        results.errors++;
+      }
+    }
+    
+    if (allValid && workflows.length > 0) {
+      log.success(`${workflows.length}個のワークフローファイルが正常です`);
+      results.passed++;
+    }
+  }
+  
+  // 7. 環境変数チェック
+  log.section('環境設定チェック');
+  if (fs.existsSync('.env.local')) {
+    log.success('.env.localファイルが存在します');
+    results.passed++;
+  } else {
+    log.warning('.env.localファイルが見つかりません（必要に応じて作成してください）');
+    results.warnings++;
+  }
+  
+  // 8. Node.jsバージョンチェック
+  const nodeVersion = process.version;
+  const majorVersion = parseInt(nodeVersion.split('.')[0].substring(1));
+  if (majorVersion >= 18) {
+    log.success(`Node.js ${nodeVersion} ✓`);
+    results.passed++;
+  } else {
+    log.error(`Node.js ${nodeVersion} は古すぎます。v18以上が必要です`);
+    results.errors++;
+  }
+  
+  // 結果サマリー
+  console.log(`
+${colors.blue}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${colors.reset}
+📊 チェック結果サマリー
+
+  ${colors.green}✓ 成功:${colors.reset} ${results.passed}
+  ${colors.yellow}⚠ 警告:${colors.reset} ${results.warnings}
+  ${colors.red}✗ エラー:${colors.reset} ${results.errors}
+
+${results.errors === 0 ? 
+  `${colors.green}✨ プロジェクトは健全な状態です！${colors.reset}` : 
+  `${colors.red}⚠️  修正が必要な項目があります${colors.reset}`}
+${colors.blue}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${colors.reset}
+`);
+
+  // エラーがある場合は終了コード1
+  process.exit(results.errors > 0 ? 1 : 0);
+}
+
+// エラーハンドリング
+process.on('unhandledRejection', (error) => {
+  log.error('チェック中にエラーが発生しました');
+  console.error(error);
+  process.exit(1);
+});
+
+// 実行
+check().catch((error) => {
+  log.error('チェックに失敗しました');
+  console.error(error);
+  process.exit(1);
+});
