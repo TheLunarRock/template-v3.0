@@ -38,12 +38,7 @@ const results = {
 
 // 境界違反パターンのチェック
 const checkPatterns = [
-  {
-    name: '相対パス参照',
-    pattern: "from '\\.\\./",
-    message: '相対パスでの他フィーチャー参照',
-    severity: 'error'
-  },
+  // 相対パス参照は削除（後で高度なチェックに置き換え）
   {
     name: '内部ディレクトリ参照',
     pattern: "from '@/features/[^']*/\\(components\\|hooks\\|utils\\|api\\|types\\)",
@@ -66,10 +61,53 @@ const checkPatterns = [
   }
 ];
 
+// より高度な相対パス参照チェック
+function checkRelativeImports(filePath, content, featureName) {
+  const violations = [];
+  const relativeImportRegex = /from\s+['"](\.\.\/[^'"]+)['"]/g;
+  let match;
+  
+  while ((match = relativeImportRegex.exec(content)) !== null) {
+    const importPath = match[1];
+    
+    // ../で始まるパスを解析
+    // 例: ../utils/helper → 同一フィーチャー内
+    // 例: ../user/api → 他フィーチャー
+    const pathSegments = importPath.split('/');
+    
+    // 最初の../を除いた最初のセグメントを確認
+    if (pathSegments.length > 1) {
+      const firstSegment = pathSegments[1];
+      
+      // フィーチャー名のリストを取得
+      const featuresDir = path.join(process.cwd(), 'src/features');
+      const features = fs.readdirSync(featuresDir)
+        .filter(f => fs.statSync(path.join(featuresDir, f)).isDirectory());
+      
+      // 他のフィーチャーへの参照かチェック
+      if (features.includes(firstSegment) && firstSegment !== featureName) {
+        violations.push({
+          file: filePath,
+          check: '他フィーチャーへの相対パス参照',
+          message: `相対パスで他フィーチャー「${firstSegment}」を参照しています: ${match[0]}`,
+          severity: 'error',
+          matches: [match[0]]
+        });
+      }
+    }
+  }
+  
+  return violations;
+}
+
 // ファイル内容の検査
-function checkFile(filePath, content) {
+function checkFile(filePath, content, featureName) {
   const violations = [];
   const fileName = path.basename(filePath);
+  
+  // 相対パスの高度なチェック
+  const relativeViolations = checkRelativeImports(filePath, content, featureName);
+  violations.push(...relativeViolations);
   
   for (const check of checkPatterns) {
     // ファイル名が指定されている場合、該当ファイルのみチェック
@@ -102,7 +140,7 @@ function checkFeature(featurePath) {
   
   for (const file of files) {
     const content = fs.readFileSync(file, 'utf8');
-    const fileViolations = checkFile(file, content);
+    const fileViolations = checkFile(file, content, featureName);
     violations.push(...fileViolations);
   }
   
@@ -155,7 +193,7 @@ function fixViolation(violation) {
   let fixed = false;
   
   switch (check) {
-    case '相対パス参照':
+    case '他フィーチャーへの相対パス参照':
       // ../user/api/userApi → @/features/user
       content = content.replace(
         /from ['"]\.\.\/([^\/]+)\/.+['"]/g,
@@ -221,17 +259,26 @@ async function checkBoundaries() {
         
         if (violation.severity === 'critical') {
           log.error(`  🔴 ${violation.check}: ${relativePath}`);
+          if (violation.message) {
+            console.log(`     ${colors.red}${violation.message}${colors.reset}`);
+          }
           results.errors++;
         } else if (violation.severity === 'error') {
           log.error(`  ❌ ${violation.check}: ${relativePath}`);
+          if (violation.message) {
+            console.log(`     ${colors.yellow}${violation.message}${colors.reset}`);
+          }
           results.errors++;
         } else {
           log.warning(`  ⚠️  ${violation.check}: ${relativePath}`);
+          if (verbose && violation.message) {
+            console.log(`     ${colors.dim}${violation.message}${colors.reset}`);
+          }
           results.warnings++;
         }
         
         if (verbose && violation.matches) {
-          console.log(colors.dim + '    ' + violation.matches.join('\n    ') + colors.reset);
+          console.log(colors.dim + '    コード: ' + violation.matches.join('\n    ') + colors.reset);
         }
         
         // 自動修正
