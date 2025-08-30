@@ -57,30 +57,55 @@ ${colors.bold}🚀 SuperClaude Template v3.0 - 完全セットアップ${colors.
 ${colors.dim}フィーチャーベース開発 + SuperClaude + E2Eテスト環境${colors.reset}
 `);
 
+  // ========== Step 0: 依存関係の自動インストール ==========
+  if (!fs.existsSync('node_modules')) {
+    log.section('Step 0/8: 依存関係のインストール');
+    log.info('node_modules が見つかりません。依存関係をインストールします...');
+    
+    try {
+      log.info('📦 pnpm install を実行中...');
+      execSync('pnpm install', { stdio: 'inherit' });
+      log.success('依存関係のインストールが完了しました');
+      results.installed.push('全npm依存関係');
+    } catch (error) {
+      log.error('依存関係のインストールに失敗しました');
+      log.info('手動で pnpm install を実行してください');
+      process.exit(1);
+    }
+  }
+
   // ========== Step 1: 基本環境セットアップ ==========
-  log.section('Step 1/7: 基本環境設定');
+  log.section('Step 1/8: 基本環境設定');
   
-  // .env.local作成
+  // .env.local作成（.env.exampleから）
   if (!fs.existsSync('.env.local')) {
-    const envContent = `# Supabase設定
-NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+    if (fs.existsSync('.env.example')) {
+      // .env.exampleが存在する場合はコピー
+      fs.copyFileSync('.env.example', '.env.local');
+      log.success('.env.example から .env.local を作成しました');
+      log.info('📝 必要に応じて .env.local の値を編集してください');
+      results.created.push('.env.local');
+    } else {
+      // .env.exampleが存在しない場合はデフォルト作成
+      const envContent = `# 環境変数
+NEXT_PUBLIC_APP_NAME=template-v3.0
 
-# アプリケーション設定
-NEXT_PUBLIC_APP_NAME=Template v3.0
-NEXT_PUBLIC_APP_PASSWORD=0492
+# 開発環境
+NODE_ENV=development
 
-# 開発環境設定
-NEXT_PUBLIC_API_URL=http://localhost:3000/api
-NEXT_PUBLIC_ENABLE_DEBUG=false
+# APIエンドポイント（必要に応じて追加）
+# NEXT_PUBLIC_API_URL=http://localhost:3000/api
 `;
-    fs.writeFileSync('.env.local', envContent);
-    log.success('.env.local を作成しました');
-    results.created.push('.env.local');
+      fs.writeFileSync('.env.local', envContent);
+      log.success('デフォルトの .env.local を作成しました');
+      results.created.push('.env.local');
+    }
+  } else {
+    log.info('.env.local は既に存在します');
   }
 
   // ========== Step 2: Playwright E2Eテスト環境 ==========
-  log.section('Step 2/7: E2Eテスト環境構築');
+  log.section('Step 2/8: E2Eテスト環境構築');
   
   // playwright.config.ts作成
   if (!fs.existsSync('playwright.config.ts')) {
@@ -172,7 +197,7 @@ export async function waitForFeatureLoad(page: Page, featureName: string) {
   }
 
   // ========== Step 3: Vitest単体テスト環境 ==========
-  log.section('Step 3/7: 単体テスト環境構築');
+  log.section('Step 3/8: 単体テスト環境構築');
 
   // vitest.config.ts作成
   if (!fs.existsSync('vitest.config.ts')) {
@@ -239,7 +264,7 @@ global.localStorage = localStorageMock as any;
   }
 
   // ========== Step 4: GitHub Actions CI/CD ==========
-  log.section('Step 4/7: CI/CD環境構築');
+  log.section('Step 4/8: CI/CD環境構築');
 
   // .github/workflows ディレクトリ作成
   const workflowDir = '.github/workflows';
@@ -347,7 +372,7 @@ jobs:
   }
 
   // ========== Step 5: SuperClaude統合強化 ==========
-  log.section('Step 5/7: SuperClaude統合強化');
+  log.section('Step 5/8: SuperClaude統合強化');
 
   // claudedocs ディレクトリ作成
   if (!fs.existsSync('claudedocs')) {
@@ -391,7 +416,7 @@ jobs:
   }
 
   // ========== Step 6: VS Code設定 ==========
-  log.section('Step 6/7: 開発環境設定');
+  log.section('Step 6/8: 開発環境設定');
 
   // VS Code設定
   const vscodeDir = '.vscode';
@@ -435,21 +460,35 @@ jobs:
 
   // ========== Step 7: Playwrightブラウザインストール（フルセットアップ時のみ） ==========
   if (isFullSetup) {
-    log.section('Step 7/7: Playwrightブラウザインストール');
+    log.section('Step 7/8: Playwrightブラウザインストール');
     
     try {
-      log.info('Chromiumブラウザをインストール中... (約100MB)');
-      execSync('npx playwright install chromium', { stdio: 'inherit' });
-      log.success('Chromiumブラウザをインストールしました');
-      results.installed.push('Playwright Chromium');
+      log.info('Playwrightブラウザを自動インストール中... (約100MB)');
+      log.info('これには数分かかる場合があります...');
+      
+      // --yesフラグと--with-depsフラグで完全自動インストール
+      // stdio: 'pipe'にして質問を回避し、進捗のみ表示
+      const installProcess = execSync('npx playwright install --with-deps chromium', { 
+        stdio: 'pipe',
+        encoding: 'utf-8'
+      });
+      
+      log.success('✓ Chromiumブラウザを自動インストールしました');
+      log.success('✓ 必要な依存関係もインストールしました');
+      results.installed.push('Playwright Chromium (with dependencies)');
     } catch (error) {
-      log.warning('ブラウザインストールをスキップしました（後で pnpm exec playwright install を実行してください）');
+      // エラーが発生してもセットアップは続行
+      log.warning('ブラウザの自動インストールに失敗しました');
+      log.info('手動インストール: pnpm exec playwright install --with-deps');
+      results.warnings.push('Playwrightブラウザは手動インストールが必要です');
     }
   } else {
     log.info('クイックセットアップモード: ブラウザインストールをスキップ');
+    log.info('後でインストール: pnpm exec playwright install --with-deps');
   }
 
-  // ========== 完了レポート ==========
+  // ========== Step 8: 完了レポート ==========
+  log.section('Step 8/8: セットアップ完了');
   console.log(`
 ${colors.green}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${colors.reset}
 ✨ ${colors.bold}SuperClaude Template v3.0 セットアップ完了！${colors.reset}

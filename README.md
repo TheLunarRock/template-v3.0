@@ -9,15 +9,14 @@
 git clone [your-repo-url] my-app
 cd my-app
 
-# Install dependencies
-pnpm install
-
-# Run complete setup (recommended)
+# Run complete setup (dependencies + configuration)
 pnpm setup:project
 
 # Start development
 pnpm dev
 ```
+
+> 💡 `pnpm setup:project`は依存関係のインストールも自動で行います
 
 ## 📋 Features
 

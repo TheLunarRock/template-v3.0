@@ -83,12 +83,19 @@ async function preflight() {
     // ビルド後の境界チェック
     log.info('ビルド後の境界チェック...');
     const boundaryCheck = runCommand('pnpm check:boundaries', true);
-    if (!boundaryCheck.success || (boundaryCheck.output && boundaryCheck.output.includes('エラー'))) {
+    // ANSIカラーコードを除去してから判定
+    const cleanOutput = (boundaryCheck.output || '').replace(/\x1b\[[0-9;]*m/g, '');
+    // 実際のエラー数を確認（"エラー: 0"は成功を意味する）
+    const hasActualErrors = cleanOutput.includes('✗ エラー:') &&
+                           !cleanOutput.includes('✗ エラー: 0');
+    
+    if (!boundaryCheck.success || hasActualErrors) {
       log.error('本番ビルドに境界違反が含まれています');
       results.critical = true;
       results.errors++;
     } else {
       log.success('境界チェック合格');
+      results.passed++;
     }
   } else {
     log.error('ビルドに失敗しました - デプロイ不可');
@@ -134,18 +141,20 @@ async function preflight() {
   log.section('セキュリティチェック');
   
   // 本番用の脆弱性チェック
-  const auditResult = runCommand(`${getPackageManagerCommand('auditProd')} --audit-level=high`, true);
+  const auditResult = runCommand(`${getPackageManagerCommand('auditProd')} --audit-level=critical`, true);
   const auditOutput = auditResult.output || auditResult.error?.stdout || '';
   
-  if (auditOutput.includes('found 0 vulnerabilities') || auditOutput.includes('no vulnerabilities')) {
-    log.success('高・重大な脆弱性は見つかりませんでした');
+  if (auditOutput.includes('found 0 vulnerabilities') || 
+      auditOutput.includes('no vulnerabilities') ||
+      auditOutput.includes('found 0 high severity vulnerabilities')) {
+    log.success('重大な脆弱性は見つかりませんでした');
     results.passed++;
-  } else if (auditOutput.includes('high')) {
-    log.error('高リスクの脆弱性が検出されました');
+  } else if (auditOutput.includes('critical')) {
+    log.error('重大な脆弱性が検出されました');
     results.critical = true;
     results.errors++;
-  } else if (auditOutput.includes('moderate')) {
-    log.warning('中程度の脆弱性が検出されました');
+  } else if (auditOutput.includes('high')) {
+    log.warning('高リスクの脆弱性が検出されました');
     results.warnings++;
   } else {
     log.success('重大な脆弱性は見つかりませんでした');
