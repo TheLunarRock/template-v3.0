@@ -48,3 +48,6 @@ Thumbs.db
 
 # test files
 /src/app/test-*
+
+# Serena AI memory
+.serena/
