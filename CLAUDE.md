@@ -1,4 +1,67 @@
-# Claude Code専用実装ガイド - SuperClaude Template v3.0
+# Claude Code専用実装ガイド - SuperClaude v4 Production Edition
+
+# ═══════════════════════════════════════════════════
+# 🚀 SuperClaude v4 Production Edition の新機能
+# ═══════════════════════════════════════════════════
+
+## 📊 バージョン情報
+
+| 項目 | 内容 |
+|------|------|
+| **Framework Version** | SuperClaude v4.0.8 |
+| **Template Edition** | Production (Enterprise-ready) |
+| **Architecture** | Feature-based with strict boundaries |
+| **Last Updated** | 2025-08-31 |
+
+## 🎯 v4新機能：14の専門エージェント
+
+### プロダクション開発に最適化されたエージェント
+
+| エージェント | 役割 | フィーチャー境界との統合 |
+|-------------|------|------------------------|
+| **general-purpose** | 複雑な質問の調査と多段階タスク | 全フィーチャー横断的な分析 |
+| **python-expert** | SOLID原則に基づくPythonコード | フィーチャー内のPython実装 |
+| **system-architect** | スケーラブルなシステム設計 | フィーチャー間の依存関係設計 |
+| **refactoring-expert** | 技術的負債の削減とリファクタリング | 境界を維持したリファクタリング |
+| **devops-architect** | インフラとデプロイメントの自動化 | CI/CDパイプライン統合 |
+| **security-engineer** | セキュリティ脆弱性の特定と対策 | フィーチャー単位のセキュリティ監査 |
+| **frontend-architect** | アクセシブルで高性能なUI | フィーチャー内UIコンポーネント設計 |
+| **backend-architect** | 信頼性の高いバックエンドシステム | APIフィーチャーの設計 |
+| **quality-engineer** | 包括的なテスト戦略 | フィーチャー単位のテスト |
+| **performance-engineer** | システムパフォーマンス最適化 | ボトルネック分析と改善 |
+| **requirements-analyst** | 要件定義と仕様化 | フィーチャー要件の明確化 |
+| **technical-writer** | 技術文書の作成 | フィーチャードキュメント |
+| **root-cause-analyst** | 複雑な問題の根本原因分析 | 境界違反の原因特定 |
+| **learning-guide** | プログラミング概念の教育 | チームへの知識共有 |
+
+## 🎮 /sc: コマンド体系（v4統一名前空間）
+
+### フィーチャー開発専用コマンド
+
+| コマンド | 機能 | 使用タイミング |
+|----------|------|--------------|
+| `/sc:start` | セッション開始＋境界チェック | 作業開始時 |
+| `/sc:feature` | フィーチャー作成ウィザード | 新機能追加時 |
+| `/sc:boundaries` | 境界違反の検出と修正 | 実装後の検証 |
+| `/sc:analyze` | フィーチャー依存関係分析 | アーキテクチャレビュー |
+| `/sc:test` | フィーチャー単位テスト実行 | 品質保証 |
+| `/sc:refactor` | 境界を維持したリファクタリング | コード改善 |
+| `/sc:validate` | 包括的な品質チェック | リリース前 |
+
+## 🎭 6つの行動モード（v4完全版）
+
+| モード | 用途 | フィーチャー開発での活用 |
+|--------|------|------------------------|
+| **Brainstorming** | 要件探索 | 新フィーチャーの概念設計 |
+| **Business Panel** 🆕 | 戦略的分析 | ビジネス価値とROI評価 |
+| **Orchestration** | 効率的な実行 | 並列タスクの最適化 |
+| **Token-Efficiency** | リソース節約 | 大規模リファクタリング時 |
+| **Task Management** | 体系的管理 | フィーチャー実装の進捗管理 |
+| **Introspection** | メタ認知分析 | 境界違反の深層分析 |
+
+# ═══════════════════════════════════════════════════
+# 🔴 CRITICAL: Feature-Based Development Rules (維持)
+# ═══════════════════════════════════════════════════
 
 ## 🤖 重要：このテンプレートは100% Claude Code実装用
 
@@ -92,6 +155,7 @@ grep -r "from '@/features/[^']*/\(components\|hooks\|utils\|api\|types\)" src/fe
 | **Sequential** | 複雑な依存関係の分析 | 3つ以上のフィーチャー関連時 |
 | **Magic** | フィーチャー独自UIの高速生成 | UIコンポーネント作成時 |
 | **Playwright** | フィーチャー単位のE2Eテスト | テスト作成時 |
+| **Context7** | 公式ドキュメント・パターン取得 | ライブラリ/フレームワーク使用時 |
 
 ### TodoWrite自動化
 

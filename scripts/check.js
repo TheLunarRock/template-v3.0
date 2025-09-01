@@ -46,7 +46,7 @@ const results = {
 
 // メイン処理
 async function check() {
-  console.log('\n🔍 プロジェクトの健全性チェックを開始します\n');
+  console.log('\n🔍 SuperClaude v4 Production Edition - 健全性チェック\n');
   
   // 1. TypeScript型チェック
   log.section('TypeScript型チェック');

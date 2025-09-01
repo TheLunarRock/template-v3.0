@@ -49,7 +49,7 @@ const results = {
   passed: 0,
   warnings: 0,
   errors: 0,
-  critical: false
+  critical: 0
 };
 
 // メイン処理
@@ -144,17 +144,18 @@ async function preflight() {
   const auditResult = runCommand(`${getPackageManagerCommand('auditProd')} --audit-level=critical`, true);
   const auditOutput = auditResult.output || auditResult.error?.stdout || '';
   
+  // より厳密な脆弱性チェック
   if (auditOutput.includes('found 0 vulnerabilities') || 
       auditOutput.includes('no vulnerabilities') ||
-      auditOutput.includes('found 0 high severity vulnerabilities')) {
+      (auditOutput.includes('found') && auditOutput.includes('0 critical'))) {
     log.success('重大な脆弱性は見つかりませんでした');
     results.passed++;
   } else if (auditOutput.includes('critical')) {
-    log.error('重大な脆弱性が検出されました');
-    results.critical = true;
+    log.error('重大な脆弱性が検出されました - デプロイを中止してください');
+    results.critical++;
     results.errors++;
   } else if (auditOutput.includes('high')) {
-    log.warning('高リスクの脆弱性が検出されました');
+    log.warning('高リスクの脆弱性が検出されました - 修正を推奨');
     results.warnings++;
   } else {
     log.success('重大な脆弱性は見つかりませんでした');

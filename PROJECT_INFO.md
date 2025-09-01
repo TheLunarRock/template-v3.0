@@ -1,6 +1,45 @@
-# プロジェクト固有設定
+# SuperClaude v4 Production Edition - プロジェクト情報
 
-## 🚀 テンプレート利用ガイド（Claude Code用）
+## 🚀 アップグレード完了：v3 → v4.0.8
+
+### 📊 バージョン情報
+- **Framework**: SuperClaude v4.0.8 Production Edition
+- **Template**: Enterprise-ready with Feature-based Architecture
+- **Updated**: 2025-08-31
+
+## 🎯 v4 新機能の活用ガイド
+
+### 14の専門エージェント活用例
+
+```bash
+# 新フィーチャー開発
+/sc:plan auth-feature        # requirements-analyst + system-architect
+/sc:implement auth-feature   # backend-architect が自動選択
+/sc:review                   # security-engineer + quality-engineer
+
+# パフォーマンス問題
+/sc:analyze --performance    # performance-engineer が分析
+/sc:optimize                 # refactoring-expert が最適化
+
+# 境界違反の修正
+/sc:boundaries --check       # root-cause-analyst が原因特定
+/sc:refactor --fix          # refactoring-expert が修正
+```
+
+### /sc: コマンド体系（v4新機能）
+
+```bash
+# セッション管理
+/sc:start                   # 作業開始（境界チェック付き）
+/sc:feature user-profile    # フィーチャー作成ウィザード
+/sc:validate               # 包括的品質チェック
+
+# ビジネス分析（v4新機能）
+/sc:business-panel feature-name
+→ ROI分析
+→ 技術的負債評価
+→ 実装優先順位提案
+```
 
 ### 初回セットアップ
 ```bash

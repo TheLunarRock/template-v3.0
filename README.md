@@ -1,7 +1,41 @@
-# SuperClaude Template v3.0 - Claude Code専用
+# SuperClaude v4 Production Edition - Enterprise Template
 
-100% Claude Code実装用のNext.jsテンプレート。人間はコードを書きません。
-フィーチャーベース開発 + SuperClaude統合 + 完全自動化環境。
+[![Framework](https://img.shields.io/badge/SuperClaude-v4.0.8-blue)](https://github.com/SuperClaude-Org/SuperClaude_Framework)
+[![Template](https://img.shields.io/badge/Edition-Production-green)](CLAUDE.md)
+[![Architecture](https://img.shields.io/badge/Architecture-Feature--based-orange)](docs/architecture.md)
+
+100% Claude Code実装用のエンタープライズグレードNext.jsテンプレート。
+**SuperClaude v4.0.8** + **14専門エージェント** + **フィーチャーベース開発** + **完全自動化**
+
+## 🆕 v4 Production Edition の特徴
+
+### 14の専門エージェント
+- 🏗️ **system-architect**: スケーラブルなシステム設計
+- 🛡️ **security-engineer**: セキュリティ脆弱性の特定
+- ⚡ **performance-engineer**: パフォーマンス最適化
+- 🎨 **frontend-architect**: アクセシブルなUI設計
+- 🔧 **backend-architect**: 信頼性の高いバックエンド
+- その他9つの専門エージェント
+
+### /sc: 統一コマンド体系
+```bash
+/sc:start          # セッション開始
+/sc:feature        # フィーチャー作成
+/sc:boundaries     # 境界チェック
+/sc:business-panel # ビジネス分析（新機能）
+```
+
+### 6つの適応モード
+- **Business Panel** 🆕: 戦略的ビジネス分析
+- **Brainstorming**: 要件探索
+- **Orchestration**: 並列実行最適化
+- **Token-Efficiency**: 30-50%トークン削減
+- **Task Management**: 体系的タスク管理
+- **Introspection**: メタ認知分析
+
+## 📖 セットアップガイド
+
+詳細なセットアップ手順は **[SETUP_GUIDE.md](./SETUP_GUIDE.md)** を参照してください。
 
 ## 🚀 Quick Start
 

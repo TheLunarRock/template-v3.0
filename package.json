@@ -34,7 +34,20 @@
     "claude:start": "git status && pnpm check:boundaries",
     "claude:implement": "pnpm create:feature",
     "claude:validate": "pnpm check:boundaries && pnpm typecheck && pnpm test",
-    "claude:complete": "pnpm validate:all"
+    "claude:complete": "pnpm validate:all",
+    "sc:start": "git status && pnpm check:boundaries",
+    "sc:feature": "pnpm create:feature",
+    "sc:boundaries": "pnpm check:boundaries",
+    "sc:analyze": "pnpm check:features",
+    "sc:test": "pnpm test",
+    "sc:refactor": "pnpm fix:boundaries",
+    "sc:validate": "pnpm validate:all",
+    "sc:plan": "echo 'Planning session initiated'",
+    "sc:implement": "pnpm claude:implement",
+    "sc:review": "pnpm typecheck && pnpm lint",
+    "sc:optimize": "pnpm analyze",
+    "sc:debug": "pnpm test:unit:ui",
+    "sc:business-panel": "echo 'Business analysis mode activated'"
   },
   "engines": {
     "node": ">=18.0.0"

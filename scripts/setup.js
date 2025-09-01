@@ -53,8 +53,8 @@ const results = {
 // メイン処理
 async function setup() {
   console.log(`
-${colors.bold}🚀 SuperClaude Template v3.0 - 完全セットアップ${colors.reset}
-${colors.dim}フィーチャーベース開発 + SuperClaude + E2Eテスト環境${colors.reset}
+${colors.bold}🚀 SuperClaude v4 Production Edition - セットアップ${colors.reset}
+${colors.dim}エンタープライズグレード・フィーチャーベース開発環境${colors.reset}
 `);
 
   // ========== Step 0: 依存関係の自動インストール ==========
@@ -372,7 +372,7 @@ jobs:
   }
 
   // ========== Step 5: SuperClaude統合強化 ==========
-  log.section('Step 5/8: SuperClaude統合強化');
+  log.section('Step 5/8: SuperClaude v4統合確認');
 
   // claudedocs ディレクトリ作成
   if (!fs.existsSync('claudedocs')) {
