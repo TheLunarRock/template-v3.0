@@ -18,8 +18,7 @@ const {
   getPackageManagerCommand,
   SUPERCLAUDE_FLAGS,
   MCP_CONFIG,
-  identifyParallelTasks,
-  generateSuperClaudeReport
+  identifyParallelTasks
 } = require('./utils');
 
 // 色付きコンソール出力
@@ -61,7 +60,6 @@ const isFullSetup = args.includes('--full') || !args.includes('--quick');
 const isQuickSetup = args.includes('--quick');
 const isSuperClaudeMode = args.some(arg => arg.startsWith('--sc-'));
 const isParallelMode = args.includes('--sc-parallel');
-const generateReport = args.includes('--sc-report');
 
 // 結果追跡
 const results = {
@@ -509,17 +507,6 @@ jobs:
 
   // ========== Step 8: 完了レポート ==========
   log.section('Step 8/8: セットアップ完了');
-  
-  // SuperClaudeレポート生成
-  if (generateReport) {
-    const reportPath = generateSuperClaudeReport({
-      setup: results,
-      mode: isSuperClaudeMode ? 'SuperClaude Enhanced' : 'Standard',
-      parallel: isParallelMode,
-      mcp_recommended: ['Serena', 'Sequential']
-    });
-    log.success(`SuperClaudeレポート生成: ${reportPath}`);
-  }
   
   console.log(`
 ${colors.green}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${colors.reset}

@@ -17,8 +17,7 @@ const {
   detectPackageManager, 
   getPackageManagerCommand,
   SUPERCLAUDE_FLAGS,
-  MCP_CONFIG,
-  generateSuperClaudeReport
+  MCP_CONFIG
 } = require('./utils');
 
 // 色付きコンソール出力
@@ -63,7 +62,6 @@ const getDirectorySize = (dir) => {
 // フラグ処理（SuperClaude統合）
 const args = process.argv.slice(2);
 const isSuperClaudeMode = args.some(arg => arg.startsWith('--sc-'));
-const generateReport = args.includes('--sc-report');
 const validateMode = args.includes('--sc-validate');
 
 // チェック結果
@@ -328,29 +326,6 @@ async function preflight() {
       log.warning('Lintエラーが存在します');
       results.warnings++;
     }
-  }
-  
-  // SuperClaudeレポート生成
-  if (generateReport) {
-    const reportData = {
-      preflight: {
-        passed: results.passed,
-        warnings: results.warnings,
-        errors: results.errors,
-        critical: results.critical
-      },
-      mode: isSuperClaudeMode ? 'SuperClaude Enhanced' : 'Standard',
-      validation: validateMode,
-      readyToDeploy: !results.critical && results.errors === 0,
-      timestamp: new Date().toISOString()
-    };
-    
-    const reportPath = generateSuperClaudeReport(reportData, {
-      mode: 'preflight',
-      mcp: ['Sequential', 'Playwright']
-    });
-    
-    log.success(`SuperClaudeレポート生成: ${reportPath}`);
   }
   
   // 結果サマリー

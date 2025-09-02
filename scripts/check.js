@@ -17,8 +17,7 @@ const {
   detectPackageManager, 
   getPackageManagerCommand,
   SUPERCLAUDE_FLAGS,
-  MCP_CONFIG,
-  generateSuperClaudeReport
+  MCP_CONFIG
 } = require('./utils');
 
 // 色付きコンソール出力
@@ -63,7 +62,6 @@ const results = {
 // フラグ処理（SuperClaude統合）
 const args = process.argv.slice(2);
 const isSuperClaudeMode = args.some(arg => arg.startsWith('--sc-'));
-const generateReport = args.includes('--sc-report');
 const analyzeMode = args.includes('--sc-analyze');
 
 // メイン処理
@@ -285,27 +283,6 @@ async function check() {
   } else {
     log.error(`Node.js ${nodeVersion} は古すぎます。v18以上が必要です`);
     results.errors++;
-  }
-  
-  // SuperClaudeレポート生成
-  if (generateReport) {
-    const reportData = {
-      checks: {
-        passed: results.passed,
-        warnings: results.warnings,
-        errors: results.errors
-      },
-      mode: isSuperClaudeMode ? 'SuperClaude Enhanced' : 'Standard',
-      analysis: analyzeMode,
-      timestamp: new Date().toISOString()
-    };
-    
-    const reportPath = generateSuperClaudeReport(reportData, {
-      mode: 'check',
-      mcp: analyzeMode ? ['Sequential'] : []
-    });
-    
-    log.success(`SuperClaudeレポート生成: ${reportPath}`);
   }
   
   // 結果サマリー

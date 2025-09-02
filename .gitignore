@@ -51,6 +51,3 @@ Thumbs.db
 
 # Serena AI memory
 .serena/
-
-# SuperClaude reports (generated)
-claudedocs/report-*.json

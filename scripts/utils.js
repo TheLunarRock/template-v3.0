@@ -94,7 +94,6 @@ const SUPERCLAUDE_FLAGS = {
   '--sc-analyze': 'SuperClaude分析モード（Sequential MCPを使用）',
   '--sc-parallel': '並列実行モード（最大15並列）',
   '--sc-validate': '境界違反の詳細チェック',
-  '--sc-report': 'claudedocs/に詳細レポート生成',
   '--sc-mcp': 'MCP-First原則を適用',
   '--sc-todo': 'TodoWriteパターンで進捗管理'
 };
@@ -134,62 +133,11 @@ function identifyParallelTasks(tasks) {
   return parallelGroups;
 }
 
-/**
- * SuperClaudeレポート生成
- */
-function generateSuperClaudeReport(results, options = {}) {
-  const timestamp = new Date().toISOString();
-  const reportDir = 'claudedocs';
-  
-  if (!fs.existsSync(reportDir)) {
-    fs.mkdirSync(reportDir, { recursive: true });
-  }
-  
-  const report = {
-    timestamp,
-    version: 'SuperClaude v4.0.8',
-    mode: options.mode || 'standard',
-    mcp_used: options.mcp || [],
-    results,
-    recommendations: generateRecommendations(results)
-  };
-  
-  const reportPath = `${reportDir}/report-${timestamp.replace(/:/g, '-')}.json`;
-  fs.writeFileSync(reportPath, JSON.stringify(report, null, 2));
-  
-  return reportPath;
-}
-
-/**
- * 推奨事項を生成
- */
-function generateRecommendations(results) {
-  const recommendations = [];
-  
-  if (results.boundaries?.violations > 0) {
-    recommendations.push({
-      type: 'critical',
-      message: '境界違反が検出されました。`pnpm fix:boundaries`を実行してください。',
-      agent: 'refactoring-expert'
-    });
-  }
-  
-  if (results.performance?.slow > 0) {
-    recommendations.push({
-      type: 'important',
-      message: 'パフォーマンス問題が検出されました。Sequential MCPで分析を推奨。',
-      agent: 'performance-engineer'
-    });
-  }
-  
-  return recommendations;
-}
 
 module.exports = {
   detectPackageManager,
   getPackageManagerCommand,
   SUPERCLAUDE_FLAGS,
   MCP_CONFIG,
-  identifyParallelTasks,
-  generateSuperClaudeReport
+  identifyParallelTasks
 };
