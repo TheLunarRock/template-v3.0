@@ -4,8 +4,17 @@
 [![Template](https://img.shields.io/badge/Edition-Production-green)](CLAUDE.md)
 [![Architecture](https://img.shields.io/badge/Architecture-Feature--based-orange)](docs/architecture.md)
 
-100% Claude Code実装用のエンタープライズグレードNext.jsテンプレート。
-**SuperClaude v4.0.8** + **14専門エージェント** + **フィーチャーベース開発** + **完全自動化**
+Claude Code用のエンタープライズグレードNext.jsテンプレート。
+**SuperClaude v4.0.8** + **14専門エージェント** + **フィーチャーベース開発** + **コンテキスト駆動開発**
+
+## 💡 SuperClaudeの本質
+
+**重要**: SuperClaudeは実行されるソフトウェアではありません。Claude Codeの振る舞いをガイドする**構造化されたコンテキストファイル群**です。
+
+- ✅ **コンテキストファイル**: Claude Code用の`.md`指示ファイル
+- ✅ **行動パターン**: ワークフローとアプローチのガイド
+- ✅ **ドメイン専門知識**: 特化された知識コンテキスト
+- ✅ **MCPサーバー統合**: 実ツールとの設定・ガイダンス
 
 ## 🆕 v4 Production Edition の特徴
 
@@ -103,24 +112,33 @@ pnpm claude:complete   # 完了確認
 2. Add `CLAUDE_CODE_OAUTH_TOKEN` to repository secrets
 3. Create issues with `@claude` to trigger automated implementation
 
-## 📊 Supabase MCP Integration (Optional)
+## 🔧 MCP (Model Context Protocol) サーバー設定
 
-Claude Code/CursorでSupabaseデータベースを直接操作する場合：
+SuperClaude v4.0.8の6つのMCPサーバーを活用するための設定：
+
+### Quick Setup（推奨）
 
 ```bash
-# Supabase MCPサーバーを追加（各開発者が個別に設定）
+# MCPサーバーの接続状態を確認
+claude mcp list  # 5つのMCPが利用可能
+
+# Magic MCP（UIコンポーネント生成）- 現在利用不可
+# 設定は可能ですが、Claude Codeのツールとして統合されていません（2025-09-02時点）
+# UI開発にはfrontend-architectエージェントを使用してください
+```
+
+### Supabase MCP（オプション）
+
+```bash
+# Supabaseデータベース操作用（プロジェクトで使用する場合）
 claude mcp add supabase \
-  -s local \
   -e SUPABASE_ACCESS_TOKEN=your_token_here \
   -- npx -y @supabase/mcp-server-supabase@latest
 ```
 
-**注意**: 
-- MCPサーバー設定は**開発環境側の設定**です
-- テンプレート自体には影響しません
-- 各開発者が個別にトークンを設定します
+**注意**: MCPサーバー設定は開発環境側の設定で、各開発者が個別に設定します。
 
-詳細は [Supabase MCP Setup Guide](docs/SUPABASE_MCP_SETUP.md) を参照。
+詳細設定は [MCP Setup Guide](docs/MCP_SETUP.md) を参照。
 
 ## 📄 License
 
