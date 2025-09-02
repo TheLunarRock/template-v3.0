@@ -1,9 +1,25 @@
 #!/usr/bin/env node
 
+/**
+ * SuperClaude v4.0.8 統合チェックスクリプト
+ * - Sequential MCP: 複雑な問題の分析
+ * - Morphllm MCP: パターンベース修正提案
+ * - Context7 MCP: ベストプラクティス検証
+ * 
+ * @version 4.0.8
+ * @framework SuperClaude Production Edition
+ */
+
 const { execSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
-const { detectPackageManager, getPackageManagerCommand } = require('./utils');
+const { 
+  detectPackageManager, 
+  getPackageManagerCommand,
+  SUPERCLAUDE_FLAGS,
+  MCP_CONFIG,
+  generateSuperClaudeReport
+} = require('./utils');
 
 // 色付きコンソール出力
 const colors = {
@@ -44,9 +60,20 @@ const results = {
   errors: 0
 };
 
+// フラグ処理（SuperClaude統合）
+const args = process.argv.slice(2);
+const isSuperClaudeMode = args.some(arg => arg.startsWith('--sc-'));
+const generateReport = args.includes('--sc-report');
+const analyzeMode = args.includes('--sc-analyze');
+
 // メイン処理
 async function check() {
-  console.log('\n🔍 SuperClaude v4 Production Edition - 健全性チェック\n');
+  console.log('\n🔍 SuperClaude v4.0.8 Production Edition - 健全性チェック\n');
+  
+  if (isSuperClaudeMode) {
+    console.log(`${colors.blue}🤖 SuperClaudeモード有効${colors.reset}`);
+    console.log(`推奨MCP: ${MCP_CONFIG.priority.analysis} (分析用)\n`);
+  }
   
   // 1. TypeScript型チェック
   log.section('TypeScript型チェック');
@@ -260,10 +287,31 @@ async function check() {
     results.errors++;
   }
   
+  // SuperClaudeレポート生成
+  if (generateReport) {
+    const reportData = {
+      checks: {
+        passed: results.passed,
+        warnings: results.warnings,
+        errors: results.errors
+      },
+      mode: isSuperClaudeMode ? 'SuperClaude Enhanced' : 'Standard',
+      analysis: analyzeMode,
+      timestamp: new Date().toISOString()
+    };
+    
+    const reportPath = generateSuperClaudeReport(reportData, {
+      mode: 'check',
+      mcp: analyzeMode ? ['Sequential'] : []
+    });
+    
+    log.success(`SuperClaudeレポート生成: ${reportPath}`);
+  }
+  
   // 結果サマリー
   console.log(`
 ${colors.blue}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${colors.reset}
-📊 チェック結果サマリー
+📊 チェック結果サマリー (SuperClaude v4.0.8)
 
   ${colors.green}✓ 成功:${colors.reset} ${results.passed}
   ${colors.yellow}⚠ 警告:${colors.reset} ${results.warnings}

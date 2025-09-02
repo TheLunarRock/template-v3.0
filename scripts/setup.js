@@ -1,9 +1,26 @@
 #!/usr/bin/env node
 
+/**
+ * SuperClaude v4.0.8 統合セットアップスクリプト
+ * - Sequential MCP: 複雑な依存関係分析
+ * - Serena MCP: プロジェクトメモリ管理
+ * - Morphllm MCP: パターンベース修正
+ * 
+ * @version 4.0.8
+ * @framework SuperClaude Production Edition
+ */
+
 const fs = require('fs');
 const path = require('path');
 const { execSync } = require('child_process');
-const { detectPackageManager, getPackageManagerCommand } = require('./utils');
+const { 
+  detectPackageManager, 
+  getPackageManagerCommand,
+  SUPERCLAUDE_FLAGS,
+  MCP_CONFIG,
+  identifyParallelTasks,
+  generateSuperClaudeReport
+} = require('./utils');
 
 // 色付きコンソール出力
 const colors = {
@@ -38,10 +55,13 @@ const runCommand = (command, silent = false) => {
   }
 };
 
-// フラグ処理
+// フラグ処理（SuperClaude統合）
 const args = process.argv.slice(2);
 const isFullSetup = args.includes('--full') || !args.includes('--quick');
 const isQuickSetup = args.includes('--quick');
+const isSuperClaudeMode = args.some(arg => arg.startsWith('--sc-'));
+const isParallelMode = args.includes('--sc-parallel');
+const generateReport = args.includes('--sc-report');
 
 // 結果追跡
 const results = {
@@ -489,9 +509,21 @@ jobs:
 
   // ========== Step 8: 完了レポート ==========
   log.section('Step 8/8: セットアップ完了');
+  
+  // SuperClaudeレポート生成
+  if (generateReport) {
+    const reportPath = generateSuperClaudeReport({
+      setup: results,
+      mode: isSuperClaudeMode ? 'SuperClaude Enhanced' : 'Standard',
+      parallel: isParallelMode,
+      mcp_recommended: ['Serena', 'Sequential']
+    });
+    log.success(`SuperClaudeレポート生成: ${reportPath}`);
+  }
+  
   console.log(`
 ${colors.green}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${colors.reset}
-✨ ${colors.bold}SuperClaude Template v3.0 セットアップ完了！${colors.reset}
+✨ ${colors.bold}SuperClaude Template v4.0.8 セットアップ完了！${colors.reset}
 
 ${colors.blue}📦 インストール済み機能:${colors.reset}
   ✓ フィーチャーベース開発環境

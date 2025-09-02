@@ -1,9 +1,25 @@
 #!/usr/bin/env node
 
+/**
+ * SuperClaude v4.0.8 統合プリフライトスクリプト
+ * - Sequential MCP: 包括的なデプロイ前分析
+ * - Serena MCP: セッション情報の永続化
+ * - Playwright MCP: E2Eテスト実行
+ * 
+ * @version 4.0.8
+ * @framework SuperClaude Production Edition
+ */
+
 const { execSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
-const { detectPackageManager, getPackageManagerCommand } = require('./utils');
+const { 
+  detectPackageManager, 
+  getPackageManagerCommand,
+  SUPERCLAUDE_FLAGS,
+  MCP_CONFIG,
+  generateSuperClaudeReport
+} = require('./utils');
 
 // 色付きコンソール出力
 const colors = {
@@ -44,6 +60,12 @@ const getDirectorySize = (dir) => {
   return result.output ? result.output.trim().split('\t')[0] : 'N/A';
 };
 
+// フラグ処理（SuperClaude統合）
+const args = process.argv.slice(2);
+const isSuperClaudeMode = args.some(arg => arg.startsWith('--sc-'));
+const generateReport = args.includes('--sc-report');
+const validateMode = args.includes('--sc-validate');
+
 // チェック結果
 const results = {
   passed: 0,
@@ -54,7 +76,12 @@ const results = {
 
 // メイン処理
 async function preflight() {
-  console.log(`\n${colors.bold}🚀 デプロイ前チェック (Preflight Check)${colors.reset}\n`);
+  console.log(`\n${colors.bold}🚀 SuperClaude v4.0.8 デプロイ前チェック (Preflight Check)${colors.reset}\n`);
+  
+  if (isSuperClaudeMode) {
+    console.log(`${colors.blue}🤖 SuperClaudeモード有効${colors.reset}`);
+    console.log(`推奨MCP: ${MCP_CONFIG.priority.testing} (テスト用), ${MCP_CONFIG.priority.analysis} (分析用)\n`);
+  }
   
   // 1. プロダクションビルド
   log.section('プロダクションビルド');
@@ -303,12 +330,35 @@ async function preflight() {
     }
   }
   
+  // SuperClaudeレポート生成
+  if (generateReport) {
+    const reportData = {
+      preflight: {
+        passed: results.passed,
+        warnings: results.warnings,
+        errors: results.errors,
+        critical: results.critical
+      },
+      mode: isSuperClaudeMode ? 'SuperClaude Enhanced' : 'Standard',
+      validation: validateMode,
+      readyToDeploy: !results.critical && results.errors === 0,
+      timestamp: new Date().toISOString()
+    };
+    
+    const reportPath = generateSuperClaudeReport(reportData, {
+      mode: 'preflight',
+      mcp: ['Sequential', 'Playwright']
+    });
+    
+    log.success(`SuperClaudeレポート生成: ${reportPath}`);
+  }
+  
   // 結果サマリー
   const readyToDeploy = !results.critical && results.errors === 0;
   
   console.log(`
 ${colors.blue}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${colors.reset}
-📊 ${colors.bold}Preflight チェック結果${colors.reset}
+📊 ${colors.bold}SuperClaude v4.0.8 Preflight チェック結果${colors.reset}
 
   ${colors.green}✓ 成功:${colors.reset} ${results.passed}
   ${colors.yellow}⚠ 警告:${colors.reset} ${results.warnings}
