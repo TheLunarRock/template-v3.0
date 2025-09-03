@@ -1,11 +1,11 @@
 {
   "compilerOptions": {
-    "target": "es5",
+    "target": "es2022",
     "lib": ["dom", "dom.iterable", "esnext"],
-    "allowJs": true,
-    "skipLibCheck": true,
+    "allowJs": false,
+    "skipLibCheck": false,
     
-    // 🔴 Critical: 厳格型チェック強化
+    // 🔴 100%品質: 最強型チェック
     "strict": true,
     "noImplicitAny": true,
     "strictNullChecks": true,
@@ -18,9 +18,15 @@
     "noUncheckedIndexedAccess": true,
     "exactOptionalPropertyTypes": true,
     
-    // 🔴 Critical: 未使用コード検出
+    // 🔴 100%品質: 未使用コード完全禁止
     "noUnusedLocals": true,
     "noUnusedParameters": true,
+    
+    // 🔴 100%品質: 完全精密性
+    "noImplicitOverride": true,
+    "noPropertyAccessFromIndexSignature": true,
+    "allowUnusedLabels": false,
+    "allowUnreachableCode": false,
     
     "noEmit": true,
     "esModuleInterop": true,

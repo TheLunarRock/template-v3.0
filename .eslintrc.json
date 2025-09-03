@@ -1,8 +1,56 @@
 {
   "extends": [
-    "next/core-web-vitals"
+    "next/core-web-vitals",
+    "@typescript-eslint/recommended"
   ],
+  "parser": "@typescript-eslint/parser",
+  "plugins": ["@typescript-eslint", "sonarjs", "security"],
   "rules": {
-    "react/display-name": "off"
-  }
+    "react/display-name": "off",
+    
+    // 🔴 Critical: any型を完全禁止
+    "@typescript-eslint/no-explicit-any": "error",
+    "@typescript-eslint/no-unsafe-assignment": "error",
+    "@typescript-eslint/no-unsafe-member-access": "error",
+    "@typescript-eslint/no-unsafe-call": "error",
+    "@typescript-eslint/no-unsafe-return": "error",
+    "@typescript-eslint/no-unsafe-argument": "error",
+    
+    // 🔴 Critical: console.log本番禁止
+    "no-console": "error",
+    
+    // 🟡 Important: コード品質向上
+    "@typescript-eslint/no-unused-vars": ["error", { "argsIgnorePattern": "^_" }],
+    "@typescript-eslint/no-non-null-assertion": "error",
+    "@typescript-eslint/prefer-nullish-coalescing": "error",
+    "@typescript-eslint/prefer-optional-chain": "error",
+    
+    // 🔴 Critical: React hooks violations
+    "react-hooks/rules-of-hooks": "error",
+    "react-hooks/exhaustive-deps": "error",
+    
+    // 🟡 Important: Import/Export規則
+    "import/no-default-export": "off",
+    "@typescript-eslint/consistent-type-imports": "error",
+    
+    // 🔴 95%品質: 複雑性制御
+    "sonarjs/cognitive-complexity": ["error", 10],
+    "sonarjs/no-duplicate-string": ["error", 3],
+    "sonarjs/no-duplicated-branches": "error",
+    "sonarjs/no-identical-expressions": "error",
+    "sonarjs/prefer-immediate-return": "error",
+    
+    // 🔴 95%品質: セキュリティ
+    "security/detect-object-injection": "error",
+    "security/detect-non-literal-regexp": "error",
+    "security/detect-unsafe-regex": "error"
+  },
+  "overrides": [
+    {
+      "files": ["*.config.*", "tailwind.config.ts"],
+      "rules": {
+        "@typescript-eslint/no-explicit-any": "off"
+      }
+    }
+  ]
 }

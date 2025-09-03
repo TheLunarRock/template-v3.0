@@ -1,0 +1,23 @@
+#!/usr/bin/env sh
+. "$(dirname -- "$0")/_/husky.sh"
+
+# 🔴 Critical: 境界違反チェック（フィーチャー開発必須）
+echo "🔍 フィーチャー境界チェック..."
+pnpm check:boundaries || {
+  echo "❌ 境界違反が検出されました！"
+  echo "修正してから再度コミットしてください。"
+  exit 1
+}
+
+# 🔴 Critical: 品質チェック
+echo "🔍 ESLint & TypeScript チェック..."
+npx lint-staged
+
+# 🔴 Critical: テスト実行
+echo "🧪 テスト実行..."
+pnpm test:unit || {
+  echo "❌ テストが失敗しました！"
+  exit 1
+}
+
+echo "✅ 全てのチェックが完了しました！"
