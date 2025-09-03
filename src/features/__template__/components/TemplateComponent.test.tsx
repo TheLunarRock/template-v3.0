@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
-import { render, screen } from '@testing-library/react'
-import '@testing-library/jest-dom'
+// import { render, screen } from '@testing-library/react'
+// import '@testing-library/jest-dom'
 
 // TODO: 実際のコンポーネントをインポート
 // import { TemplateComponent } from './TemplateComponent'

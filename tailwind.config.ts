@@ -118,7 +118,7 @@ const config: Config = {
   },
   plugins: [
     // カスタムユーティリティプラグイン
-    function({ addUtilities, theme }: any) {
+    function({ addUtilities }: { addUtilities: (utilities: Record<string, Record<string, string>>) => void }) {
       const newUtilities = {
         // Glassmorphism utilities
         '.glass': {

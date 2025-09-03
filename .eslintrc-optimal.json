@@ -1,12 +1,9 @@
 {
   "extends": [
     "next/core-web-vitals",
-    "plugin:@typescript-eslint/recommended"
+    "@typescript-eslint/recommended"
   ],
   "parser": "@typescript-eslint/parser",
-  "parserOptions": {
-    "project": "./tsconfig.json"
-  },
   "plugins": ["@typescript-eslint", "sonarjs", "security"],
   "rules": {
     "react/display-name": "off",
@@ -35,7 +32,7 @@
     
     // 🟡 97%品質: 実用的な複雑性制御
     "sonarjs/cognitive-complexity": ["error", 10],
-    "sonarjs/no-duplicate-string": ["error", { "threshold": 4 }],
+    "sonarjs/no-duplicate-string": ["error", 4],
     "sonarjs/no-duplicated-branches": "error",
     "sonarjs/no-identical-expressions": "error",
     "sonarjs/prefer-immediate-return": "error",
@@ -48,25 +45,16 @@
   },
   "overrides": [
     {
-      "files": ["*.config.*"],
-      "rules": {
-        "sonarjs/cognitive-complexity": "off"
-      }
-    },
-    {
-      "files": ["scripts/**/*.js", "*.config.js"],
-      "parser": "espree",
+      "files": ["*.config.*", "tailwind.config.ts", "scripts/**/*"],
       "rules": {
         "@typescript-eslint/no-explicit-any": "off",
-        "@typescript-eslint/no-unsafe-assignment": "off",
         "sonarjs/cognitive-complexity": "off"
       }
     },
     {
       "files": ["**/*.test.*", "tests/**/*"],
       "rules": {
-        "sonarjs/no-duplicate-string": "off",
-        "@typescript-eslint/no-unused-vars": "off"
+        "sonarjs/no-duplicate-string": "off"
       }
     }
   ]

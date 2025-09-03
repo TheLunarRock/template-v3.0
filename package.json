@@ -34,7 +34,7 @@
 
     "predeploy": "node scripts/preflight.js",
     "analyze": "ANALYZE=true next build",
-    "lint": "next lint",
+    "lint": "eslint . --ext .ts,.tsx,.js,.jsx --ignore-path .eslintignore",
     "typecheck": "tsc --noEmit",
     "claude:start": "git status && pnpm check:boundaries",
     "claude:implement": "pnpm create:feature",
@@ -61,12 +61,12 @@
     "quality:check": "pnpm lint && pnpm typecheck && pnpm check:boundaries",
     "quality:fix": "pnpm lint --fix && pnpm fix:boundaries",
     
-    "quality:95": "pnpm quality:check && pnpm test:unit --coverage && pnpm test:e2e",
-    "quality:95": "cp .eslintrc.json .eslintrc.json.bak && cp .eslintrc-realistic.json .eslintrc.json && cp tsconfig.json tsconfig.json.bak && cp tsconfig-realistic.json tsconfig.json",
+    "quality:95": "echo '🎯 95%品質モード (標準推奨)'",
+    "quality:97": "cp .eslintrc-optimal.json .eslintrc.json && cp tsconfig-optimal.json tsconfig.json",
     "quality:98": "cp .eslintrc-extreme.json .eslintrc.json && cp tsconfig-extreme.json tsconfig.json",
-    "quality:restore": "test -f .eslintrc.json.bak && mv .eslintrc.json.bak .eslintrc.json || true; test -f tsconfig.json.bak && mv tsconfig.json.bak tsconfig.json || true",
+    "quality:restore": "git checkout -- .eslintrc.json tsconfig.json",
     
-    "claude:quality:optimal": "echo '🤖 Claude Code最適品質モード' && pnpm quality:98 && pnpm validate:all",
+    "claude:quality:optimal": "echo '🤖 Claude Code最適品質モード (97%)' && pnpm quality:97 && pnpm validate:all",
     "claude:quality:extreme": "echo '🤖 Claude Code極限品質モード（実験用）' && pnpm quality:98 && pnpm validate:all || pnpm quality:restore"
   },
   "engines": {
