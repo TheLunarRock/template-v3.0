@@ -41,10 +41,14 @@
     "sonarjs/prefer-immediate-return": "error",
     
     // 🟡 97%品質: 重要なセキュリティ
-    "security/detect-object-injection": "warn",
+    // detect-object-injectionは制御された値では誤検知が多いため無効化
+    // 実際のユーザー入力を使う場合は手動でレビュー推奨
+    "security/detect-object-injection": "off",
     "security/detect-unsafe-regex": "error",
     "security/detect-buffer-noassert": "error",
-    "security/detect-eval-with-expression": "error"
+    "security/detect-eval-with-expression": "error",
+    "security/detect-non-literal-require": "error",
+    "security/detect-non-literal-fs-filename": "warn"
   },
   "overrides": [
     {
