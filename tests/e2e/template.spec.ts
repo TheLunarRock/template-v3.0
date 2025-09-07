@@ -5,18 +5,21 @@ test.describe('Template Feature E2E', () => {
     await page.goto('/')
   })
 
-  test('displays template feature correctly', async ({ page: _ }) => {
-    // TODO: E2Eテストを実装
-    expect(true).toBe(true)
+  test('displays template feature correctly', ({ page }) => {
+    // TODO: 実際のテストを実装
+    // 例: await expect(page.locator('h1')).toContainText('Welcome')
+    expect(page).toBeTruthy()
   })
 
-  test('handles user interactions', async ({ page: _ }) => {
-    // TODO: ユーザーインタラクションのE2Eテスト
-    expect(true).toBe(true)
+  test('handles user interactions', ({ page }) => {
+    // TODO: ユーザーインタラクションのテストを実装
+    // 例: await page.click('button')
+    expect(page).toBeTruthy()
   })
 
-  test('maintains accessibility standards', async ({ page: _ }) => {
-    // TODO: アクセシビリティテスト
-    expect(true).toBe(true)
+  test('maintains accessibility standards', ({ page }) => {
+    // TODO: アクセシビリティテストを実装
+    // 例: const a11ySnapshot = await page.accessibility.snapshot()
+    expect(page).toBeTruthy()
   })
 })

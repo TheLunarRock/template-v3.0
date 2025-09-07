@@ -1,15 +1,21 @@
 {
   "extends": [
     "next/core-web-vitals",
-    "plugin:@typescript-eslint/recommended"
+    "plugin:@typescript-eslint/recommended",
+    "./.eslintrc-features.js"
   ],
   "parser": "@typescript-eslint/parser",
   "parserOptions": {
     "project": "./tsconfig.json"
   },
-  "plugins": ["@typescript-eslint", "sonarjs", "security"],
+  "plugins": ["@typescript-eslint", "sonarjs", "security", "react-hooks"],
   "rules": {
     "react/display-name": "off",
+    
+    // 🔴 セキュリティ: 危険な実行を防止
+    "no-eval": "error",
+    "no-implied-eval": "error",
+    "no-new-func": "error",
     
     // 🔴 97%品質: any型を完全根絶
     "@typescript-eslint/no-explicit-any": "error",
@@ -20,7 +26,7 @@
     "@typescript-eslint/no-unsafe-argument": "warn",
     
     // 🔴 97%品質: 実用的型安全
-    "@typescript-eslint/no-non-null-assertion": "warn",
+    "@typescript-eslint/no-non-null-assertion": "error",
     "@typescript-eslint/prefer-nullish-coalescing": "error",
     "@typescript-eslint/prefer-optional-chain": "error",
     "@typescript-eslint/no-unnecessary-condition": "warn",
@@ -32,6 +38,11 @@
     // 🔴 97%品質: 完璧なReact
     "react-hooks/rules-of-hooks": "error",
     "react-hooks/exhaustive-deps": "error",
+    
+    // 🔴 Next.js固有のルール
+    "@next/next/no-img-element": "error",
+    "@next/next/no-sync-scripts": "error",
+    "@next/next/no-html-link-for-pages": "error",
     
     // 🟡 97%品質: 実用的な複雑性制御
     "sonarjs/cognitive-complexity": ["error", 10],
@@ -48,7 +59,22 @@
     "security/detect-buffer-noassert": "error",
     "security/detect-eval-with-expression": "error",
     "security/detect-non-literal-require": "error",
-    "security/detect-non-literal-fs-filename": "warn"
+    "security/detect-non-literal-fs-filename": "warn",
+    "security/detect-possible-timing-attacks": "warn",
+    
+    // 🔴 実行時エラー防止
+    "@typescript-eslint/no-floating-promises": "error",
+    "@typescript-eslint/await-thenable": "error",
+    "@typescript-eslint/no-misused-promises": "error",
+    "@typescript-eslint/require-await": "error",
+    
+    // 🔴 null/undefined安全性
+    "@typescript-eslint/no-unnecessary-condition": "warn",
+    "@typescript-eslint/strict-boolean-expressions": ["warn", {
+      "allowString": true,
+      "allowNumber": false,
+      "allowNullableObject": true
+    }]
   },
   "overrides": [
     {

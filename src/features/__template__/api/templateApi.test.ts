@@ -4,17 +4,17 @@ import { describe, it, expect } from 'vitest'
 // import { getTemplateData, createTemplateItem } from './templateApi'
 
 describe('Template API', () => {
-  it('fetches data correctly', async () => {
+  it('fetches data correctly', () => {
     // TODO: データ取得のテスト
     expect(true).toBe(true)
   })
 
-  it('handles errors gracefully', async () => {
+  it('handles errors gracefully', () => {
     // TODO: エラーハンドリングのテスト
     expect(true).toBe(true)
   })
 
-  it('validates input parameters', async () => {
+  it('validates input parameters', () => {
     // TODO: 入力検証のテスト  
     expect(true).toBe(true)
   })

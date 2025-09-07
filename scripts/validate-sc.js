@@ -26,7 +26,8 @@ const colors = {
   blue: '\x1b[34m',
   red: '\x1b[31m',
   dim: '\x1b[2m',
-  bold: '\x1b[1m'
+  bold: '\x1b[1m',
+  cyan: '\x1b[36m'
 };
 
 const log = {
@@ -35,19 +36,67 @@ const log = {
   warning: (msg) => console.log(`${colors.yellow}⚠${colors.reset} ${msg}`),
   error: (msg) => console.log(`${colors.red}✗${colors.reset} ${msg}`),
   section: (msg) => console.log(`\n${colors.bold}${colors.blue}━━━ ${msg} ━━━${colors.reset}\n`),
-  mcp: (msg) => console.log(`${colors.dim}[MCP]${colors.reset} ${msg}`)
+  mcp: (msg) => console.log(`${colors.dim}[MCP]${colors.reset} ${msg}`),
+  progress: (msg) => process.stdout.write(`\r${colors.cyan}⏳${colors.reset} ${msg}`),
+  clearLine: () => process.stdout.write('\r\x1b[K')
+};
+
+// スピナーアニメーション
+const spinnerFrames = ['⏳', '⏰', '⏱', '⏲'];
+let spinnerIndex = 0;
+let spinnerInterval = null;
+
+// スピナー開始
+const startSpinner = (message) => {
+  spinnerIndex = 0;
+  spinnerInterval = setInterval(() => {
+    process.stdout.write(`\r${colors.cyan}${spinnerFrames[spinnerIndex]}${colors.reset} ${message}`);
+    spinnerIndex = (spinnerIndex + 1) % spinnerFrames.length;
+  }, 200);
+};
+
+// スピナー停止
+const stopSpinner = () => {
+  if (spinnerInterval) {
+    clearInterval(spinnerInterval);
+    spinnerInterval = null;
+    log.clearLine();
+  }
 };
 
 // コマンド実行
-const runCommand = (command, silent = false) => {
+const runCommand = (command, silent = false, showProgress = false) => {
   try {
     if (!silent) log.info(`実行中: ${command}`);
+    
+    const startTime = Date.now();
+    let progressTimer = null;
+    
+    if (showProgress) {
+      startSpinner(`${command.split(' ').pop()} 実行中...`);
+      
+      // 経過時間表示
+      progressTimer = setInterval(() => {
+        const elapsed = Math.floor((Date.now() - startTime) / 1000);
+        process.stdout.write(`\r${colors.cyan}⏰${colors.reset} ${command.split(' ').pop()} 実行中... (${elapsed}秒経過)`);
+      }, 1000);
+    }
+    
     const output = execSync(command, { 
       stdio: silent ? 'pipe' : 'inherit',
       encoding: 'utf8'
     });
+    
+    if (showProgress) {
+      clearInterval(progressTimer);
+      stopSpinner();
+    }
+    
     return { success: true, output };
   } catch (error) {
+    if (showProgress) {
+      stopSpinner();
+    }
     return { 
       success: false, 
       error: error.message,
@@ -89,6 +138,7 @@ async function main() {
   const args = process.argv.slice(2);
   const isQuick = args.includes('--quick');
   const isDeployment = args.includes('--deploy');
+  const isFull = args.includes('--full') || (!isQuick && !isDeployment);
   const pm = detectPackageManager();
   const pmRun = getPackageManagerCommand(pm);
   
@@ -97,11 +147,11 @@ async function main() {
   
   // フラグベースの実行モード
   if (isDeployment) {
-    console.log(`${colors.yellow}📦 デプロイメントモード${colors.reset}`);
+    console.log(`${colors.yellow}📦 デプロイメントモード（境界・型・リント・ビルド）${colors.reset}`);
+  } else if (isFull) {
+    console.log(`${colors.green}🔍 フル検証モード（境界・型・リント・テスト・ビルド）${colors.reset}`);
   } else if (isQuick) {
-    console.log(`${colors.blue}⚡ クイックモード${colors.reset}`);
-  } else {
-    console.log(`${colors.green}🔍 包括検証モード${colors.reset}`);
+    console.log(`${colors.blue}⚡ クイックモード（境界・型のみ）${colors.reset}`);
   }
   
   // 1. 境界チェック（最重要）
@@ -147,14 +197,30 @@ async function main() {
     }
   }
   
-  // 4. テスト実行（スキップ - 必要に応じて手動実行）
-  // テストは環境依存やタイムアウトの問題があるため、validate:scでは実行しない
-  // 必要な場合は別途 `pnpm test` を実行してください
+  // 4. テスト実行（フルモードのみ - ユニットテストのみ）
+  if (isFull) {
+    log.section('ユニットテスト実行');
+    const testResult = runCommand(`${pmRun} test:unit`, true, true);
+    results.tests = testResult;
+    
+    if (testResult.success) {
+      log.success('ユニットテスト: 全て合格');
+    } else {
+      log.error('ユニットテスト: 失敗あり');
+      results.totalErrors++;
+      suggestMCP('tests', testResult);
+    }
+    
+    // E2Eテストはスキップ
+    log.info('E2Eテストはスキップ（必要時に手動実行）');
+  }
   
-  // 5. ビルドチェック（デプロイメントモードのみ）
-  if (isDeployment) {
+  // 5. ビルドチェック（フルモードまたはデプロイメントモード）
+  if (isFull || isDeployment) {
     log.section('プロダクションビルド');
-    const buildResult = runCommand(`${pmRun} build`, true);
+    log.info('Next.jsビルドを実行中です...');
+    
+    const buildResult = runCommand(`${pmRun} build`, true, true);
     results.build = buildResult;
     
     if (buildResult.success) {
@@ -180,7 +246,11 @@ async function main() {
     );
   }
   
-  if (isDeployment) {
+  if (isFull) {
+    checkItems.push({ name: 'テスト', result: results.tests });
+  }
+  
+  if (isFull || isDeployment) {
     checkItems.push({ name: 'ビルド', result: results.build });
   }
   
