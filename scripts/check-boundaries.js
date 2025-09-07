@@ -58,6 +58,25 @@ const checkPatterns = [
     file: 'index.ts',
     message: 'UIコンポーネントのindex.tsからの公開',
     severity: 'warning'
+  },
+  // 新パターン: 無限ループリスク検出
+  {
+    name: '無限ループリスク（オブジェクト依存）',
+    pattern: "useEffect\\([^,]+,\\s*\\[[^\\]]*\\{[^\\}]*\\}[^\\]]*\\]",
+    message: 'useEffectの依存配列にオブジェクトリテラルが含まれています（無限ループのリスク）',
+    severity: 'critical'
+  },
+  {
+    name: '無限ループリスク（配列依存）',
+    pattern: "useEffect\\([^,]+,\\s*\\[[^\\]]*\\[[^\\]]*\\][^\\]]*\\]",
+    message: 'useEffectの依存配列に配列リテラルが含まれています（無限ループのリスク）',
+    severity: 'critical'
+  },
+  {
+    name: '無限ループリスク（関数依存）',
+    pattern: "useEffect\\([^,]+,\\s*\\[[^\\]]*\\(\\)\\s*=>",
+    message: 'useEffectの依存配列にインライン関数が含まれています（無限ループのリスク）',
+    severity: 'critical'
   }
 ];
 
@@ -100,6 +119,38 @@ function checkRelativeImports(filePath, content, featureName) {
   return violations;
 }
 
+// ErrorBoundary使用チェック
+function checkErrorBoundaryUsage(filePath, content) {
+  const violations = [];
+  const fileName = path.basename(filePath);
+  
+  // page.tsxファイルでErrorBoundaryを使用しているかチェック
+  if (fileName === 'page.tsx' || fileName === 'page.jsx') {
+    const hasErrorBoundary = content.includes('ErrorBoundary') || content.includes('FeatureErrorBoundary');
+    const hasPageContent = content.includes('PageContent');
+    
+    if (!hasErrorBoundary) {
+      violations.push({
+        file: filePath,
+        check: 'ErrorBoundary未使用',
+        message: 'page.tsxでErrorBoundaryを使用していません（エラー分離パターン違反）',
+        severity: 'warning'
+      });
+    }
+    
+    if (!hasPageContent) {
+      violations.push({
+        file: filePath,
+        check: 'PageContent未分離',
+        message: 'page.tsxでPageContentコンポーネントを分離していません（推奨パターン違反）',
+        severity: 'info'
+      });
+    }
+  }
+  
+  return violations;
+}
+
 // ファイル内容の検査
 function checkFile(filePath, content, featureName) {
   const violations = [];
@@ -108,6 +159,10 @@ function checkFile(filePath, content, featureName) {
   // 相対パスの高度なチェック
   const relativeViolations = checkRelativeImports(filePath, content, featureName);
   violations.push(...relativeViolations);
+  
+  // ErrorBoundary使用チェック
+  const errorBoundaryViolations = checkErrorBoundaryUsage(filePath, content);
+  violations.push(...errorBoundaryViolations);
   
   for (const check of checkPatterns) {
     // ファイル名が指定されている場合、該当ファイルのみチェック
@@ -269,12 +324,19 @@ async function checkBoundaries() {
             console.log(`     ${colors.yellow}${violation.message}${colors.reset}`);
           }
           results.errors++;
-        } else {
+        } else if (violation.severity === 'warning') {
           log.warning(`  ⚠️  ${violation.check}: ${relativePath}`);
           if (verbose && violation.message) {
             console.log(`     ${colors.dim}${violation.message}${colors.reset}`);
           }
           results.warnings++;
+        } else if (violation.severity === 'info') {
+          if (verbose) {
+            log.info(`  ℹ️  ${violation.check}: ${relativePath}`);
+            if (violation.message) {
+              console.log(`     ${colors.dim}${violation.message}${colors.reset}`);
+            }
+          }
         }
         
         if (verbose && violation.matches) {
