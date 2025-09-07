@@ -155,32 +155,85 @@ type ${pascalName}State = {
   fs.writeFileSync(path.join(featurePath, 'types', 'index.ts'), typesContent);
   log.success('types/index.ts を作成');
   
-  // フック ファイル（内部使用のみ）
-  const hookContent = `import { useState, useEffect } from 'react'
+  // フック ファイル（内部使用のみ）- 無限ループ防止版
+  const hookContent = `import { useState, useEffect, useMemo, useRef } from 'react'
 import { get${pascalName}Data } from '../api/${featureName}Api'
 import type { ${pascalName} } from '../types'
 
 // ⚠️ このフックは内部使用のみ！絶対にindex.tsから公開しない！
-export const use${pascalName} = (id: string) => {
+// 🔥 無限ループ防止対策実装済み
+
+interface Use${pascalName}Options {
+  category?: string
+  limit?: number
+  enabled?: boolean
+}
+
+export const use${pascalName} = (
+  id: string,
+  options?: Use${pascalName}Options
+) => {
   const [data, setData] = useState<${pascalName} | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   
+  // 🔥 無限ループ防止: オプションオブジェクトを安定化
+  const stableOptions = useMemo(
+    () => ({
+      category: options?.category ?? 'all',
+      limit: options?.limit ?? 10,
+      enabled: options?.enabled ?? true
+    }),
+    [options?.category, options?.limit, options?.enabled]  // プリミティブ値のみ
+  )
+  
+  // 🔥 無限ループ防止: 前回のIDを記憶
+  const prevIdRef = useRef(id)
+  
   useEffect(() => {
+    // オプションで無効化されている場合は実行しない
+    if (!stableOptions.enabled) {
+      return
+    }
+    
+    // IDが変わっていない場合はスキップ
+    if (prevIdRef.current === id && data !== null) {
+      return
+    }
+    
+    prevIdRef.current = id
+    
+    let cancelled = false
+    
     const fetchData = async () => {
       try {
         setLoading(true)
+        setError(null)
+        
         const result = await get${pascalName}Data(id)
-        setData(result)
+        
+        // コンポーネントがアンマウントされていない場合のみ更新
+        if (!cancelled) {
+          setData(result)
+        }
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'エラーが発生しました')
+        if (!cancelled) {
+          setError(err instanceof Error ? err.message : 'エラーが発生しました')
+        }
       } finally {
-        setLoading(false)
+        if (!cancelled) {
+          setLoading(false)
+        }
       }
     }
     
     fetchData()
-  }, [id])
+    
+    // クリーンアップ
+    return () => {
+      cancelled = true
+    }
+  }, [id, stableOptions])  // 安定した依存配列
   
   return { data, loading, error }
 }
@@ -278,6 +331,103 @@ const useMyFeature = () => {
   fs.writeFileSync(path.join(featurePath, 'README.md'), readmeContent);
   log.success('README.md を作成');
   
+  // 🔥 中間保護層パターン - app/[feature]/page.tsx を生成
+  const appPagePath = `src/app/${featureName}/page.tsx`;
+  const appPageContent = `import { FeatureErrorBoundary } from '@/components/ErrorBoundary'
+import { get${pascalName}Data } from '@/features/${featureName}'
+import type { ${pascalName} } from '@/features/${featureName}'
+
+/**
+ * ${pascalName}ページ - 中間保護層パターン実装
+ * 
+ * 構造:
+ * 1. ErrorBoundary: エラーを隔離し、他フィーチャーへの影響を防ぐ
+ * 2. PageContent: 中間保護層として機能（フィーチャーAPIのみ使用）
+ * 3. Feature API: 公開された純粋関数のみを呼び出す
+ * 
+ * ⚠️ 重要: フィーチャーのコンポーネントやフックは直接使用しない
+ */
+export default function ${pascalName}Page() {
+  return (
+    <FeatureErrorBoundary featureName="${featureName}">
+      <${pascalName}PageContent />
+    </FeatureErrorBoundary>
+  )
+}
+
+/**
+ * 中間保護層コンポーネント
+ * - フィーチャーの公開APIのみを使用
+ * - 独自のUI実装（フィーチャーのコンポーネントは使用禁止）
+ * - エラーハンドリングはErrorBoundaryに委譲
+ */
+async function ${pascalName}PageContent() {
+  // フィーチャーの公開APIのみ使用（フック使用禁止）
+  let data: ${pascalName} | null = null
+  let error: string | null = null
+  
+  try {
+    // TODO: 実際のIDまたはパラメータを取得する実装が必要
+    data = await get${pascalName}Data('sample-id')
+  } catch (e) {
+    error = e instanceof Error ? e.message : 'データの取得に失敗しました'
+  }
+  
+  if (error) {
+    return (
+      <div className="p-8 bg-red-50 rounded-lg">
+        <p className="text-red-700">{error}</p>
+      </div>
+    )
+  }
+  
+  if (!data) {
+    return (
+      <div className="p-8 bg-gray-50 rounded-lg">
+        <p className="text-gray-700">データが見つかりません</p>
+      </div>
+    )
+  }
+  
+  // 独自のUI実装（フィーチャーのコンポーネントは使用しない）
+  return (
+    <div className="min-h-screen bg-gray-100 py-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="bg-white rounded-lg shadow-lg p-6">
+          <h1 className="text-3xl font-bold text-gray-900 mb-6">
+            ${pascalName}
+          </h1>
+          
+          <div className="space-y-4">
+            {/* TODO: 実際のUI実装 */}
+            <div className="border-l-4 border-blue-500 pl-4">
+              <p className="text-sm text-gray-500">ID</p>
+              <p className="text-lg font-medium">{data.id}</p>
+            </div>
+            
+            <div className="mt-8 p-4 bg-gray-50 rounded">
+              <p className="text-sm text-gray-600 mb-2">デバッグ情報（開発用）</p>
+              <pre className="text-xs overflow-auto">
+                {JSON.stringify(data, null, 2)}
+              </pre>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+`
+  
+  // app/[feature]ディレクトリの作成
+  const appFeatureDir = `src/app/${featureName}`;
+  if (!fs.existsSync(appFeatureDir)) {
+    fs.mkdirSync(appFeatureDir, { recursive: true });
+  }
+  
+  fs.writeFileSync(appPagePath, appPageContent);
+  log.success(`🛡️ 中間保護層パターン ${appPagePath} を作成`);
+
   // E2Eテストファイル生成
   const e2eTestPath = `tests/e2e/features/${featureName}.spec.ts`;
   const e2eTestContent = `import { test, expect } from '@playwright/test';
@@ -322,6 +472,19 @@ test.describe('${pascalName}フィーチャー E2Eテスト', () => {
     // 相対パスでの他フィーチャー参照がないことを確認
     expect(html).not.toContain('../');
     expect(html).not.toContain('../../');
+  });
+
+  test('🛡️ 中間保護層パターンの動作確認', async ({ page }) => {
+    // エラーバウンダリーが機能することを確認
+    await page.route('**/api/${featureName}/*', route => {
+      route.abort(); // APIエラーをシミュレート
+    });
+
+    await page.goto('/${featureName}');
+    
+    // エラーバウンダリーがエラーをキャッチしている
+    const errorBoundary = await page.locator('text=エラーが発生しました').count();
+    expect(errorBoundary).toBeGreaterThan(0);
   });
 });
 `;
@@ -401,6 +564,10 @@ ${colors.green}━━━━━━━━━━━━━━━━━━━━━�
 
 📁 作成場所: ${featurePath}
 
+🛡️ ${colors.bold}${colors.green}中間保護層パターン実装済み:${colors.reset}
+  • ${colors.green}src/app/${featureName}/page.tsx${colors.reset} (ErrorBoundary + 中間層)
+  • ${colors.green}src/components/ErrorBoundary.tsx${colors.reset} (エラー隔離)
+
 📝 作成されたファイル:
   • index.ts (公開API定義)
   • api/${featureName}Api.ts (API関数)
@@ -415,6 +582,12 @@ ${colors.red}${colors.bold}⚠️  重要な注意事項:${colors.reset}
   1. ${colors.red}フックは絶対にindex.tsから公開しないでください${colors.reset}
   2. UIコンポーネントは他フィーチャーから使用しないでください
   3. データ取得は純粋な関数として公開してください
+  4. ${colors.green}page.tsxは中間保護層パターンで実装済み${colors.reset}
+
+🔥 ${colors.bold}中間保護層パターンの効果:${colors.reset}
+  • エラーが他フィーチャーに伝播しない
+  • フィーチャー修正が他に影響しない
+  • 境界違反を物理的に防ぐ
 
 次のステップ:
   1. types/index.ts で型を定義

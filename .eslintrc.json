@@ -39,6 +39,15 @@
     "react-hooks/rules-of-hooks": "error",
     "react-hooks/exhaustive-deps": "error",
     
+    // 🔥 無限ループ防止ルール
+    "no-restricted-syntax": [
+      "error",
+      {
+        "selector": "CallExpression[callee.name='useEffect'] > ArrowFunctionExpression > CallExpression[callee.property.name=/^set[A-Z]/]",
+        "message": "⚠️ 無限ループの危険: useEffect内でのsetState呼び出しは慎重に。条件分岐を追加してください。"
+      }
+    ],
+    
     // 🔴 Next.js固有のルール
     "@next/next/no-img-element": "error",
     "@next/next/no-sync-scripts": "error",

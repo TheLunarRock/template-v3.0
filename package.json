@@ -30,6 +30,8 @@
     "build:safe": "pnpm check:boundaries && next build",
     "fix:boundaries": "node scripts/check-boundaries.js --fix",
     "preflight": "node scripts/preflight.js",
+    "commit:feature": "node scripts/commit-by-feature.js",
+    "git:check": "git diff --cached --name-only | grep '^src/features/' | cut -d'/' -f3 | sort -u",
 
     "predeploy": "node scripts/preflight.js",
     "analyze": "ANALYZE=true next build",
