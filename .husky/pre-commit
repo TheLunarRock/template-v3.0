@@ -1,6 +1,14 @@
 #!/usr/bin/env sh
 . "$(dirname -- "$0")/_/husky.sh"
 
+# 🔒 設定ファイル保護チェック（品質維持のため必須）
+echo "🔒 設定ファイル整合性チェック..."
+node scripts/protect-config.js || {
+  echo "❌ 設定ファイルの不正な変更を検出しました！"
+  echo "設定を元に戻してから再度コミットしてください。"
+  exit 1
+}
+
 # 🛡️ 複数フィーチャーの同時変更を検出（エラーループ防止）
 echo "🔍 単一フィーチャーチェック..."
 CHANGED_FEATURES=$(git diff --cached --name-only | grep '^src/features/' | cut -d'/' -f3 | sort -u)
