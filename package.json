@@ -26,6 +26,8 @@
     "check:features": "node scripts/check-boundaries.js --verbose",
     "create:feature": "node scripts/create-feature.js",
     "validate:all": "pnpm validate",
+    "test:real-connection": "node scripts/test-real-connection.js",
+    "dev:supabase-check": "node scripts/dev-supabase-check.js",
     "dev:safe": "pnpm check:boundaries && next dev",
     "build:safe": "pnpm check:boundaries && next build",
     "fix:boundaries": "node scripts/check-boundaries.js --fix",
