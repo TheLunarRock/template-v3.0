@@ -59,6 +59,7 @@
     "sc:mcp": "echo 'MCP-First mode: Context7, Sequential, Morphllm, Serena, Playwright'",
     
     "prepare": "husky install",
+    "postinstall": "chmod +x .husky/* 2>/dev/null || true",
     "quality:check": "pnpm lint && pnpm typecheck && pnpm check:boundaries",
     "quality:fix": "pnpm lint --fix && pnpm fix:boundaries",
     
