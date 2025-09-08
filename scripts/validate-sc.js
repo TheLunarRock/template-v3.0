@@ -46,6 +46,112 @@ const spinnerFrames = ['⏳', '⏰', '⏱', '⏲'];
 let spinnerIndex = 0;
 let spinnerInterval = null;
 
+// テンプレート機能チェック関数
+const checkTemplateFunctionality = () => {
+  const checks = {
+    critical: [],
+    warnings: [],
+    info: []
+  };
+
+  // 必須機能チェック
+  // 1. Git Hooks
+  const huskyPath = path.join(process.cwd(), '.husky');
+  if (fs.existsSync(huskyPath)) {
+    const preCommitPath = path.join(huskyPath, 'pre-commit');
+    const commitMsgPath = path.join(huskyPath, 'commit-msg');
+    
+    if (fs.existsSync(preCommitPath) && fs.existsSync(commitMsgPath)) {
+      try {
+        const preCommitStats = fs.statSync(preCommitPath);
+        const commitMsgStats = fs.statSync(commitMsgPath);
+        if (preCommitStats.mode & 0o111 && commitMsgStats.mode & 0o111) {
+          checks.critical.push({ name: 'Git Hooks', status: 'success', message: '実行権限あり' });
+        } else {
+          checks.critical.push({ name: 'Git Hooks', status: 'error', message: '実行権限なし - postinstallスクリプトが機能していません' });
+        }
+      } catch (error) {
+        checks.critical.push({ name: 'Git Hooks', status: 'error', message: `権限確認エラー: ${error.message}` });
+      }
+    } else {
+      checks.critical.push({ name: 'Git Hooks', status: 'error', message: 'pre-commit または commit-msg が見つかりません' });
+    }
+  } else {
+    checks.critical.push({ name: 'Git Hooks', status: 'error', message: '.huskyディレクトリが見つかりません' });
+  }
+
+  // 2. SuperClaude設定
+  const claudeMd = path.join(process.cwd(), 'CLAUDE.md');
+  const superClaudeMd = path.join(process.cwd(), 'SUPERCLAUDE_FINAL.md');
+  if (fs.existsSync(claudeMd) && fs.existsSync(superClaudeMd)) {
+    checks.critical.push({ name: 'SuperClaude設定', status: 'success', message: '設定ファイル完備' });
+  } else {
+    const missing = [];
+    if (!fs.existsSync(claudeMd)) missing.push('CLAUDE.md');
+    if (!fs.existsSync(superClaudeMd)) missing.push('SUPERCLAUDE_FINAL.md');
+    checks.critical.push({ name: 'SuperClaude設定', status: 'error', message: `設定ファイル不足: ${missing.join(', ')}` });
+  }
+
+  // 3. フィーチャー境界スクリプト
+  const boundariesScript = path.join(process.cwd(), 'scripts', 'check-boundaries.js');
+  if (fs.existsSync(boundariesScript)) {
+    checks.critical.push({ name: 'フィーチャー境界', status: 'success', message: 'check-boundaries.js 存在' });
+  } else {
+    checks.critical.push({ name: 'フィーチャー境界', status: 'error', message: 'check-boundaries.js が見つかりません' });
+  }
+
+  // 4. テスト環境
+  const packageJson = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+  const hasPlaywright = packageJson.devDependencies && '@playwright/test' in packageJson.devDependencies;
+  const hasVitest = packageJson.devDependencies && 'vitest' in packageJson.devDependencies;
+  
+  if (hasPlaywright && hasVitest) {
+    checks.critical.push({ name: 'テスト環境', status: 'success', message: 'Playwright + Vitest 設定済み' });
+  } else {
+    const missing = [];
+    if (!hasPlaywright) missing.push('Playwright');
+    if (!hasVitest) missing.push('Vitest');
+    checks.critical.push({ name: 'テスト環境', status: 'error', message: `テストライブラリ不足: ${missing.join(', ')}` });
+  }
+
+  // 重要機能チェック（警告レベル）
+  // 1. パッケージマネージャー
+  if (fs.existsSync('pnpm-lock.yaml')) {
+    checks.warnings.push({ name: 'パッケージマネージャー', status: 'success', message: 'pnpm使用中（推奨）' });
+  } else if (fs.existsSync('package-lock.json')) {
+    checks.warnings.push({ name: 'パッケージマネージャー', status: 'warning', message: 'npm使用中（pnpm推奨）' });
+  } else if (fs.existsSync('yarn.lock')) {
+    checks.warnings.push({ name: 'パッケージマネージャー', status: 'warning', message: 'yarn使用中（pnpm推奨）' });
+  }
+
+  // 2. セットアップスクリプト
+  const setupScript = path.join(process.cwd(), 'scripts', 'setup.js');
+  if (fs.existsSync(setupScript)) {
+    checks.warnings.push({ name: 'セットアップスクリプト', status: 'success', message: 'setup.js 存在' });
+  } else {
+    checks.warnings.push({ name: 'セットアップスクリプト', status: 'warning', message: 'setup.js が見つかりません' });
+  }
+
+  // 情報チェック
+  // 1. 環境設定
+  const envExample = path.join(process.cwd(), '.env.example');
+  if (fs.existsSync(envExample)) {
+    checks.info.push({ name: '環境設定', status: 'info', message: '.env.example 存在' });
+  } else {
+    checks.info.push({ name: '環境設定', status: 'info', message: '.env.example なし（オプション）' });
+  }
+
+  // 2. GitHub Actions
+  const workflowsPath = path.join(process.cwd(), '.github', 'workflows');
+  if (fs.existsSync(workflowsPath)) {
+    checks.info.push({ name: 'GitHub Actions', status: 'info', message: 'ワークフロー設定済み' });
+  } else {
+    checks.info.push({ name: 'GitHub Actions', status: 'info', message: 'ワークフロー未設定（オプション）' });
+  }
+
+  return checks;
+};
+
 // スピナー開始
 const startSpinner = (message) => {
   spinnerIndex = 0;
@@ -147,11 +253,57 @@ async function main() {
   
   // フラグベースの実行モード
   if (isDeployment) {
-    console.log(`${colors.yellow}📦 デプロイメントモード（境界・型・リント・ビルド）${colors.reset}`);
+    console.log(`${colors.yellow}📦 デプロイメントモード（テンプレート・境界・型・リント・ビルド）${colors.reset}`);
   } else if (isFull) {
-    console.log(`${colors.green}🔍 フル検証モード（境界・型・リント・テスト・ビルド）${colors.reset}`);
+    console.log(`${colors.green}🔍 フル検証モード（テンプレート・境界・型・リント・テスト・ビルド）${colors.reset}`);
   } else if (isQuick) {
     console.log(`${colors.blue}⚡ クイックモード（境界・型のみ）${colors.reset}`);
+  }
+  
+  // 0. テンプレート機能チェック（クイックモード以外）
+  if (!isQuick) {
+    log.section('テンプレート機能チェック');
+    const templateChecks = checkTemplateFunctionality();
+    
+    // 必須機能（エラーレベル）
+    console.log(`${colors.bold}必須機能:${colors.reset}`);
+    templateChecks.critical.forEach(check => {
+      if (check.status === 'success') {
+        console.log(`  ${colors.green}✓${colors.reset} ${check.name}: ${check.message}`);
+      } else {
+        console.log(`  ${colors.red}✗${colors.reset} ${check.name}: ${check.message}`);
+        results.totalErrors++;
+      }
+    });
+    
+    // 重要機能（警告レベル）
+    if (templateChecks.warnings.length > 0) {
+      console.log(`${colors.bold}重要機能:${colors.reset}`);
+      templateChecks.warnings.forEach(check => {
+        if (check.status === 'success') {
+          console.log(`  ${colors.green}✓${colors.reset} ${check.name}: ${check.message}`);
+        } else {
+          console.log(`  ${colors.yellow}⚠${colors.reset} ${check.name}: ${check.message}`);
+          results.totalWarnings++;
+        }
+      });
+    }
+    
+    // 情報レベル
+    if (templateChecks.info.length > 0) {
+      console.log(`${colors.bold}オプション機能:${colors.reset}`);
+      templateChecks.info.forEach(check => {
+        console.log(`  ${colors.dim}ℹ${colors.reset} ${check.name}: ${check.message}`);
+      });
+    }
+    
+    // テンプレート機能の総評
+    const criticalErrors = templateChecks.critical.filter(c => c.status === 'error').length;
+    if (criticalErrors > 0) {
+      log.error(`テンプレート機能: ${criticalErrors}個の必須機能が利用不可`);
+    } else {
+      log.success('テンプレート機能: 全ての必須機能が利用可能');
+    }
   }
   
   // 1. 境界チェック（最重要）
@@ -235,10 +387,22 @@ async function main() {
   // 結果サマリー
   log.section('検証結果サマリー');
   
-  const checkItems = [
+  const checkItems = [];
+  
+  // テンプレート機能チェックは必須機能のエラー数で判定
+  if (!isQuick) {
+    const templateChecks = checkTemplateFunctionality();
+    const criticalErrors = templateChecks.critical.filter(c => c.status === 'error').length;
+    checkItems.push({ 
+      name: 'テンプレート機能', 
+      result: { success: criticalErrors === 0 } 
+    });
+  }
+  
+  checkItems.push(
     { name: '境界チェック', result: results.boundaries },
     { name: '型チェック', result: results.types }
-  ];
+  );
   
   if (!isQuick) {
     checkItems.push(
