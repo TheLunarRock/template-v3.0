@@ -170,6 +170,23 @@ const stopSpinner = () => {
   }
 };
 
+// ESLint結果から警告数とエラー数を抽出
+const extractLintStats = (output) => {
+  if (!output) return { warnings: 0, errors: 0 };
+  
+  // ESLintの出力パターン: "✖ 118 problems (0 errors, 118 warnings)"
+  const match = output.match(/✖\s+\d+\s+problems?\s+\((\d+)\s+errors?,\s+(\d+)\s+warnings?\)/);
+  if (match) {
+    return {
+      errors: parseInt(match[1], 10),
+      warnings: parseInt(match[2], 10)
+    };
+  }
+  
+  // 問題がない場合
+  return { warnings: 0, errors: 0 };
+};
+
 // コマンド実行
 const runCommand = (command, silent = false, showProgress = false) => {
   try {
@@ -341,11 +358,24 @@ async function main() {
     const lintResult = runCommand(`${pmRun} lint`, true);
     results.lint = lintResult;
     
+    // ESLintの出力から警告とエラーの数を抽出
+    const lintStats = extractLintStats(lintResult.output);
+    
     if (lintResult.success) {
-      log.success('リント: 問題なし');
+      if (lintStats.warnings > 0) {
+        log.warning(`リント: ${lintStats.warnings}個の警告あり（エラーなし）`);
+        results.totalWarnings++;
+      } else {
+        log.success('リント: 問題なし');
+      }
     } else {
-      log.warning('リント: 警告あり');
-      results.totalWarnings++;
+      if (lintStats.errors > 0) {
+        log.error(`リント: ${lintStats.errors}個のエラー、${lintStats.warnings}個の警告`);
+        results.totalErrors++;
+      } else {
+        log.warning(`リント: ${lintStats.warnings}個の警告あり`);
+        results.totalWarnings++;
+      }
     }
   }
   
