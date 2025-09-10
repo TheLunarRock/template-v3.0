@@ -34,7 +34,6 @@
     "preflight": "node scripts/preflight.js",
     "commit:feature": "node scripts/commit-by-feature.js",
     "git:check": "git diff --cached --name-only | grep '^src/features/' | cut -d'/' -f3 | sort -u",
-
     "predeploy": "node scripts/preflight.js",
     "analyze": "ANALYZE=true next build",
     "lint": "eslint . --ext .ts,.tsx,.js,.jsx --ignore-path .eslintignore",
@@ -59,17 +58,14 @@
     "sc:business-panel": "echo 'Business analysis mode activated'",
     "sc:parallel": "node scripts/setup.js --sc-parallel",
     "sc:mcp": "echo 'MCP-First mode: Context7, Sequential, Morphllm, Serena, Playwright'",
-    
     "prepare": "husky install",
     "postinstall": "chmod +x .husky/* 2>/dev/null || true",
     "quality:check": "pnpm lint && pnpm typecheck && pnpm check:boundaries",
     "quality:fix": "pnpm lint --fix && pnpm fix:boundaries",
-    
     "quality:95": "echo '🎯 95%品質モード (標準推奨)'",
     "quality:97": "cp .eslintrc-optimal.json .eslintrc.json && cp tsconfig-optimal.json tsconfig.json",
     "quality:98": "cp .eslintrc-extreme.json .eslintrc.json && cp tsconfig-extreme.json tsconfig.json",
     "quality:restore": "git checkout -- .eslintrc.json tsconfig.json",
-    
     "claude:quality:optimal": "echo '🤖 Claude Code最適品質モード (97%)' && pnpm quality:97 && pnpm validate",
     "claude:quality:extreme": "echo '🤖 Claude Code極限品質モード（実験用）' && pnpm quality:98 && pnpm validate || pnpm quality:restore"
   },
@@ -83,6 +79,7 @@
     "react-dom": "^18",
     "zustand": "^4.5.0"
   },
+  "packageManager": "pnpm@8.15.9",
   "devDependencies": {
     "@next/bundle-analyzer": "^14.2.31",
     "@playwright/test": "^1.48.0",
@@ -92,19 +89,20 @@
     "@types/node": "^20",
     "@types/react": "^18",
     "@types/react-dom": "^18",
+    "@typescript-eslint/eslint-plugin": "^6.21.0",
+    "@typescript-eslint/parser": "^6.21.0",
     "@vitejs/plugin-react": "^4.3.0",
     "autoprefixer": "^10.4.19",
     "eslint": "^8",
     "eslint-config-next": "14.2.31",
-    "@typescript-eslint/eslint-plugin": "^6.21.0",
-    "@typescript-eslint/parser": "^6.21.0",
-    "eslint-plugin-sonarjs": "^0.25.1",
     "eslint-plugin-security": "^1.7.1",
+    "eslint-plugin-sonarjs": "^0.25.1",
     "husky": "^8.0.3",
-    "lint-staged": "^15.2.0",
     "jsdom": "^26.1.0",
+    "lint-staged": "^15.2.0",
     "playwright": "^1.48.0",
     "postcss": "^8.4.38",
+    "prettier": "^3.6.2",
     "tailwindcss": "^3.4.3",
     "typescript": "^5",
     "vitest": "^1.6.0"
