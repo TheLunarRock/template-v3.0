@@ -52,7 +52,7 @@ jobs:
         run: pnpm test:unit
       
       - name: Playwrightブラウザインストール
-        run: pnpm exec playwright install --with-deps chromium
+        run: pnpm exec playwright install --with-deps
       
       - name: E2Eテスト
         run: pnpm test:e2e
