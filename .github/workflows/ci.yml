@@ -30,7 +30,9 @@ jobs:
         run: pnpm check:boundaries
       
       - name: 全体チェック
-        run: pnpm check
+        run: |
+          cp .env.ci .env.local 2>/dev/null || true
+          pnpm check
 
   test:
     name: テスト実行
