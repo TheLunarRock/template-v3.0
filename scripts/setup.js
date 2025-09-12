@@ -488,7 +488,7 @@ jobs:
 
       // --yesフラグと--with-depsフラグで完全自動インストール
       // stdio: 'pipe'にして質問を回避し、進捗のみ表示
-      const installProcess = execSync('npx playwright install --with-deps chromium', {
+      execSync('npx playwright install --with-deps chromium', {
         stdio: 'pipe',
         encoding: 'utf-8',
       })
