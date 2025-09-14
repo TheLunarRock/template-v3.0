@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
-const fs = require('fs');
-const path = require('path');
+const fs = require('fs')
+const path = require('path')
 
 // 色付きコンソール出力
 const colors = {
@@ -10,30 +10,33 @@ const colors = {
   yellow: '\x1b[33m',
   blue: '\x1b[34m',
   red: '\x1b[31m',
-  bold: '\x1b[1m'
-};
+  bold: '\x1b[1m',
+}
 
 const log = {
   info: (msg) => console.log(`${colors.blue}ℹ${colors.reset} ${msg}`),
   success: (msg) => console.log(`${colors.green}✓${colors.reset} ${msg}`),
   warning: (msg) => console.log(`${colors.yellow}⚠${colors.reset} ${msg}`),
-  error: (msg) => console.log(`${colors.red}✗${colors.reset} ${msg}`)
-};
+  error: (msg) => console.log(`${colors.red}✗${colors.reset} ${msg}`),
+}
 
 // 文字列の最初を大文字にする
 function capitalize(str) {
-  return str.charAt(0).toUpperCase() + str.slice(1);
+  return str.charAt(0).toUpperCase() + str.slice(1)
 }
 
 // パスカルケースに変換
 function toPascalCase(str) {
-  return str.split('-').map(word => capitalize(word)).join('');
+  return str
+    .split('-')
+    .map((word) => capitalize(word))
+    .join('')
 }
 
 // メイン処理
 async function createFeature() {
-  const featureName = process.argv[2];
-  
+  const featureName = process.argv[2]
+
   if (!featureName) {
     console.error(`
 ${colors.red}エラー: フィーチャー名が指定されていません${colors.reset}
@@ -45,35 +48,35 @@ ${colors.red}エラー: フィーチャー名が指定されていません${col
   pnpm create:feature user-profile
   pnpm create:feature shopping-cart
   pnpm create:feature auth
-`);
-    process.exit(1);
+`)
+    process.exit(1)
   }
-  
+
   // フィーチャー名の検証（kebab-caseのみ許可）
   if (!/^[a-z]+(-[a-z]+)*$/.test(featureName)) {
-    log.error('フィーチャー名はkebab-case（例: user-profile）で指定してください');
-    process.exit(1);
+    log.error('フィーチャー名はkebab-case（例: user-profile）で指定してください')
+    process.exit(1)
   }
-  
-  const featurePath = path.join('src/features', featureName);
-  const pascalName = toPascalCase(featureName);
-  
+
+  const featurePath = path.join('src/features', featureName)
+  const pascalName = toPascalCase(featureName)
+
   // 既存チェック
   if (fs.existsSync(featurePath)) {
-    log.error(`フィーチャー '${featureName}' は既に存在します`);
-    process.exit(1);
+    log.error(`フィーチャー '${featureName}' は既に存在します`)
+    process.exit(1)
   }
-  
-  console.log(`\n${colors.bold}🚀 フィーチャー '${featureName}' を作成中...${colors.reset}\n`);
-  
+
+  console.log(`\n${colors.bold}🚀 フィーチャー '${featureName}' を作成中...${colors.reset}\n`)
+
   // ディレクトリ構造作成
-  const dirs = ['api', 'components', 'hooks', 'types', 'utils', 'constants', 'store', '__tests__'];
-  dirs.forEach(dir => {
-    const dirPath = path.join(featurePath, dir);
-    fs.mkdirSync(dirPath, { recursive: true });
-    log.success(`${dir}/ ディレクトリを作成`);
-  });
-  
+  const dirs = ['api', 'components', 'hooks', 'types', 'utils', 'constants', 'store', '__tests__']
+  dirs.forEach((dir) => {
+    const dirPath = path.join(featurePath, dir)
+    fs.mkdirSync(dirPath, { recursive: true })
+    log.success(`${dir}/ ディレクトリを作成`)
+  })
+
   // index.ts作成（フック公開なし）
   const indexContent = `// ✅ API関数（公開推奨）
 export { 
@@ -98,11 +101,11 @@ export type {
 // ❌ 内部実装（公開禁止）
 // export { validate${pascalName} } from './utils/validators'
 // export { ${featureName}Store } from './store'
-`;
-  
-  fs.writeFileSync(path.join(featurePath, 'index.ts'), indexContent);
-  log.success('index.ts を作成（フック公開禁止を明記）');
-  
+`
+
+  fs.writeFileSync(path.join(featurePath, 'index.ts'), indexContent)
+  log.success('index.ts を作成（フック公開禁止を明記）')
+
   // API ファイルのテンプレート
   const apiContent = `// ${pascalName} API Functions
 
@@ -125,11 +128,11 @@ export const delete${pascalName} = async (id: string): Promise<void> => {
   // TODO: 実装
   throw new Error('Not implemented yet');
 }
-`;
-  
-  fs.writeFileSync(path.join(featurePath, 'api', `${featureName}Api.ts`), apiContent);
-  log.success(`api/${featureName}Api.ts を作成`);
-  
+`
+
+  fs.writeFileSync(path.join(featurePath, 'api', `${featureName}Api.ts`), apiContent)
+  log.success(`api/${featureName}Api.ts を作成`)
+
   // 型定義ファイル
   const typesContent = `// ${pascalName} Type Definitions
 
@@ -150,18 +153,19 @@ type ${pascalName}State = {
   loading: boolean;
   error: string | null;
 }
-`;
-  
-  fs.writeFileSync(path.join(featurePath, 'types', 'index.ts'), typesContent);
-  log.success('types/index.ts を作成');
-  
+`
+
+  fs.writeFileSync(path.join(featurePath, 'types', 'index.ts'), typesContent)
+  log.success('types/index.ts を作成')
+
   // フック ファイル（内部使用のみ）- 無限ループ防止版
   const hookContent = `import { useState, useEffect, useMemo, useRef } from 'react'
 import { get${pascalName}Data } from '../api/${featureName}Api'
 import type { ${pascalName} } from '../types'
+import { useInfiniteLoopDetector } from '@/hooks/useInfiniteLoopDetector'
 
 // ⚠️ このフックは内部使用のみ！絶対にindex.tsから公開しない！
-// 🔥 無限ループ防止対策実装済み
+// 🔥 無限ループ防止対策実装済み + リアルタイム検出
 
 interface Use${pascalName}Options {
   category?: string
@@ -189,7 +193,14 @@ export const use${pascalName} = (
   
   // 🔥 無限ループ防止: 前回のIDを記憶
   const prevIdRef = useRef(id)
-  
+
+  // 🔍 リアルタイム無限ループ検出（開発環境のみ）
+  useInfiniteLoopDetector({
+    name: \`${pascalName}-\${id}\`,
+    threshold: 8,
+    customMessage: '${pascalName}フックでAPI呼び出しが頻発しています。依存配列またはstableOptionsを確認してください。'
+  })
+
   useEffect(() => {
     // オプションで無効化されている場合は実行しない
     if (!stableOptions.enabled) {
@@ -237,11 +248,11 @@ export const use${pascalName} = (
   
   return { data, loading, error }
 }
-`;
-  
-  fs.writeFileSync(path.join(featurePath, 'hooks', `use${pascalName}.ts`), hookContent);
-  log.success(`hooks/use${pascalName}.ts を作成（内部使用のみ）`);
-  
+`
+
+  fs.writeFileSync(path.join(featurePath, 'hooks', `use${pascalName}.ts`), hookContent)
+  log.success(`hooks/use${pascalName}.ts を作成（内部使用のみ）`)
+
   // コンポーネント ファイル（内部使用のみ）
   const componentContent = `import React from 'react'
 import { use${pascalName} } from '../hooks/use${pascalName}'
@@ -274,11 +285,14 @@ export const ${pascalName}Component: React.FC<${pascalName}ComponentProps> = ({ 
     </div>
   )
 }
-`;
-  
-  fs.writeFileSync(path.join(featurePath, 'components', `${pascalName}Component.tsx`), componentContent);
-  log.success(`components/${pascalName}Component.tsx を作成（内部使用のみ）`);
-  
+`
+
+  fs.writeFileSync(
+    path.join(featurePath, 'components', `${pascalName}Component.tsx`),
+    componentContent
+  )
+  log.success(`components/${pascalName}Component.tsx を作成（内部使用のみ）`)
+
   // README.md
   const readmeContent = `# ${pascalName} Feature
 
@@ -326,13 +340,13 @@ const useMyFeature = () => {
   return data
 }
 \`\`\`
-`;
-  
-  fs.writeFileSync(path.join(featurePath, 'README.md'), readmeContent);
-  log.success('README.md を作成');
-  
+`
+
+  fs.writeFileSync(path.join(featurePath, 'README.md'), readmeContent)
+  log.success('README.md を作成')
+
   // 🔥 中間保護層パターン - app/[feature]/page.tsx を生成
-  const appPagePath = `src/app/${featureName}/page.tsx`;
+  const appPagePath = `src/app/${featureName}/page.tsx`
   const appPageContent = `import { FeatureErrorBoundary } from '@/components/ErrorBoundary'
 import { get${pascalName}Data } from '@/features/${featureName}'
 import type { ${pascalName} } from '@/features/${featureName}'
@@ -418,18 +432,18 @@ async function ${pascalName}PageContent() {
   )
 }
 `
-  
+
   // app/[feature]ディレクトリの作成
-  const appFeatureDir = `src/app/${featureName}`;
+  const appFeatureDir = `src/app/${featureName}`
   if (!fs.existsSync(appFeatureDir)) {
-    fs.mkdirSync(appFeatureDir, { recursive: true });
+    fs.mkdirSync(appFeatureDir, { recursive: true })
   }
-  
-  fs.writeFileSync(appPagePath, appPageContent);
-  log.success(`🛡️ 中間保護層パターン ${appPagePath} を作成`);
+
+  fs.writeFileSync(appPagePath, appPageContent)
+  log.success(`🛡️ 中間保護層パターン ${appPagePath} を作成`)
 
   // E2Eテストファイル生成
-  const e2eTestPath = `tests/e2e/features/${featureName}.spec.ts`;
+  const e2eTestPath = `tests/e2e/features/${featureName}.spec.ts`
   const e2eTestContent = `import { test, expect } from '@playwright/test';
 import { authenticate, waitForFeatureLoad } from '../helpers/auth';
 
@@ -487,19 +501,19 @@ test.describe('${pascalName}フィーチャー E2Eテスト', () => {
     expect(errorBoundary).toBeGreaterThan(0);
   });
 });
-`;
-  
+`
+
   // E2Eテストディレクトリの確認と作成
-  const e2eFeaturesDir = 'tests/e2e/features';
+  const e2eFeaturesDir = 'tests/e2e/features'
   if (!fs.existsSync(e2eFeaturesDir)) {
-    fs.mkdirSync(e2eFeaturesDir, { recursive: true });
+    fs.mkdirSync(e2eFeaturesDir, { recursive: true })
   }
-  
-  fs.writeFileSync(e2eTestPath, e2eTestContent);
-  log.success(`E2Eテスト ${e2eTestPath} を作成`);
+
+  fs.writeFileSync(e2eTestPath, e2eTestContent)
+  log.success(`E2Eテスト ${e2eTestPath} を作成`)
 
   // 単体テストファイル生成
-  const unitTestPath = `tests/unit/features/${featureName}.test.ts`;
+  const unitTestPath = `tests/unit/features/${featureName}.test.ts`
   const unitTestContent = `import { describe, it, expect, vi } from 'vitest';
 import { get${pascalName}Data, create${pascalName}, update${pascalName}, delete${pascalName} } from '@/features/${featureName}';
 
@@ -546,16 +560,16 @@ describe('${pascalName} API関数', () => {
     await expect(delete${pascalName}('test-id')).resolves.not.toThrow();
   });
 });
-`;
-  
+`
+
   // 単体テストディレクトリの確認と作成
-  const unitFeaturesDir = 'tests/unit/features';
+  const unitFeaturesDir = 'tests/unit/features'
   if (!fs.existsSync(unitFeaturesDir)) {
-    fs.mkdirSync(unitFeaturesDir, { recursive: true });
+    fs.mkdirSync(unitFeaturesDir, { recursive: true })
   }
-  
-  fs.writeFileSync(unitTestPath, unitTestContent);
-  log.success(`単体テスト ${unitTestPath} を作成`);
+
+  fs.writeFileSync(unitTestPath, unitTestContent)
+  log.success(`単体テスト ${unitTestPath} を作成`)
 
   // 成功メッセージ
   console.log(`
@@ -599,19 +613,19 @@ ${colors.red}${colors.bold}⚠️  重要な注意事項:${colors.reset}
 境界チェック:
   ${colors.yellow}pnpm check:boundaries${colors.reset}
 ${colors.green}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${colors.reset}
-`);
+`)
 }
 
 // エラーハンドリング
 process.on('unhandledRejection', (error) => {
-  log.error('フィーチャー作成中にエラーが発生しました');
-  console.error(error);
-  process.exit(1);
-});
+  log.error('フィーチャー作成中にエラーが発生しました')
+  console.error(error)
+  process.exit(1)
+})
 
 // 実行
 createFeature().catch((error) => {
-  log.error('フィーチャー作成に失敗しました');
-  console.error(error);
-  process.exit(1);
-});
+  log.error('フィーチャー作成に失敗しました')
+  console.error(error)
+  process.exit(1)
+})
