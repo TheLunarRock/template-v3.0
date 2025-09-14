@@ -13,6 +13,8 @@
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
     "test:e2e:headed": "playwright test --headed",
+    "test:regression": "vitest run tests/regression",
+    "fix:bug": "echo '🔴 バグ修正モード: 必ず再現テストを先に書く' && pnpm test:regression --watch",
     "setup": "node scripts/setup.js",
     "setup:project": "node scripts/setup.js --full",
     "setup:quick": "node scripts/setup.js --quick",
