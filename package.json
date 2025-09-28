@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
+    "build:analyze": "ANALYZE=true next build",
     "start": "next start",
     "test": "pnpm test:unit",
     "test:unit": "vitest run",
@@ -14,6 +15,8 @@
     "test:e2e:ui": "playwright test --ui",
     "test:e2e:headed": "playwright test --headed",
     "test:regression": "vitest run tests/regression",
+    "test:coverage": "vitest run --coverage",
+    "test:coverage:ui": "vitest --ui --coverage",
     "fix:bug": "echo '🔴 バグ修正モード: 必ず再現テストを先に書く' && pnpm test:regression --watch",
     "setup": "node scripts/setup.js",
     "setup:project": "node scripts/setup.js --full",
@@ -76,14 +79,17 @@
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.0",
+    "i18next": "^25.5.2",
     "next": "14.2.31",
+    "next-i18next": "^15.4.2",
     "react": "^18",
     "react-dom": "^18",
+    "react-i18next": "^16.0.0",
     "zustand": "^4.5.0"
   },
   "packageManager": "pnpm@8.15.9",
   "devDependencies": {
-    "@next/bundle-analyzer": "^14.2.31",
+    "@next/bundle-analyzer": "^14.2.32",
     "@playwright/test": "^1.48.0",
     "@testing-library/jest-dom": "^6.8.0",
     "@testing-library/react": "^14.3.0",
@@ -94,6 +100,7 @@
     "@typescript-eslint/eslint-plugin": "^6.21.0",
     "@typescript-eslint/parser": "^6.21.0",
     "@vitejs/plugin-react": "^4.7.0",
+    "@vitest/coverage-v8": "2.1.9",
     "autoprefixer": "^10.4.19",
     "eslint": "^8",
     "eslint-config-next": "14.2.31",
