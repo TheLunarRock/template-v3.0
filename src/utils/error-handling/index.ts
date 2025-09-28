@@ -132,7 +132,7 @@ export function transformError(error: unknown, options?: ErrorHandlingOptions): 
  * @returns 構造化されたエラーかどうか
  */
 export function isStructuredError(error: unknown): error is StructuredError {
-  if (!error || typeof error !== 'object') {
+  if (error === null || error === undefined || typeof error !== 'object') {
     return false
   }
 
@@ -161,7 +161,7 @@ export function handleError(error: unknown, options?: ErrorHandlingOptions): Str
   }
 
   // 再スロー（オプション）
-  if (options?.rethrow) {
+  if (options?.rethrow === true) {
     throw structured
   }
 

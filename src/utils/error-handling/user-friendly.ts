@@ -145,7 +145,7 @@ export function inferErrorLevel(message: string, category: ErrorCategory): Error
  * @returns ユーザー向けメッセージ
  */
 export function getUserFriendlyMessage(code?: string, fallback?: string): string {
-  if (code && DEFAULT_ERROR_MESSAGES[code]) {
+  if (code !== undefined && DEFAULT_ERROR_MESSAGES[code]) {
     return DEFAULT_ERROR_MESSAGES[code]
   }
 
@@ -159,12 +159,12 @@ export function getUserFriendlyMessage(code?: string, fallback?: string): string
  */
 export function formatUserMessage(error: StructuredError): string {
   // 既にユーザーメッセージが設定されている場合はそれを使用
-  if (error.userMessage) {
+  if (error.userMessage !== undefined) {
     return error.userMessage
   }
 
   // エラーコードから取得
-  if (error.code) {
+  if (error.code !== undefined) {
     const message = getUserFriendlyMessage(error.code)
     if (message !== DEFAULT_ERROR_MESSAGES['ERR_UNKNOWN']) {
       return message
@@ -187,7 +187,7 @@ export function formatDeveloperMessage(error: StructuredError): string {
   parts.push(`[${error.level.toUpperCase()}] [${error.category}]`)
 
   // エラーコード
-  if (error.code) {
+  if (error.code !== undefined) {
     parts.push(`Code: ${error.code}`)
   }
 
@@ -228,7 +228,7 @@ export function sanitizeErrorMessage(message: string): string {
   sanitized = sanitized.replace(
     /([a-zA-Z0-9._%+-]+)@([a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/g,
     (_match, local, domain) => {
-      const hiddenLocal = local.charAt(0) + '***'
+      const hiddenLocal = String(local).charAt(0) + '***'
       return `${hiddenLocal}@${domain}`
     }
   )

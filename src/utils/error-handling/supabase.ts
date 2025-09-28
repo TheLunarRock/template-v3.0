@@ -70,7 +70,7 @@ interface SupabaseError {
  * @returns Supabaseエラーかどうか
  */
 export function isSupabaseError(error: unknown): error is SupabaseError {
-  if (!error || typeof error !== 'object') {
+  if (error === null || error === undefined || typeof error !== 'object') {
     return false
   }
 
@@ -101,13 +101,14 @@ function parseSupabaseError(error: SupabaseError): {
   let category: ErrorCategory = 'unknown'
 
   // PostgreSQLエラーコード
-  if (error.code && SUPABASE_ERROR_MAP[error.code]) {
+  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+  if (error.code !== undefined && SUPABASE_ERROR_MAP[error.code] !== undefined) {
     const mapped = SUPABASE_ERROR_MAP[error.code]
     code = mapped.code
     category = mapped.category
   }
   // エラーメッセージから推測
-  else if (error.message) {
+  else if (error.message !== undefined) {
     for (const [pattern, mapped] of Object.entries(SUPABASE_ERROR_MAP)) {
       if (error.message.includes(pattern)) {
         code = mapped.code
@@ -176,9 +177,11 @@ export function transformSupabaseError(
   const { code, category, message } = parseSupabaseError(error)
 
   // ユーザーメッセージの取得
+  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
   const userMessage =
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
     SUPABASE_USER_MESSAGES[code] ??
-    getUserFriendlyMessage(code) ??
+    getUserFriendlyMessage(code, undefined) ??
     'データベースエラーが発生しました。しばらく待ってから再度お試しください。'
 
   // エラーレベルの推測
@@ -246,11 +249,11 @@ export function checkSupabaseResponse<T>(
   response: { data: T | null; error: unknown },
   context?: Record<string, unknown>
 ): T {
-  if (response.error) {
+  if (response.error !== null && response.error !== undefined) {
     throw transformSupabaseError(response.error, context)
   }
 
-  if (!response.data) {
+  if (response.data === null || response.data === undefined) {
     throw {
       code: 'ERR_NO_DATA',
       message: 'No data returned from Supabase',

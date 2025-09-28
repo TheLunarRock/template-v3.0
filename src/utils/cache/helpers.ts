@@ -78,7 +78,7 @@ export function memoize<T extends (...args: unknown[]) => unknown>(
       strategy: 'lru',
     })
 
-  const keyPrefix = options?.keyPrefix ?? fn.name ?? 'memoized'
+  const keyPrefix = options?.keyPrefix ?? (fn.name || 'memoized')
 
   return ((...args: Parameters<T>): ReturnType<T> => {
     const key = createCacheKey(keyPrefix, ...args)
@@ -119,7 +119,7 @@ export function cacheAsync<T extends (...args: unknown[]) => Promise<unknown>>(
       strategy: 'lru',
     })
 
-  const keyPrefix = options?.keyPrefix ?? fn.name ?? 'cached-async'
+  const keyPrefix = options?.keyPrefix ?? (fn.name || 'cached-async')
   const pendingPromises = new Map<string, Promise<Awaited<ReturnType<T>>>>()
 
   return (async (...args: Parameters<T>): Promise<Awaited<ReturnType<T>>> => {
@@ -315,7 +315,7 @@ Cache Statistics:
   Hits: ${stats.hits}
   Misses: ${stats.misses}
   Evictions: ${stats.evictions}
-  Estimated Memory: ${stats.estimatedSize ? `${(stats.estimatedSize / 1024).toFixed(2)} KB` : 'N/A'}
+  Estimated Memory: ${stats.estimatedSize !== undefined ? `${(stats.estimatedSize / 1024).toFixed(2)} KB` : 'N/A'}
   `.trim()
 }
 

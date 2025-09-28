@@ -80,7 +80,7 @@ export class MemoryCache<T = unknown> implements IMemoryCache<T> {
     }
 
     // 自動クリーンアップの開始
-    if (this.config.cleanupInterval && this.config.cleanupInterval > 0) {
+    if (this.config.cleanupInterval > 0) {
       this.startAutoCleanup()
     }
   }
@@ -99,7 +99,7 @@ export class MemoryCache<T = unknown> implements IMemoryCache<T> {
     }
 
     // TTLチェック
-    if (entry.ttl && Date.now() - entry.createdAt > entry.ttl) {
+    if (entry.ttl !== undefined && Date.now() - entry.createdAt > entry.ttl) {
       this.delete(normalizedKey)
       this.stats.misses++
       this.emitEvent({ type: 'miss', key: normalizedKey, timestamp: Date.now() })
@@ -128,7 +128,7 @@ export class MemoryCache<T = unknown> implements IMemoryCache<T> {
     const normalizedKey = this.config.keyTransformer(key)
 
     // 既存エントリのチェック
-    if (this.entries.has(normalizedKey) && !options?.overwrite) {
+    if (this.entries.has(normalizedKey) && options?.overwrite !== true) {
       if (this.config.debug) {
         // eslint-disable-next-line no-console
         console.log(`[Cache] Key already exists: ${normalizedKey}`)
@@ -177,7 +177,7 @@ export class MemoryCache<T = unknown> implements IMemoryCache<T> {
     }
 
     // TTLチェック
-    if (entry.ttl && Date.now() - entry.createdAt > entry.ttl) {
+    if (entry.ttl !== undefined && Date.now() - entry.createdAt > entry.ttl) {
       this.delete(normalizedKey)
       return false
     }
@@ -257,7 +257,7 @@ export class MemoryCache<T = unknown> implements IMemoryCache<T> {
     let deleted = 0
 
     for (const [key, entry] of this.entries) {
-      if (entry.tags?.includes(tag)) {
+      if (entry.tags?.includes(tag) === true) {
         this.entries.delete(key)
         deleted++
 
@@ -285,7 +285,7 @@ export class MemoryCache<T = unknown> implements IMemoryCache<T> {
     let cleaned = 0
 
     for (const [key, entry] of this.entries) {
-      if (entry.ttl && now - entry.createdAt > entry.ttl) {
+      if (entry.ttl !== undefined && now - entry.createdAt > entry.ttl) {
         this.entries.delete(key)
         cleaned++
 
@@ -366,7 +366,7 @@ export class MemoryCache<T = unknown> implements IMemoryCache<T> {
         break
     }
 
-    if (keyToEvict) {
+    if (keyToEvict !== undefined) {
       this.entries.delete(keyToEvict)
       this.stats.evictions++
 
@@ -489,7 +489,7 @@ export class MemoryCache<T = unknown> implements IMemoryCache<T> {
     }, this.config.cleanupInterval)
 
     // Node.jsのタイマーが他の処理をブロックしないように設定
-    if (this.cleanupTimer.unref) {
+    if (typeof this.cleanupTimer.unref === 'function') {
       this.cleanupTimer.unref()
     }
   }
