@@ -52,5 +52,6 @@ Thumbs.db
 # Serena AI memory
 .serena/
 
-# Protected features configuration (actual config, not the example)
+# Claude Code local configuration
 .claude/protected-features.json
+.claude/settings.local.json
