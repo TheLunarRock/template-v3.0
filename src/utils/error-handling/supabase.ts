@@ -101,9 +101,9 @@ function parseSupabaseError(error: SupabaseError): {
   let category: ErrorCategory = 'unknown'
 
   // PostgreSQLエラーコード
-  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-  if (error.code !== undefined && SUPABASE_ERROR_MAP[error.code] !== undefined) {
-    const mapped = SUPABASE_ERROR_MAP[error.code]
+  const errorCode = error.code
+  if (typeof errorCode === 'string' && errorCode in SUPABASE_ERROR_MAP) {
+    const mapped = SUPABASE_ERROR_MAP[errorCode]
     code = mapped.code
     category = mapped.category
   }
@@ -177,12 +177,12 @@ export function transformSupabaseError(
   const { code, category, message } = parseSupabaseError(error)
 
   // ユーザーメッセージの取得
-  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-  const userMessage =
-    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-    SUPABASE_USER_MESSAGES[code] ??
-    getUserFriendlyMessage(code, undefined) ??
-    'データベースエラーが発生しました。しばらく待ってから再度お試しください。'
+  const mappedUserMessage =
+    code in SUPABASE_USER_MESSAGES
+      ? SUPABASE_USER_MESSAGES[code as keyof typeof SUPABASE_USER_MESSAGES]
+      : undefined
+  const defaultMessage = 'データベースエラーが発生しました。しばらく待ってから再度お試しください。'
+  const userMessage = mappedUserMessage ?? getUserFriendlyMessage(code, defaultMessage)
 
   // エラーレベルの推測
   const level = inferErrorLevel(message, category)
@@ -249,20 +249,12 @@ export function checkSupabaseResponse<T>(
   response: { data: T | null; error: unknown },
   context?: Record<string, unknown>
 ): T {
-  if (response.error !== null && response.error !== undefined) {
+  if (response.error) {
     throw transformSupabaseError(response.error, context)
   }
 
-  if (response.data === null || response.data === undefined) {
-    throw {
-      code: 'ERR_NO_DATA',
-      message: 'No data returned from Supabase',
-      userMessage: 'データの取得に失敗しました。',
-      level: 'error' as const,
-      category: 'database' as const,
-      timestamp: new Date(),
-      context,
-    } satisfies StructuredError
+  if (response.data == null) {
+    throw new Error('No data returned from Supabase')
   }
 
   return response.data

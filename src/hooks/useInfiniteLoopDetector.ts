@@ -50,7 +50,7 @@ const executionMap = new Map<string, ExecutionInfo>()
 export const useInfiniteLoopDetector = (options: LoopDetectorOptions) => {
   const { name, threshold = 10, timeWindow = 5000, customMessage } = options
 
-  const timerRef = useRef<NodeJS.Timeout>()
+  const timerRef = useRef<NodeJS.Timeout | undefined>(undefined)
 
   useEffect(() => {
     // プロダクション環境では何もしない

@@ -88,10 +88,11 @@ export type ErrorTransformer = (error: unknown, options?: ErrorHandlingOptions) 
  * エラーメッセージマッピング
  * エラーコードからユーザーメッセージへのマッピング
  */
-export interface ErrorMessageMap {
-  [key: string]: {
+export type ErrorMessageMap = Record<
+  string,
+  {
     userMessage: string
     level?: ErrorLevel
     category?: ErrorCategory
   }
-}
+>

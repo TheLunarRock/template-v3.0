@@ -145,11 +145,11 @@ export function inferErrorLevel(message: string, category: ErrorCategory): Error
  * @returns ユーザー向けメッセージ
  */
 export function getUserFriendlyMessage(code?: string, fallback?: string): string {
-  if (code !== undefined && DEFAULT_ERROR_MESSAGES[code]) {
-    return DEFAULT_ERROR_MESSAGES[code]
+  if (code !== undefined && code in DEFAULT_ERROR_MESSAGES) {
+    return DEFAULT_ERROR_MESSAGES[code as keyof typeof DEFAULT_ERROR_MESSAGES]
   }
 
-  return fallback ?? DEFAULT_ERROR_MESSAGES['ERR_UNKNOWN']
+  return fallback ?? (DEFAULT_ERROR_MESSAGES.ERR_UNKNOWN as string)
 }
 
 /**
@@ -166,7 +166,7 @@ export function formatUserMessage(error: StructuredError): string {
   // エラーコードから取得
   if (error.code !== undefined) {
     const message = getUserFriendlyMessage(error.code)
-    if (message !== DEFAULT_ERROR_MESSAGES['ERR_UNKNOWN']) {
+    if (message !== DEFAULT_ERROR_MESSAGES.ERR_UNKNOWN) {
       return message
     }
   }
@@ -216,6 +216,7 @@ export function sanitizeErrorMessage(message: string): string {
   let sanitized = message
 
   // パスワード関連
+  // eslint-disable-next-line sonarjs/no-hardcoded-passwords -- Sanitizing passwords, not hardcoding
   sanitized = sanitized.replace(/password[=:]\s*['"]?[^'"\s]+['"]?/gi, 'password=***')
 
   // トークン関連
@@ -226,6 +227,7 @@ export function sanitizeErrorMessage(message: string): string {
 
   // メールアドレス（部分的に隠す）
   sanitized = sanitized.replace(
+    // eslint-disable-next-line sonarjs/slow-regex -- Email regex is bounded and safe
     /([a-zA-Z0-9._%+-]+)@([a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/g,
     (_match, local, domain) => {
       const hiddenLocal = String(local).charAt(0) + '***'
