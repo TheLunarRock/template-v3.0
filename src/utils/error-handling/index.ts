@@ -62,7 +62,6 @@ export {
  * @param options - エラーハンドリングオプション
  * @returns 構造化されたエラー
  */
-// eslint-disable-next-line sonarjs/cognitive-complexity
 export function transformError(error: unknown, options?: ErrorHandlingOptions): StructuredError {
   const timestamp = new Date()
 
@@ -162,7 +161,7 @@ export function handleError(error: unknown, options?: ErrorHandlingOptions): Str
 
   // 再スロー（オプション）
   if (options?.rethrow === true) {
-    throw structured
+    throw new Error(structured.message)
   }
 
   return structured

@@ -18,13 +18,11 @@ let globalCache: MemoryCache<unknown> | undefined
  * グローバルキャッシュを取得（遅延初期化）
  */
 export function getGlobalCache(): MemoryCache<unknown> {
-  if (!globalCache) {
-    globalCache = new MemoryCache({
-      maxSize: 500,
-      strategy: 'lru',
-      cleanupInterval: 300000, // 5分
-    })
-  }
+  globalCache ??= new MemoryCache({
+    maxSize: 500,
+    strategy: 'lru',
+    cleanupInterval: 300000, // 5分
+  })
   return globalCache
 }
 
@@ -45,10 +43,14 @@ export function createCacheKey(prefix: string, ...args: unknown[]): string {
         try {
           return JSON.stringify(arg)
         } catch {
-          return String(arg)
+          // オブジェクトが循環参照を持つ場合のフォールバック
+          return '[object]'
         }
       }
-      return String(arg)
+      if (typeof arg === 'string' || typeof arg === 'number' || typeof arg === 'boolean') {
+        return String(arg)
+      }
+      return '[unknown]'
     })
     .join(':')
 
@@ -199,7 +201,7 @@ export async function getCachedOrGenerate<T>(
  * @param intervalMs - キー更新間隔（ミリ秒）
  * @returns 時間ベースのキャッシュキー
  */
-export function createTimeBasedKey(prefix: string, intervalMs: number = 60000): string {
+export function createTimeBasedKey(prefix: string, intervalMs = 60000): string {
   const bucket = Math.floor(Date.now() / intervalMs)
   return `${prefix}:t${bucket}`
 }
@@ -213,11 +215,11 @@ export function createTimeBasedKey(prefix: string, intervalMs: number = 60000): 
  */
 export async function warmupCache<T>(
   cache: MemoryCache<T>,
-  items: Array<{
+  items: {
     key: string
     generator: CacheValueGenerator<T>
     options?: CacheOptions
-  }>
+  }[]
 ): Promise<void> {
   const promises = items.map(async ({ key, generator, options }) => {
     try {

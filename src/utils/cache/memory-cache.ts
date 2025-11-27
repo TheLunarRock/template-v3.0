@@ -32,7 +32,7 @@ import type {
 /**
  * 内部設定の型定義
  */
-type InternalCacheConfig = {
+interface InternalCacheConfig {
   maxSize: number
   defaultTtl?: number
   strategy: CacheStrategy

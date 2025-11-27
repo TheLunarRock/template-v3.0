@@ -3,9 +3,9 @@
 import React, { Component, ReactNode } from 'react'
 
 interface Props {
-  children: ReactNode
-  fallback?: ReactNode
-  featureName?: string
+  readonly children: ReactNode
+  readonly fallback?: ReactNode
+  readonly featureName?: string
 }
 
 interface State {
@@ -16,7 +16,7 @@ interface State {
 /**
  * エラー境界コンポーネント
  * フィーチャー間のエラー伝播を防ぎ、各フィーチャーを独立させる
- * 
+ *
  * 使用例:
  * <ErrorBoundary featureName="user">
  *   <UserPageContent />
@@ -44,7 +44,7 @@ export class ErrorBoundary extends Component<Props, State> {
     }
   }
 
-  override render() {
+  override render(): ReactNode {
     if (this.state.hasError) {
       // カスタムフォールバックまたはデフォルトエラーUI
       if (this.props.fallback !== undefined) {
@@ -56,12 +56,9 @@ export class ErrorBoundary extends Component<Props, State> {
           <h2 className="text-lg font-semibold text-red-900 mb-2">
             {this.props.featureName !== undefined
               ? `${this.props.featureName}機能でエラーが発生しました`
-              : 'エラーが発生しました'
-            }
+              : 'エラーが発生しました'}
           </h2>
-          <p className="text-red-700">
-            申し訳ございません。一時的な問題が発生しています。
-          </p>
+          <p className="text-red-700">申し訳ございません。一時的な問題が発生しています。</p>
           {process.env.NODE_ENV === 'development' && this.state.error !== undefined && (
             <details className="mt-4">
               <summary className="cursor-pointer text-sm text-red-600">
@@ -86,15 +83,15 @@ export class ErrorBoundary extends Component<Props, State> {
  * フィーチャー専用のエラー境界ラッパー
  * フィーチャー名を自動設定
  */
-export function FeatureErrorBoundary({ 
-  featureName, 
+export function FeatureErrorBoundary({
+  featureName,
   children,
-  fallback
-}: {
+  fallback,
+}: Readonly<{
   featureName: string
   children: ReactNode
   fallback?: ReactNode
-}) {
+}>) {
   return (
     <ErrorBoundary featureName={featureName} fallback={fallback}>
       {children}
