@@ -110,7 +110,7 @@ template-v3.0/
 ├── package.json              # パッケージ設定
 ├── tsconfig.json             # TypeScript設定
 ├── tailwind.config.ts        # Tailwind設定
-├── next.config.js            # Next.js設定
+├── next.config.mjs           # Next.js設定
 ├── vitest.config.ts          # Vitest設定
 └── playwright.config.ts      # Playwright設定
 ```
@@ -170,44 +170,165 @@ export type { FeatureItem, FeatureConfig } from './types'
 ```json
 {
   "compilerOptions": {
-    "target": "ES2017",
+    "target": "es2020",
     "lib": ["dom", "dom.iterable", "esnext"],
     "strict": true,
+    "noImplicitAny": true,
+    "strictNullChecks": true,
+    "strictFunctionTypes": true,
+    "strictBindCallApply": true,
+    "noImplicitReturns": true,
+    "noFallthroughCasesInSwitch": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noImplicitOverride": true,
+    "allowUnusedLabels": false,
+    "allowUnreachableCode": false,
+    "exactOptionalPropertyTypes": false,
+    "noUncheckedIndexedAccess": false,
+    "strictPropertyInitialization": false,
     "noEmit": true,
+    "esModuleInterop": true,
     "module": "esnext",
     "moduleResolution": "bundler",
+    "resolveJsonModule": true,
+    "isolatedModules": true,
     "jsx": "preserve",
+    "incremental": true,
     "paths": {
       "@/*": ["./src/*"],
-      "@/features/*": ["./src/features/*"]
+      "@features/*": ["./src/features/*"]
     }
   }
 }
 ```
 
-### 5.2 Tailwind CSS設定
+### 5.2 Next.js設定（next.config.mjs）
+
+```javascript
+import bundleAnalyzer from '@next/bundle-analyzer'
+
+const nextConfig = {
+  reactStrictMode: true,
+}
+
+const withBundleAnalyzer = bundleAnalyzer({
+  enabled: process.env.ANALYZE === 'true',
+  openAnalyzer: true,
+})
+
+export default process.env.ANALYZE === 'true' ? withBundleAnalyzer(nextConfig) : nextConfig
+```
+
+### 5.3 Vitest設定（vitest.config.ts）
+
+```typescript
+import { defineConfig } from 'vitest/config'
+import react from '@vitejs/plugin-react'
+import path from 'path'
+
+export default defineConfig({
+  plugins: [react()],
+  test: {
+    environment: 'jsdom',
+    globals: true,
+    setupFiles: './tests/setup.ts',
+    include: ['**/*.{test,spec}.{js,jsx,ts,tsx}'],
+    exclude: ['node_modules', '.next', 'tests/e2e'],
+    coverage: {
+      provider: 'v8',
+      reporter: ['text', 'json', 'html'],
+      thresholds: {
+        global: {
+          branches: 90,
+          functions: 90,
+          lines: 90,
+          statements: 90,
+        },
+        'src/features/**/': {
+          branches: 95,
+          functions: 95,
+          lines: 95,
+          statements: 95,
+        },
+      },
+    },
+  },
+  resolve: {
+    alias: {
+      '@': path.resolve(__dirname, './src'),
+      '@/features': path.resolve(__dirname, './src/features'),
+    },
+  },
+})
+```
+
+### 5.4 Playwright設定（playwright.config.ts）
+
+```typescript
+import { defineConfig, devices } from '@playwright/test'
+
+export default defineConfig({
+  testDir: './tests/e2e',
+  fullyParallel: true,
+  forbidOnly: process.env.CI === 'true',
+  retries: process.env.CI === 'true' ? 2 : 0,
+  workers: process.env.CI === 'true' ? 1 : undefined,
+  use: {
+    baseURL: 'http://localhost:3000',
+    trace: 'on-first-retry',
+    screenshot: 'only-on-failure',
+    video: 'retain-on-failure',
+  },
+  projects: [
+    { name: 'chromium', use: { ...devices['Desktop Chrome'] } },
+    { name: 'mobile', use: { ...devices['Pixel 5'] } },
+  ],
+  webServer: {
+    command: process.env.CI === 'true' ? 'pnpm build && pnpm start' : 'pnpm dev',
+    url: 'http://localhost:3000',
+    reuseExistingServer: false,
+    timeout: 120 * 1000,
+  },
+})
+```
+
+### 5.5 Tailwind CSS設定
 
 **フォント:**
 
 - `font-rounded`: M PLUS Rounded 1c（日本語最適化）
 - `font-mono`: Fira Code
 - `font-cyber`: Orbitron
+- `font-retro`: Press Start 2P
 
 **カラーパレット:**
 
-- Neon: `neon-green`, `neon-pink`, `neon-blue`, `neon-yellow`
+- Neon: `neon-green`, `neon-pink`, `neon-blue`, `neon-yellow`, `neon-orange`
 - Glass: `glass-white`, `glass-black`
 - Bauhaus: `bauhaus-red`, `bauhaus-blue`, `bauhaus-yellow`
-- Natural: `earth-brown`, `leaf-green`, `sky-blue`
+- Natural: `earth-brown`, `leaf-green`, `sky-blue`, `sand-beige`
 
 **ユーティリティクラス:**
 
-- `.glass`: Glassmorphismスタイル
+- `.glass`: Glassmorphism背景
+- `.glass-dark`: ダークGlassmorphism
 - `.neumorphism`: Neumorphismスタイル
+- `.neumorphism-inset`: 内側Neumorphism
 - `.text-neon`: ネオンテキストエフェクト
+- `.text-brutal`: Brutalismテキスト
+- `.text-retro`: レトロテキスト
 - `.text-gradient`: グラデーションテキスト
 
-### 5.3 環境変数
+**アニメーション:**
+
+- `animate-glitch`: グリッチエフェクト
+- `animate-pulse-neon`: ネオン点滅
+- `animate-float`: フローティング
+- `animate-gradient-shift`: グラデーション移動
+- `animate-typing`: タイピングエフェクト
+
+### 5.6 環境変数
 
 ```bash
 # .env.example
@@ -220,9 +341,175 @@ NODE_ENV=development
 # NEXT_PUBLIC_SUPABASE_ANON_KEY=your-supabase-anon-key
 ```
 
-## 6. コマンド一覧
+## 6. ソースコード仕様
 
-### 6.1 開発コマンド
+### 6.1 ルートレイアウト（src/app/layout.tsx）
+
+```typescript
+import type { Metadata } from 'next'
+import '@/styles/globals.css'
+
+export const metadata: Metadata = {
+  title: 'Feature App',
+  description: 'Feature-based development template',
+}
+
+export default function RootLayout({
+  children,
+}: Readonly<{
+  children: React.ReactNode
+}>) {
+  return (
+    <html lang="ja">
+      <body className="font-rounded">{children}</body>
+    </html>
+  )
+}
+```
+
+### 6.2 ホームページ（src/app/page.tsx）
+
+```typescript
+export default function Home() {
+  return (
+    <main className="min-h-screen flex items-center justify-center">
+      <p className="text-gray-500 font-rounded">Next.js App Running</p>
+    </main>
+  )
+}
+```
+
+### 6.3 エラー境界（src/components/ErrorBoundary.tsx）
+
+フィーチャー間のエラー伝播を防ぐクラスコンポーネント。
+
+**Props:**
+
+- `children`: ReactNode
+- `fallback?`: ReactNode（カスタムフォールバックUI）
+- `featureName?`: string（エラー特定用）
+
+**State:**
+
+- `hasError`: boolean
+- `error?`: Error
+
+**機能:**
+
+- エラー捕捉とログ出力
+- 開発環境でのスタックトレース表示
+- カスタマイズ可能なフォールバックUI
+
+### 6.4 国際化フック（src/hooks/useI18n.ts）
+
+**型定義:**
+
+```typescript
+type Locale = 'ja' | 'en'
+```
+
+**戻り値:**
+
+- `locale`: Locale - 現在のロケール
+- `locales`: Locale[] - 利用可能なロケール
+- `setLocale`: (newLocale: Locale) => void
+- `t`: (key: string) => string - 翻訳関数
+
+**機能:**
+
+- ブラウザ言語設定の自動検出
+- localStorage永続化
+- next-i18next拡張準備
+
+### 6.5 無限ループ検出（src/hooks/useInfiniteLoopDetector.ts）
+
+開発環境専用の無限ループ検出フック。
+
+**オプション:**
+
+```typescript
+interface LoopDetectorOptions {
+  name: string // 監視名
+  threshold?: number // 警告閾値（デフォルト: 10）
+  timeWindow?: number // 監視時間窓（デフォルト: 5000ms）
+  customMessage?: string // カスタム警告メッセージ
+}
+```
+
+**機能:**
+
+- useEffect実行回数の監視
+- 異常頻度の検出と警告
+- デバッガー停止オプション
+- `logExecutionStats()`でグローバル統計表示
+
+### 6.6 キャッシュユーティリティ（src/utils/cache/）
+
+**MemoryCacheクラス:**
+
+```typescript
+class MemoryCache<T> implements IMemoryCache<T> {
+  get(key: string): T | undefined
+  set(key: string, value: T, options?: CacheOptions): void
+  has(key: string): boolean
+  delete(key: string): boolean
+  clear(): void
+  getStats(): CacheStats
+  deleteByTag(tag: string): number
+  cleanup(): number
+  size(): number
+}
+```
+
+**キャッシュストラテジー:**
+
+- `lru`: Least Recently Used
+- `lfu`: Least Frequently Used
+- `fifo`: First In First Out
+- `ttl`: Time To Live
+
+**プリセット:**
+
+- `CachePresets.api`: API応答用（短TTL、LRU）
+- `CachePresets.session`: セッション用（長TTL）
+- `CachePresets.computation`: 計算結果用（TTLなし、LFU）
+- `CachePresets.static`: 静的リソース用（大容量）
+- `CachePresets.development`: 開発用（デバッグ有効）
+
+### 6.7 エラーハンドリング（src/utils/error-handling/）
+
+**構造化エラー型:**
+
+```typescript
+interface StructuredError {
+  code?: string
+  message: string
+  userMessage?: string
+  level: 'critical' | 'error' | 'warning' | 'info'
+  category: 'network' | 'database' | 'auth' | 'validation' | 'business' | 'system' | 'unknown'
+  context?: Record<string, unknown>
+  stack?: string
+  timestamp: Date
+  originalError?: unknown
+}
+```
+
+**主要関数:**
+
+- `transformError(error, options)`: エラー変換
+- `handleError(error, options)`: エラー処理とログ
+- `tryCatch<T>(operation, options)`: Promise用ラッパー
+- `aggregateErrors(errors)`: 複数エラー集約
+
+**Supabase統合:**
+
+- `isSupabaseError(error)`: Supabaseエラー判定
+- `transformSupabaseError(error)`: Supabaseエラー変換
+- `safeSupabaseOperation(operation)`: 安全な操作ラッパー
+
+## 7. コマンド一覧
+
+### 7.1 開発コマンド
 
 | コマンド         | 説明                   |
 | ---------------- | ---------------------- |
@@ -232,7 +519,7 @@ NODE_ENV=development
 | `pnpm lint`      | ESLintチェック         |
 | `pnpm typecheck` | 型チェック             |
 
-### 6.2 テストコマンド
+### 7.2 テストコマンド
 
 | コマンド               | 説明               |
 | ---------------------- | ------------------ |
@@ -242,7 +529,7 @@ NODE_ENV=development
 | `pnpm test:coverage`   | カバレッジ測定     |
 | `pnpm test:regression` | 回帰テスト         |
 
-### 6.3 品質管理コマンド
+### 7.3 品質管理コマンド
 
 | コマンド                | 説明               |
 | ----------------------- | ------------------ |
@@ -251,7 +538,7 @@ NODE_ENV=development
 | `pnpm fix:boundaries`   | 境界違反自動修正   |
 | `pnpm validate:all`     | 全検証実行         |
 
-### 6.4 フィーチャー開発コマンド
+### 7.4 フィーチャー開発コマンド
 
 | コマンド                     | 説明                       |
 | ---------------------------- | -------------------------- |
@@ -261,9 +548,9 @@ NODE_ENV=development
 | `pnpm sc:boundaries`         | 境界チェック               |
 | `pnpm sc:validate`           | 包括的検証                 |
 
-## 7. 開発ワークフロー
+## 8. 開発ワークフロー
 
-### 7.1 新機能開発フロー
+### 8.1 新機能開発フロー
 
 ```bash
 # 1. セッション開始
@@ -288,7 +575,7 @@ git add .
 git commit -m "feat(user-profile): ユーザープロフィール機能を追加"
 ```
 
-### 7.2 バグ修正フロー
+### 8.2 バグ修正フロー
 
 ```bash
 # 1. 回帰テスト作成（必須）
@@ -306,9 +593,9 @@ pnpm test:regression
 pnpm validate:all
 ```
 
-## 8. Git Hooks
+## 9. Git Hooks
 
-### 8.1 pre-commit
+### 9.1 pre-commit
 
 - 設定ファイル整合性チェック
 - 単一フィーチャーチェック（複数フィーチャー同時コミット防止）
@@ -316,21 +603,21 @@ pnpm validate:all
 - ESLint + TypeScript チェック
 - ユニットテスト実行
 
-### 8.2 commit-msg
+### 9.2 commit-msg
 
 - コミットメッセージ形式検証
 - 形式: `type(scope): description`
 - 許可されるtype: feat, fix, docs, style, refactor, test, chore
 
-## 9. 前提条件
+## 10. 前提条件
 
-### 9.1 必須
+### 10.1 必須
 
 - Node.js >= 20.19.0
 - pnpm >= 8.0.0
 - Git
 
-### 9.2 推奨（フル機能使用時）
+### 10.2 推奨（フル機能使用時）
 
 - Claude Code CLI
 - SuperClaude v4.0.8
@@ -341,7 +628,7 @@ pnpm validate:all
   - Morphllm（高速編集）
   - Playwright（E2Eテスト）
 
-## 10. セットアップ手順
+## 11. セットアップ手順
 
 ```bash
 # 1. リポジトリクローン
@@ -361,9 +648,9 @@ pnpm dev
 # ブラウザで http://localhost:3000 を開く
 ```
 
-## 11. デプロイ
+## 12. デプロイ
 
-### 11.1 Vercel（推奨）
+### 12.1 Vercel（推奨）
 
 ```bash
 # Vercel CLIでデプロイ
@@ -372,7 +659,7 @@ vercel
 # または GitHub連携で自動デプロイ
 ```
 
-### 11.2 ビルド設定
+### 12.2 ビルド設定
 
 | 設定             | 値             |
 | ---------------- | -------------- |
@@ -381,7 +668,7 @@ vercel
 | Install Command  | `pnpm install` |
 | Node.js Version  | 20.x           |
 
-## 12. パフォーマンス指標
+## 13. パフォーマンス指標
 
 | 指標          | 目標値  | 現在値  |
 | ------------- | ------- | ------- |
@@ -390,7 +677,28 @@ vercel
 | 境界チェック  | < 500ms | < 100ms |
 | テスト実行    | < 10秒  | ~1秒    |
 
+## 14. 品質基準
+
+### 14.1 TypeScript品質（97%モード）
+
+- `strict: true`
+- `noImplicitAny: true`
+- `strictNullChecks: true`
+- `noUnusedLocals: true`
+- `noUnusedParameters: true`
+
+### 14.2 テストカバレッジ
+
+- グローバル: 90%以上
+- フィーチャー単位: 95%以上
+
+### 14.3 コード品質
+
+- ESLint 9 flat config
+- Prettier統合
+- 境界違反ゼロトレランス
+
 ---
 
 **最終更新**: 2025-12-23
-**バージョン**: 1.0.0
+**バージョン**: 2.0.0
