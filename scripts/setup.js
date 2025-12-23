@@ -186,31 +186,24 @@ export default defineConfig({
   log.success('テストディレクトリ構造を作成しました')
 
   // テストヘルパー作成
-  const authHelperPath = 'tests/e2e/helpers/auth.ts'
-  if (!fs.existsSync(authHelperPath)) {
-    const authHelper = `import { Page } from '@playwright/test';
+  const helperPath = 'tests/e2e/helpers/navigation.ts'
+  if (!fs.existsSync(helperPath)) {
+    const helper = `import { Page } from '@playwright/test';
 
-export async function authenticate(page: Page, password: string = '0492') {
-  // PROJECT_INFO.mdに記載のパスワード認証
-  await page.goto('/');
-  const passwordInput = page.locator('input[type="password"]');
-  if (await passwordInput.isVisible()) {
-    await passwordInput.fill(password);
-    await page.keyboard.press('Enter');
-    await page.waitForLoadState('networkidle');
-  }
+export async function waitForPageLoad(page: Page) {
+  await page.waitForLoadState('networkidle');
 }
 
 export async function waitForFeatureLoad(page: Page, featureName: string) {
-  await page.waitForSelector(\`[data-feature="\${featureName}"]\`, { 
+  await page.waitForSelector(\`[data-feature="\${featureName}"]\`, {
     state: 'visible',
-    timeout: 10000 
+    timeout: 10000
   });
 }
 `
-    fs.writeFileSync(authHelperPath, authHelper)
+    fs.writeFileSync(helperPath, helper)
     log.success('E2Eテストヘルパーを作成しました')
-    results.created.push(authHelperPath)
+    results.created.push(helperPath)
   }
 
   // ========== Step 3: Vitest単体テスト環境 ==========
