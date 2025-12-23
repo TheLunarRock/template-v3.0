@@ -57,3 +57,4 @@ Thumbs.db
 .claude/settings.local.json
 # Local environment files
 .env*.local
+playwright-report/
