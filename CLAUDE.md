@@ -123,6 +123,77 @@ cp .claude/settings.json .claude/settings.local.json
 
 # ═══════════════════════════════════════════════════
 
+# 🔔 Claude Code通知システム
+
+# ═══════════════════════════════════════════════════
+
+## 自動セットアップ
+
+```bash
+# テンプレートクローン後に実行
+pnpm setup:sc
+
+# 対話式で通知設定
+# 1. 「通知を設定しますか？ (y/N):」→ y
+# 2. 「Webhook URL:」→ Slack Webhook URLを入力（空欄可）
+```
+
+## 通知タイミング
+
+| フック                                 | 発火条件       | 用途                 |
+| -------------------------------------- | -------------- | -------------------- |
+| **Stop**                               | タスク完了時   | 作業終了の通知       |
+| **Notification** (`permission_prompt`) | 承認待ち時     | ツール使用許可の通知 |
+| **Notification** (`idle_prompt`)       | 60秒アイドル時 | 応答待ちの通知       |
+
+## 通知方法（3重通知）
+
+1. **macOSサウンド** - Glass.aiff（即時）
+2. **macOS通知センター** - プロジェクト名表示
+3. **Slack** - Webhook経由（設定時のみ）
+
+## 設定ファイル
+
+| ファイル          | 場所         | 用途                |
+| ----------------- | ------------ | ------------------- |
+| `settings.json`   | `~/.claude/` | グローバルhooks設定 |
+| `slack-notify.sh` | `~/.claude/` | 通知スクリプト      |
+
+## プロジェクト固有設定の注意
+
+**重要**: プロジェクトに`.claude/settings.local.json`がある場合、hooksも含める必要があります。
+
+```json
+{
+  "hooks": {
+    "Stop": [
+      { "matcher": "", "hooks": [{ "type": "command", "command": "~/.claude/slack-notify.sh" }] }
+    ],
+    "Notification": [
+      {
+        "matcher": "permission_prompt|idle_prompt",
+        "hooks": [{ "type": "command", "command": "~/.claude/slack-notify.sh" }]
+      }
+    ]
+  },
+  "permissions": {
+    /* 既存設定 */
+  }
+}
+```
+
+## トラブルシューティング
+
+| 問題                      | 解決策                                           |
+| ------------------------- | ------------------------------------------------ |
+| 通知が来ない              | プロジェクトの`settings.local.json`にhooksを追加 |
+| Slackのみ来ない           | Webhook URLを確認・再設定                        |
+| Cursor/VSCodeで動作しない | 既知のバグ、Stopフックのみ動作（修正待ち）       |
+
+詳細は [SPECIFICATION.md](./SPECIFICATION.md) のセクション10を参照。
+
+# ═══════════════════════════════════════════════════
+
 # 🔴 MCP-First原則（最優先・絶対遵守）
 
 # ═══════════════════════════════════════════════════

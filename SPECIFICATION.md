@@ -609,9 +609,198 @@ pnpm validate:all
 - 形式: `type(scope): description`
 - 許可されるtype: feat, fix, docs, style, refactor, test, chore
 
-## 10. 前提条件
+## 10. Claude Code通知システム
 
-### 10.1 必須
+### 10.1 概要
+
+Claude Codeがタスク完了時または承認待ち時に、Slack/macOS通知を送信するシステム。
+
+### 10.2 アーキテクチャ
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│ Claude Code                                                  │
+│ ┌─────────────────────────────────────────────────────────┐ │
+│ │ Hooks System                                             │ │
+│ │ ├─ Stop Event      → タスク完了時に発火                  │ │
+│ │ └─ Notification Event → 承認待ち/60秒アイドル時に発火   │ │
+│ └─────────────────────────────────────────────────────────┘ │
+│                              │                               │
+│                              ▼                               │
+│ ~/.claude/slack-notify.sh (通知スクリプト)                   │
+└─────────────────────────────────────────────────────────────┘
+                               │
+          ┌────────────────────┼────────────────────┐
+          ▼                    ▼                    ▼
+   ┌────────────┐      ┌────────────┐      ┌────────────┐
+   │ macOS Sound│      │ macOS      │      │ Slack      │
+   │ (afplay)   │      │ Notification│     │ Webhook    │
+   └────────────┘      └────────────┘      └────────────┘
+```
+
+### 10.3 設定ファイル
+
+#### 10.3.1 グローバル設定（~/.claude/settings.json）
+
+```json
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "hooks": {
+    "Stop": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/Users/[username]/.claude/slack-notify.sh"
+          }
+        ]
+      }
+    ],
+    "Notification": [
+      {
+        "matcher": "permission_prompt|idle_prompt",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/Users/[username]/.claude/slack-notify.sh"
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+#### 10.3.2 通知スクリプト（~/.claude/slack-notify.sh）
+
+```bash
+#!/bin/bash
+# Claude Code Notification Script
+
+WEBHOOK_URL="your-slack-webhook-url"  # Slack Webhook URL（オプション）
+
+# プロジェクト名を取得
+PROJECT_NAME=$(basename "$(pwd)")
+
+# メッセージ作成
+MESSAGE="Claude Code is waiting in *${PROJECT_NAME}*"
+
+# 1. サウンド再生（macOS）
+if [[ "$OSTYPE" == "darwin"* ]]; then
+  afplay /System/Library/Sounds/Glass.aiff &
+fi
+
+# 2. macOS通知
+if [[ "$OSTYPE" == "darwin"* ]]; then
+  osascript -e "display notification \"$MESSAGE\" with title \"Claude Code\" sound name \"Glass\""
+fi
+
+# 3. Slack通知（設定時のみ）
+if [ -n "$WEBHOOK_URL" ]; then
+  curl -s -X POST "$WEBHOOK_URL" \
+    -H "Content-Type: application/json" \
+    -d "{\"text\": \"$MESSAGE\"}" > /dev/null 2>&1
+fi
+```
+
+### 10.4 Hooks イベント仕様
+
+| イベント         | マッチャー               | 発火タイミング               |
+| ---------------- | ------------------------ | ---------------------------- |
+| **Stop**         | `""` (空文字 = 全マッチ) | Claude Codeタスク完了時      |
+| **Notification** | `permission_prompt`      | 承認待ち（ツール使用許可等） |
+| **Notification** | `idle_prompt`            | 60秒間アイドル状態継続時     |
+
+### 10.5 セットアップ方法
+
+#### 自動セットアップ（推奨）
+
+```bash
+# テンプレートクローン後に実行
+pnpm setup:sc
+
+# 対話プロンプト:
+# 1. 「通知を設定しますか？ (y/N):」→ y
+# 2. 「Webhook URL:」→ Slack Webhook URLを入力（空欄可）
+```
+
+#### 手動セットアップ
+
+```bash
+# 1. 通知スクリプト作成
+mkdir -p ~/.claude
+cat > ~/.claude/slack-notify.sh << 'EOF'
+#!/bin/bash
+PROJECT_NAME=$(basename "$(pwd)")
+MESSAGE="Claude Code is waiting in *${PROJECT_NAME}*"
+afplay /System/Library/Sounds/Glass.aiff &
+osascript -e "display notification \"$MESSAGE\" with title \"Claude Code\" sound name \"Glass\""
+EOF
+chmod +x ~/.claude/slack-notify.sh
+
+# 2. settings.jsonにhooks追加（手動編集）
+```
+
+### 10.6 Slack Webhook設定手順
+
+1. https://api.slack.com/apps にアクセス
+2. 「Create New App」→「From scratch」
+3. アプリ名とワークスペースを選択
+4. 左メニュー「Incoming Webhooks」をクリック
+5. 「Activate Incoming Webhooks」をON
+6. 「Add New Webhook to Workspace」をクリック
+7. 通知先チャンネルを選択
+8. 生成されたWebhook URLをコピー
+
+### 10.7 トラブルシューティング
+
+| 問題                      | 原因                                               | 解決策                                   |
+| ------------------------- | -------------------------------------------------- | ---------------------------------------- |
+| 通知が来ない              | プロジェクトにsettings.local.jsonがありhooksがない | プロジェクト設定にもhooksを追加          |
+| Slackのみ来ない           | Webhook URLが未設定または無効                      | URLを確認して再設定                      |
+| 音が鳴らない              | macOS以外のOS                                      | Linuxの場合は`paplay`等に変更            |
+| Cursor/VSCodeで動作しない | 既知のバグ（Issue #11156）                         | Stopフックは動作、Notificationは修正待ち |
+
+### 10.8 プロジェクト固有設定
+
+プロジェクトに`.claude/settings.local.json`がある場合、hooksを含める必要があります：
+
+```json
+{
+  "hooks": {
+    "Stop": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/Users/[username]/.claude/slack-notify.sh"
+          }
+        ]
+      }
+    ],
+    "Notification": [
+      {
+        "matcher": "permission_prompt|idle_prompt",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/Users/[username]/.claude/slack-notify.sh"
+          }
+        ]
+      }
+    ]
+  },
+  "permissions": {
+    // 既存の権限設定
+  }
+}
+```
+
+## 11. 前提条件
+
+### 11.1 必須
 
 - Node.js >= 20.19.0
 - pnpm >= 8.0.0
@@ -628,7 +817,7 @@ pnpm validate:all
   - Morphllm（高速編集）
   - Playwright（E2Eテスト）
 
-## 11. セットアップ手順
+## 12. セットアップ手順
 
 ```bash
 # 1. リポジトリクローン
@@ -648,9 +837,9 @@ pnpm dev
 # ブラウザで http://localhost:3000 を開く
 ```
 
-## 12. デプロイ
+## 13. デプロイ
 
-### 12.1 Vercel（推奨）
+### 13.1 Vercel（推奨）
 
 ```bash
 # Vercel CLIでデプロイ
@@ -659,7 +848,7 @@ vercel
 # または GitHub連携で自動デプロイ
 ```
 
-### 12.2 ビルド設定
+### 13.2 ビルド設定
 
 | 設定             | 値             |
 | ---------------- | -------------- |
@@ -668,7 +857,7 @@ vercel
 | Install Command  | `pnpm install` |
 | Node.js Version  | 20.x           |
 
-## 13. パフォーマンス指標
+## 14. パフォーマンス指標
 
 | 指標          | 目標値  | 現在値  |
 | ------------- | ------- | ------- |
@@ -677,9 +866,9 @@ vercel
 | 境界チェック  | < 500ms | < 100ms |
 | テスト実行    | < 10秒  | ~1秒    |
 
-## 14. 品質基準
+## 15. 品質基準
 
-### 14.1 TypeScript品質（97%モード）
+### 15.1 TypeScript品質（97%モード）
 
 - `strict: true`
 - `noImplicitAny: true`
@@ -687,12 +876,12 @@ vercel
 - `noUnusedLocals: true`
 - `noUnusedParameters: true`
 
-### 14.2 テストカバレッジ
+### 15.2 テストカバレッジ
 
 - グローバル: 90%以上
 - フィーチャー単位: 95%以上
 
-### 14.3 コード品質
+### 15.3 コード品質
 
 - ESLint 9 flat config
 - Prettier統合
@@ -700,5 +889,5 @@ vercel
 
 ---
 
-**最終更新**: 2025-12-23
-**バージョン**: 2.0.0
+**最終更新**: 2026-01-28
+**バージョン**: 2.1.0
