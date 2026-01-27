@@ -13,6 +13,8 @@
 const fs = require('fs')
 const path = require('path')
 const { execSync } = require('child_process')
+const readline = require('readline')
+const os = require('os')
 const {
   detectPackageManager,
   getPackageManagerCommand,
@@ -38,6 +40,142 @@ const log = {
   warning: (msg) => console.log(`${colors.yellow}⚠${colors.reset} ${msg}`),
   error: (msg) => console.log(`${colors.red}✗${colors.reset} ${msg}`),
   section: (msg) => console.log(`\n${colors.bold}${colors.blue}━━━ ${msg} ━━━${colors.reset}\n`),
+}
+
+// ユーザー入力を取得
+const askQuestion = (question) => {
+  const rl = readline.createInterface({
+    input: process.stdin,
+    output: process.stdout,
+  })
+  return new Promise((resolve) => {
+    rl.question(question, (answer) => {
+      rl.close()
+      resolve(answer.trim())
+    })
+  })
+}
+
+// Claude Code通知設定
+const setupClaudeNotifications = async () => {
+  const homeDir = os.homedir()
+  const claudeDir = path.join(homeDir, '.claude')
+  const settingsPath = path.join(claudeDir, 'settings.json')
+  const scriptPath = path.join(claudeDir, 'slack-notify.sh')
+
+  // .claudeディレクトリが存在するか確認
+  if (!fs.existsSync(claudeDir)) {
+    fs.mkdirSync(claudeDir, { recursive: true })
+  }
+
+  // 既存のsettings.jsonを読み込み
+  let settings = {}
+  if (fs.existsSync(settingsPath)) {
+    try {
+      settings = JSON.parse(fs.readFileSync(settingsPath, 'utf8'))
+    } catch {
+      settings = {}
+    }
+  }
+
+  // hooksが既に設定されているか確認
+  if (settings.hooks && settings.hooks.Stop) {
+    log.info('Claude Code通知は既に設定されています')
+    return { skipped: true, reason: 'already_configured' }
+  }
+
+  // 通知スクリプトが既に存在するか確認
+  if (fs.existsSync(scriptPath)) {
+    // スクリプトは存在するがhooksがない場合、hooksだけ追加
+    log.info('通知スクリプトが見つかりました。hooks設定を追加します...')
+  } else {
+    // ユーザーに通知設定を行うか確認
+    console.log('')
+    log.info('Claude Code通知機能をセットアップできます')
+    log.info('タスク完了時や承認待ち時にSlack/macOS通知を受け取れます')
+    console.log('')
+
+    const setupNotify = await askQuestion('通知を設定しますか？ (y/N): ')
+    if (setupNotify.toLowerCase() !== 'y' && setupNotify.toLowerCase() !== 'yes') {
+      log.info('通知設定をスキップしました')
+      return { skipped: true, reason: 'user_declined' }
+    }
+
+    // Slack Webhook URLを取得
+    console.log('')
+    log.info('Slack Incoming Webhook URLを入力してください')
+    log.info('（Slackを使用しない場合は空欄でEnter）')
+    log.info('取得方法: https://api.slack.com/apps → Create New App → Incoming Webhooks')
+    console.log('')
+
+    const webhookUrl = await askQuestion('Webhook URL: ')
+
+    // 通知スクリプトを作成
+    const scriptContent = `#!/bin/bash
+# Claude Code Notification Script
+# Sends notification when Claude Code needs attention
+
+${webhookUrl ? `WEBHOOK_URL="${webhookUrl}"` : '# WEBHOOK_URL="your-slack-webhook-url-here"'}
+
+# Get current directory name as project identifier
+PROJECT_NAME=$(basename "$(pwd)")
+
+# Create message
+MESSAGE="Claude Code is waiting in *\${PROJECT_NAME}*"
+
+# 1. Play sound (macOS)
+if [[ "$OSTYPE" == "darwin"* ]]; then
+  afplay /System/Library/Sounds/Glass.aiff &
+fi
+
+# 2. macOS notification
+if [[ "$OSTYPE" == "darwin"* ]]; then
+  osascript -e "display notification \\"$MESSAGE\\" with title \\"Claude Code\\" sound name \\"Glass\\""
+fi
+
+# 3. Send to Slack (if webhook URL is configured)
+${webhookUrl ? '' : '# '}if [ -n "$WEBHOOK_URL" ]; then
+${webhookUrl ? '' : '# '}  curl -s -X POST "$WEBHOOK_URL" \\
+${webhookUrl ? '' : '# '}    -H "Content-Type: application/json" \\
+${webhookUrl ? '' : '# '}    -d "{\\"text\\": \\"$MESSAGE\\"}" > /dev/null 2>&1
+${webhookUrl ? '' : '# '}fi
+`
+    fs.writeFileSync(scriptPath, scriptContent)
+    fs.chmodSync(scriptPath, '755')
+    log.success(`通知スクリプトを作成しました: ${scriptPath}`)
+  }
+
+  // hooks設定を追加
+  settings.hooks = {
+    Stop: [
+      {
+        matcher: '',
+        hooks: [
+          {
+            type: 'command',
+            command: scriptPath,
+          },
+        ],
+      },
+    ],
+    Notification: [
+      {
+        matcher: 'permission_prompt|idle_prompt',
+        hooks: [
+          {
+            type: 'command',
+            command: scriptPath,
+          },
+        ],
+      },
+    ],
+  }
+
+  // settings.jsonを保存
+  fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2))
+  log.success(`Claude Code設定を更新しました: ${settingsPath}`)
+
+  return { skipped: false, scriptPath, settingsPath }
 }
 
 // コマンド実行
@@ -425,6 +563,26 @@ jobs:
     log.success('PROJECT_INFO.mdが存在します')
   }
 
+  // ========== Step 5.5: Claude Code通知設定 ==========
+  log.section('Step 5.5/8: Claude Code通知設定')
+
+  try {
+    const notifyResult = await setupClaudeNotifications()
+    if (notifyResult.skipped) {
+      if (notifyResult.reason === 'already_configured') {
+        log.success('Claude Code通知は設定済みです')
+      } else {
+        log.info('通知設定はスキップされました')
+      }
+    } else {
+      results.created.push('~/.claude/slack-notify.sh')
+      results.installed.push('Claude Code通知hooks')
+    }
+  } catch (error) {
+    log.warning('通知設定中にエラーが発生しました: ' + error.message)
+    results.warnings.push('Claude Code通知設定に失敗')
+  }
+
   // ========== Step 6: VS Code設定 ==========
   log.section('Step 6/8: 開発環境設定')
 
@@ -515,6 +673,7 @@ ${colors.blue}📦 インストール済み機能:${colors.reset}
   ✓ GitHub Actions CI/CD
   ✓ 境界違反自動検出
   ✓ Claude Code専用ドキュメント領域
+  ✓ Claude Code通知（Slack/macOS）
 
 📋 作成されたファイル・ディレクトリ:
   ${results.created.map((item) => `• ${item}`).join('\n  ')}
