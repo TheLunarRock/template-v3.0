@@ -1,63 +1,150 @@
-# dependencies
+# ═══════════════════════════════════════════════════
+# SECURITY: Secrets & Credentials (CRITICAL)
+# ═══════════════════════════════════════════════════
+
+# Environment variables (API keys, passwords, tokens)
+.env
+.env.*
+!.env.example
+!.env.ci
+
+# SSH keys
+id_rsa
+id_rsa.*
+id_ed25519
+id_ed25519.*
+id_dsa
+id_ecdsa
+*.pem
+*.key
+*.p12
+*.pfx
+*.jks
+
+# Cloud provider credentials
+credentials.csv
+*-service-account.json
+*-service-account-key.json
+.aws/
+.gcp/
+.azure/
+
+# Certificates & signing
+*.crt
+*.cer
+*.der
+*.csr
+
+# Token / secret files
+*.secret
+*.secrets
+.npmrc
+.pypirc
+.netrc
+.htpasswd
+
+# ═══════════════════════════════════════════════════
+# SECURITY: Database files
+# ═══════════════════════════════════════════════════
+
+*.sqlite
+*.sqlite3
+*.db
+dump.sql
+*.dump
+*.sql.gz
+*.sql.bak
+
+# ═══════════════════════════════════════════════════
+# Dependencies
+# ═══════════════════════════════════════════════════
+
 /node_modules
 /.pnp
 .pnp.js
-
-# testing
-/coverage
-
-# next.js
-/.next/
-/out/
-
-# production
-/build
-
-# misc
-.DS_Store
-*.pem
-
-# debug
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-
-# local env files
-.env*.local
-
-# vercel
-.vercel
-
-# typescript
-*.tsbuildinfo
-next-env.d.ts
 
 # package manager files
 package-lock.json
 yarn.lock
 # pnpm-lock.yaml は含めない（プロジェクトで使用するため）
 
-# IDE
+# ═══════════════════════════════════════════════════
+# Next.js / Build
+# ═══════════════════════════════════════════════════
+
+/.next/
+/out/
+/build
+/dist
+
+# ═══════════════════════════════════════════════════
+# Testing
+# ═══════════════════════════════════════════════════
+
+/coverage
+playwright-report/
+/src/app/test-*
+
+# ═══════════════════════════════════════════════════
+# Logs
+# ═══════════════════════════════════════════════════
+
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# ═══════════════════════════════════════════════════
+# OS generated files
+# ═══════════════════════════════════════════════════
+
+.DS_Store
+.DS_Store?
+._*
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# ═══════════════════════════════════════════════════
+# IDE / Editor
+# ═══════════════════════════════════════════════════
+
 .vscode/
 .idea/
 *.swp
 *.swo
+*.sln
+*.suo
+*~
 
-# OS
-Thumbs.db
+# ═══════════════════════════════════════════════════
+# TypeScript
+# ═══════════════════════════════════════════════════
 
-# test files
-/src/app/test-*
+*.tsbuildinfo
+next-env.d.ts
 
-# Serena AI memory
+# ═══════════════════════════════════════════════════
+# Vercel
+# ═══════════════════════════════════════════════════
+
+.vercel
+
+# ═══════════════════════════════════════════════════
+# AI tools / Local configuration
+# ═══════════════════════════════════════════════════
+
 .serena/
-
-# Claude Code local configuration
 .claude/protected-features.json
 .claude/settings.local.json
-# Local environment files
-.env*.local
-playwright-report/
 
-# notes
+# ═══════════════════════════════════════════════════
+# Personal notes
+# ═══════════════════════════════════════════════════
+
 note.txt
+memo.txt
+todo.md
+scratch.*
