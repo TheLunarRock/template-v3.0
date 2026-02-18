@@ -44,11 +44,11 @@ REPOS=$(gh repo list --json name,isPrivate,isArchived,defaultBranchRef \
   --limit 100)
 
 REPO_COUNT=$(echo "$REPOS" | wc -l | tr -d ' ')
-PUBLIC_COUNT=$(echo "$REPOS" | grep -c "public" || echo 0)
-PRIVATE_COUNT=$(echo "$REPOS" | grep -c "private" || echo 0)
+PUBLIC_COUNT=$(echo "$REPOS" | grep -c "public") || PUBLIC_COUNT=0
+PRIVATE_COUNT=$(echo "$REPOS" | grep -c "private") || PRIVATE_COUNT=0
 
 echo ""
-echo -e "  対象: ${BOLD}$REPO_COUNT${NC} リポジトリ（公開: $PUBLIC_COUNT / プライベート: $PRIVATE_COUNT）"
+echo -e "  対象: ${BOLD}${REPO_COUNT}${NC} リポジトリ（公開: ${PUBLIC_COUNT} / プライベート: ${PRIVATE_COUNT}）"
 echo -e "  ${DIM}※ アーカイブ済みリポジトリは除外${NC}"
 echo ""
 
