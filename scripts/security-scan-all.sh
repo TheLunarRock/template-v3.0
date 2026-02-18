@@ -69,22 +69,22 @@ for dir in "$GITHUB_DIR"/*/; do
 
   printf "  [%02d] %-35s [%s] " "$total" "$repo_name" "$is_public"
 
-  # gitleaksスキャン
-  scan_output=$(gitleaks git -s "$dir" --no-banner 2>&1) || true
-  scan_exit=$?
+  # gitleaksスキャン（--no-color でANSIコードを除去）
+  scan_exit=0
+  scan_output=$(gitleaks git "$dir" --no-banner --no-color 2>&1) || scan_exit=$?
 
   if echo "$scan_output" | grep -q "no leaks found"; then
     echo -e "${GREEN}✅ クリーン${NC}"
     echo "  ✅ [$is_public] $repo_name - クリーン" >> "$REPORT_FILE"
     clean=$((clean + 1))
   elif echo "$scan_output" | grep -q "leaks found"; then
-    leak_count=$(echo "$scan_output" | grep -oP '\d+ leaks?' | head -1 || echo "検出あり")
+    leak_count=$(echo "$scan_output" | grep -oE '[0-9]+ leaks?' | head -1 || echo "検出あり")
     echo -e "${RED}🚨 秘密情報検出: $leak_count${NC}"
     {
       echo ""
       echo "  🚨 [$is_public] $repo_name - 秘密情報検出"
       echo "  詳細:"
-      gitleaks git -s "$dir" --no-banner -v 2>&1 | head -50
+      (gitleaks git "$dir" --no-banner --no-color -v 2>&1 || true) | head -50
       echo ""
     } >> "$REPORT_FILE"
     leaked=$((leaked + 1))
