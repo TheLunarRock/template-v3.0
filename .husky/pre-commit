@@ -1,6 +1,27 @@
 #!/usr/bin/env sh
 . "$(dirname -- "$0")/_/husky.sh"
 
+# 🔐 シークレットスキャン（gitleaks）
+echo "🔐 シークレットスキャン..."
+if command -v gitleaks >/dev/null 2>&1; then
+  gitleaks git --pre-commit --staged --verbose 2>&1 | tail -5
+  if [ ${PIPESTATUS[0]} -ne 0 ]; then
+    echo ""
+    echo "❌ 秘密情報の流出を検出しました！"
+    echo "APIキー・パスワード等がステージングに含まれています。"
+    echo ""
+    echo "📝 対処法："
+    echo "1. 該当ファイルをステージングから除外: git reset HEAD <file>"
+    echo "2. .gitignoreに追加してからコミット"
+    echo "3. 誤検知の場合: .gitleaksignore に追加"
+    echo ""
+    exit 1
+  fi
+  echo "✅ シークレットスキャン: OK"
+else
+  echo "⚠️ gitleaksが未インストールです（brew install gitleaks）"
+fi
+
 # 🔒 設定ファイル保護チェック（品質維持のため必須）
 echo "🔒 設定ファイル整合性チェック..."
 node scripts/protect-config.js || {
