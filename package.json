@@ -72,7 +72,9 @@
     "quality:98": "echo '🎯 98%品質モード (ESLint 9 flat config)'",
     "quality:restore": "echo '✅ ESLint 9 flat config is the default'",
     "claude:quality:optimal": "echo '🤖 Claude Code最適品質モード (97%)' && pnpm validate",
-    "claude:quality:extreme": "echo '🤖 Claude Code極限品質モード' && pnpm validate"
+    "claude:quality:extreme": "echo '🤖 Claude Code極限品質モード' && pnpm validate",
+    "security:scan-all": "bash scripts/security-scan-all.sh",
+    "security:setup-all": "bash scripts/security-setup-all.sh"
   },
   "engines": {
     "node": ">=20.19.0"
