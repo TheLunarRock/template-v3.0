@@ -980,17 +980,21 @@ cd my-app
 # 2. 依存関係インストール
 pnpm install
 
-# 3. セキュリティツールインストール
-brew install gitleaks
+# 3. 自動セットアップ（セキュリティ含む全自動）
+pnpm setup:sc
+# 以下が自動実行される:
+#   - gitleaksインストール（シークレットスキャン）
+#   - GitHub CLIインストール + 認証ガイド
+#   - グローバルgitignore設定
+#   - GitHub側セキュリティ有効化
+#     (Secret Scanning, Push Protection, Dependabot, ブランチ保護)
+#   - Claude Code通知設定（オプション）
 
-# 4. グローバルgitignore設定（初回のみ）
-git config --global core.excludesfile ~/.gitignore_global
-
-# 5. 環境変数設定
+# 4. 環境変数設定
 cp .env.example .env.local
 # .env.localを編集
 
-# 6. 開発サーバー起動
+# 5. 開発サーバー起動
 pnpm dev
 
 # ブラウザで http://localhost:3000 を開く

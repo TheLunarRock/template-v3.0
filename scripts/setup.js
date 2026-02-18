@@ -56,6 +56,231 @@ const askQuestion = (question) => {
   })
 }
 
+// Homebrewでツールをインストール（未インストール時のみ）
+const brewInstallIfMissing = (tool, displayName) => {
+  try {
+    execSync(`command -v ${tool}`, { stdio: 'pipe' })
+    log.success(`${displayName}は既にインストールされています`)
+    return true
+  } catch {
+    // Homebrewが利用可能か確認
+    try {
+      execSync('command -v brew', { stdio: 'pipe' })
+    } catch {
+      log.warning(`Homebrewが見つかりません。${displayName}を手動でインストールしてください`)
+      return false
+    }
+
+    log.info(`${displayName}をインストール中...`)
+    try {
+      execSync(`brew install ${tool}`, { stdio: 'inherit' })
+      log.success(`${displayName}をインストールしました`)
+      return true
+    } catch {
+      log.warning(`${displayName}のインストールに失敗しました`)
+      log.info(`手動インストール: brew install ${tool}`)
+      return false
+    }
+  }
+}
+
+// セキュリティ自動セットアップ
+const setupSecurity = async () => {
+  const homeDir = os.homedir()
+  const securityResults = {
+    gitleaks: false,
+    ghCli: false,
+    globalGitignore: false,
+    githubSettings: false,
+  }
+
+  // --- 1. gitleaksインストール ---
+  log.info('🔐 シークレットスキャンツール (gitleaks)')
+  securityResults.gitleaks = brewInstallIfMissing('gitleaks', 'gitleaks')
+
+  // --- 2. GitHub CLI インストール ---
+  console.log('')
+  log.info('🔧 GitHub CLI (gh)')
+  securityResults.ghCli = brewInstallIfMissing('gh', 'GitHub CLI')
+
+  // --- 3. GitHub CLI認証確認 ---
+  let ghAuthenticated = false
+  if (securityResults.ghCli) {
+    try {
+      execSync('gh auth status', { stdio: 'pipe' })
+      log.success('GitHub CLIは認証済みです')
+      ghAuthenticated = true
+    } catch {
+      console.log('')
+      log.warning('GitHub CLIが未認証です')
+      console.log('')
+      log.info('GitHub側のセキュリティ設定（Secret Scanning等）には認証が必要です')
+      log.info('以下のコマンドを実行して認証してください:')
+      console.log('')
+      console.log(`  ${colors.green}gh auth login${colors.reset}`)
+      console.log('')
+      log.info('手順:')
+      log.info('  1. 「GitHub.com」を選択')
+      log.info('  2. 「HTTPS」を選択')
+      log.info('  3. 「Login with a web browser」を選択')
+      log.info('  4. 表示されるコードをブラウザで入力')
+      console.log('')
+
+      const doAuth = await askQuestion('今すぐ認証しますか？ (y/N): ')
+      if (doAuth.toLowerCase() === 'y' || doAuth.toLowerCase() === 'yes') {
+        try {
+          execSync('gh auth login', { stdio: 'inherit' })
+          ghAuthenticated = true
+          log.success('GitHub認証が完了しました')
+        } catch {
+          log.warning('認証がキャンセルされました。後で gh auth login を実行してください')
+        }
+      } else {
+        log.info('認証をスキップしました。後で gh auth login を実行してください')
+      }
+    }
+  }
+
+  // --- 4. グローバルgitignore設定 ---
+  console.log('')
+  log.info('🛡️ グローバルgitignore設定')
+  const globalGitignorePath = path.join(homeDir, '.gitignore_global')
+
+  if (!fs.existsSync(globalGitignorePath)) {
+    const globalGitignoreContent = `# Global gitignore - applied to ALL repositories
+# Set with: git config --global core.excludesfile ~/.gitignore_global
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# IDE / Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+*.sublime-project
+*.sublime-workspace
+
+# SSH keys (safety net)
+id_rsa
+id_ed25519
+id_dsa
+id_ecdsa
+*.pem
+*.key
+`
+    fs.writeFileSync(globalGitignorePath, globalGitignoreContent)
+    log.success(`${globalGitignorePath} を作成しました`)
+  } else {
+    log.success('グローバルgitignoreは既に存在します')
+  }
+
+  // git configに登録
+  try {
+    const currentConfig = execSync('git config --global core.excludesfile', {
+      stdio: 'pipe',
+      encoding: 'utf8',
+    }).trim()
+    if (currentConfig) {
+      log.success('グローバルgitignoreは既に設定済みです')
+    }
+  } catch {
+    execSync(`git config --global core.excludesfile ${globalGitignorePath}`, { stdio: 'pipe' })
+    log.success('グローバルgitignoreを設定しました')
+  }
+  securityResults.globalGitignore = true
+
+  // --- 5. GitHub側セキュリティ設定 ---
+  if (ghAuthenticated) {
+    console.log('')
+    log.info('🔒 GitHub側セキュリティ設定')
+
+    try {
+      // リポジトリ情報を取得
+      const repoInfo = execSync('gh repo view --json nameWithOwner --jq .nameWithOwner', {
+        stdio: 'pipe',
+        encoding: 'utf8',
+      }).trim()
+
+      if (repoInfo) {
+        log.info(`リポジトリ: ${repoInfo}`)
+
+        // Secret Scanning + Push Protection + Dependabot有効化
+        try {
+          execSync(
+            `gh api repos/${repoInfo} -X PATCH --input - <<'EOF'
+{
+  "security_and_analysis": {
+    "secret_scanning": { "status": "enabled" },
+    "secret_scanning_push_protection": { "status": "enabled" },
+    "dependabot_security_updates": { "status": "enabled" }
+  }
+}
+EOF`,
+            { stdio: 'pipe', shell: true }
+          )
+          log.success('Secret Scanning を有効化しました')
+          log.success('Push Protection を有効化しました')
+          log.success('Dependabot自動修正 を有効化しました')
+        } catch {
+          log.warning('セキュリティ設定の有効化に失敗しました（権限不足の可能性）')
+        }
+
+        // Dependabotアラート有効化
+        try {
+          execSync(`gh api repos/${repoInfo}/vulnerability-alerts -X PUT`, { stdio: 'pipe' })
+          log.success('Dependabotアラート を有効化しました')
+        } catch {
+          log.warning('Dependabotアラートの有効化に失敗しました')
+        }
+
+        // ブランチ保護設定
+        try {
+          const defaultBranch = execSync(
+            `gh repo view --json defaultBranchRef --jq .defaultBranchRef.name`,
+            { stdio: 'pipe', encoding: 'utf8' }
+          ).trim()
+
+          execSync(
+            `gh api repos/${repoInfo}/branches/${defaultBranch}/protection -X PUT --input - <<'EOF'
+{
+  "required_status_checks": null,
+  "enforce_admins": false,
+  "required_pull_request_reviews": null,
+  "restrictions": null,
+  "allow_force_pushes": false,
+  "allow_deletions": false,
+  "block_creations": false
+}
+EOF`,
+            { stdio: 'pipe', shell: true }
+          )
+          log.success(`${defaultBranch}ブランチ保護を設定しました（force push/削除禁止）`)
+        } catch {
+          log.warning('ブランチ保護の設定に失敗しました（権限不足の可能性）')
+        }
+
+        securityResults.githubSettings = true
+      }
+    } catch {
+      log.warning('リポジトリ情報の取得に失敗しました')
+      log.info('GitHubリポジトリにpushした後に再度 pnpm setup:sc を実行してください')
+    }
+  } else {
+    log.info('GitHub認証が未完了のため、GitHub側設定をスキップしました')
+    log.info('後で gh auth login → pnpm setup:sc で設定できます')
+  }
+
+  return securityResults
+}
+
 // Claude Code通知設定
 const setupClaudeNotifications = async () => {
   const homeDir = os.homedir()
@@ -583,6 +808,27 @@ jobs:
     results.warnings.push('Claude Code通知設定に失敗')
   }
 
+  // ========== Step 5.7: セキュリティ自動セットアップ ==========
+  log.section('Step 5.7/8: セキュリティ自動セットアップ')
+
+  try {
+    const securityResult = await setupSecurity()
+
+    if (securityResult.gitleaks) results.installed.push('gitleaks (シークレットスキャン)')
+    if (securityResult.ghCli) results.installed.push('GitHub CLI (gh)')
+    if (securityResult.globalGitignore) results.installed.push('グローバルgitignore')
+    if (securityResult.githubSettings) {
+      results.installed.push('GitHub Secret Scanning / Push Protection')
+      results.installed.push('Dependabot自動修正')
+      results.installed.push('ブランチ保護 (force push/削除禁止)')
+    } else {
+      results.warnings.push('GitHub側セキュリティ設定が未完了（gh auth login後に再実行）')
+    }
+  } catch (error) {
+    log.warning('セキュリティセットアップ中にエラーが発生しました: ' + error.message)
+    results.warnings.push('セキュリティセットアップに失敗')
+  }
+
   // ========== Step 6: VS Code設定 ==========
   log.section('Step 6/8: 開発環境設定')
 
@@ -674,6 +920,7 @@ ${colors.blue}📦 インストール済み機能:${colors.reset}
   ✓ 境界違反自動検出
   ✓ Claude Code専用ドキュメント領域
   ✓ Claude Code通知（Slack/macOS）
+  ✓ セキュリティ6層防御（gitleaks/GitHub保護）
 
 📋 作成されたファイル・ディレクトリ:
   ${results.created.map((item) => `• ${item}`).join('\n  ')}
