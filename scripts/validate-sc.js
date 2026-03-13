@@ -134,24 +134,19 @@ const checkTemplateFunctionality = () => {
 
   // 4. テスト環境
   const packageJson = JSON.parse(fs.readFileSync('package.json', 'utf8'))
-  const hasPlaywright =
-    packageJson.devDependencies && '@playwright/test' in packageJson.devDependencies
   const hasVitest = packageJson.devDependencies && 'vitest' in packageJson.devDependencies
 
-  if (hasPlaywright && hasVitest) {
+  if (hasVitest) {
     checks.critical.push({
       name: 'テスト環境',
       status: 'success',
-      message: 'Playwright + Vitest 設定済み',
+      message: 'Vitest 設定済み',
     })
   } else {
-    const missing = []
-    if (!hasPlaywright) missing.push('Playwright')
-    if (!hasVitest) missing.push('Vitest')
     checks.critical.push({
       name: 'テスト環境',
       status: 'error',
-      message: `テストライブラリ不足: ${missing.join(', ')}`,
+      message: 'テストライブラリ不足: Vitest',
     })
   }
 
@@ -309,10 +304,7 @@ const suggestMCP = (checkType, result) => {
       'Morphllm MCP: パターンベースで自動修正',
     ],
     types: ['Sequential MCP: 型エラーの根本原因を分析', 'Context7 MCP: 正しい型定義パターンを確認'],
-    tests: [
-      'Playwright MCP: E2Eテストで実際の動作を検証',
-      'Sequential MCP: テスト失敗の原因を分析',
-    ],
+    tests: ['Sequential MCP: テスト失敗の原因を分析'],
     build: ['Sequential MCP: ビルドエラーの依存関係を分析', 'Serena MCP: 問題のあるシンボルを特定'],
   }
 
@@ -497,9 +489,6 @@ async function main() {
     } else {
       log.info('回帰テスト: スキップ（テストファイルなし）')
     }
-
-    // E2Eテストはスキップ
-    log.info('E2Eテスト: スキップ（必要時に手動実行）')
   }
 
   // 5. ビルドチェック（フルモードまたはデプロイメントモード）

@@ -48,7 +48,7 @@
 | `pnpm security:scan-all`  | 全ローカルリポジトリをgitleaksで診断（読み取り専用）    |
 | `pnpm security:setup-all` | 全GitHubリポジトリにセキュリティ設定を一括適用（3段階） |
 
-詳細は [SPECIFICATION.md](./SPECIFICATION.md) のセクション11を参照。
+詳細は [SPECIFICATION.md](./SPECIFICATION.md) のセクション12を参照。
 
 # ═══════════════════════════════════════════════════
 
@@ -231,7 +231,46 @@ pnpm setup:sc
 | Slackのみ来ない           | Webhook URLを確認・再設定                        |
 | Cursor/VSCodeで動作しない | 既知のバグ、Stopフックのみ動作（修正待ち）       |
 
-詳細は [SPECIFICATION.md](./SPECIFICATION.md) のセクション10を参照。
+詳細は [SPECIFICATION.md](./SPECIFICATION.md) のセクション11を参照。
+
+# ═══════════════════════════════════════════════════
+
+# 🔄 CI/CDパイプライン
+
+# ═══════════════════════════════════════════════════
+
+## テスト戦略
+
+| テスト種別         | ツール | CI実行  | 方針                                         |
+| ------------------ | ------ | ------- | -------------------------------------------- |
+| **ユニットテスト** | Vitest | ✅ 自動 | テンプレート標準。全プロジェクトで実行       |
+| **回帰テスト**     | Vitest | ✅ 自動 | バグ修正時に必ず作成（test:regression）      |
+| **E2Eテスト**      | なし   | ❌ 削除 | テンプレートには含まない（下記設計判断参照） |
+
+## CI/CDパイプライン構成（GitHub Actions）
+
+```
+push/PR → quality（型+境界+lint） ─┐
+                                    ├→ build（ビルド+preflight）
+       → test（Vitest単体テスト） ─┘
+```
+
+- **quality**と**test**は並列実行（依存関係なし）
+- **build**はquality・test両方の成功後に実行
+- 実行環境: ubuntu-latest / Node.js 18 / pnpm 8
+
+## E2Eテスト削除の設計判断（2026-03-13）
+
+| 項目     | 内容                                                                                    |
+| -------- | --------------------------------------------------------------------------------------- |
+| **問題** | テンプレートからクローンした全リポジトリでPlaywrightが自動実行されActions分数を大量消費 |
+| **対策** | テンプレートからE2Eテスト（Playwright）を完全削除                                       |
+| **方針** | Vitestによるユニットテスト・回帰テストのみ提供。E2Eは各プロジェクトで個別導入           |
+| **影響** | 既存クローン済み23リポジトリのci.ymlからもE2Eステップを一括削除済み                     |
+
+**Claude Codeルール**: このテンプレートにPlaywright/E2Eテストを追加しないこと。E2Eが必要な場合は個別プロジェクトのci.ymlに追加する。
+
+詳細は [SPECIFICATION.md](./SPECIFICATION.md) のセクション9を参照。
 
 # ═══════════════════════════════════════════════════
 
@@ -401,7 +440,6 @@ file1 = read(); file2 = read(); file3 = read();
 | **Morphllm-fast-apply** | 高速ファイル操作・パターン編集   | 複数ファイル編集、一括置換、ディレクトリ操作         |
 | **Sequential-thinking** | 構造化思考・複雑な分析           | デバッグ、設計、問題の根本原因分析                   |
 | **Context7**            | 公式ドキュメント参照             | React/Next.js/Vue等のライブラリ使用時                |
-| **Playwright**          | ブラウザ自動化・E2Eテスト        | UI検証、統合テスト、アクセシビリティテスト           |
 | **Supabase**            | Supabaseプロジェクト管理         | DB操作、Edge Functions、認証設定                     |
 | **IDE**                 | VS Code連携                      | 診断情報取得、コード実行                             |
 
@@ -413,7 +451,6 @@ file1 = read(); file2 = read(); file3 = read();
 | **ファイル操作**         | Morphllm (fast-apply) | Native Read/Write | 手動操作       |
 | **複雑な分析・デバッグ** | Sequential (thinking) | Task agent        | 素の推論のみ   |
 | **ドキュメント参照**     | Context7              | WebSearch         | 記憶のみ       |
-| **ブラウザテスト**       | Playwright            | -                 | unit testのみ  |
 | **DB操作（Supabase）**   | Supabase MCP          | -                 | 手動SQL        |
 
 ### 🔴 MCP自動起動トリガー（必須使用）
@@ -448,12 +485,6 @@ const MCP_TRIGGERS = {
   Vue: 'mcp__context7__resolve-library-id → get-library-docs',
   Tailwind: 'mcp__context7__resolve-library-id → get-library-docs',
 
-  // Playwright: ブラウザテスト
-  E2E: 'mcp__playwright__browser_snapshot',
-  ブラウザ: 'mcp__playwright__browser_navigate',
-  スクリーンショット: 'mcp__playwright__browser_take_screenshot',
-  UI検証: 'mcp__playwright__browser_snapshot',
-
   // Supabase: DB/認証管理
   データベース: 'mcp__supabase__list_tables',
   マイグレーション: 'mcp__supabase__apply_migration',
@@ -477,11 +508,7 @@ mcp__serena__find_symbol → mcp__morphllm-fast-apply__tiny_edit_file
 mcp__context7__get-library-docs → mcp__serena__write_memory
 "公式パターンを確認して記憶に保存してから実装"
 
-# パターン4: 実装→テスト（品質保証）
-mcp__morphllm-fast-apply → mcp__playwright__browser_snapshot
-"実装後にE2Eテストで動作確認"
-
-# パターン5: DB設計→実装（Supabase）
+# パターン4: DB設計→実装（Supabase）
 mcp__supabase__list_tables → mcp__supabase__apply_migration
 "既存テーブル確認してからマイグレーション適用"
 ```
@@ -494,7 +521,6 @@ mcp__supabase__list_tables → mcp__supabase__apply_migration
 "1. Serenaでシンボル検索と依存関係分析"
 "2. Sequential-thinkingで実装戦略を構造化"
 "3. Morphllm-fast-applyで効率的な一括編集"
-"4. Playwrightで動作検証"
 
 # 実例
 "認証機能の実装:"
@@ -788,14 +814,13 @@ grep -r "from '@/features/[^']*/\(components\|hooks\|utils\|api\|types\)" src/fe
 
 **重要: 以下の状況では必ずMCPサーバーを使用してください**
 
-| 状況               | 必須MCPサーバー                         | 具体的な使用例                                   |
-| ------------------ | --------------------------------------- | ------------------------------------------------ |
-| **コード探索**     | Serena → `mcp__serena__find_symbol`     | 関数定義、クラス検索、依存関係分析               |
-| **ファイル操作**   | Morphllm → `mcp__morphllm-fast-apply`   | 複数ファイル読み込み、一括編集、ディレクトリ探索 |
-| **複雑な分析**     | Sequential → `mcp__sequential-thinking` | デバッグ、設計検討、問題の根本原因分析           |
-| **ドキュメント**   | Context7 → `mcp__context7`              | React/Next.js/Vue等の公式パターン確認            |
-| **ブラウザテスト** | Playwright → `mcp__playwright`          | E2Eテスト、UI検証、スクリーンショット            |
-| **DB操作**         | Supabase → `mcp__supabase`              | テーブル作成、マイグレーション、Edge Functions   |
+| 状況             | 必須MCPサーバー                         | 具体的な使用例                                   |
+| ---------------- | --------------------------------------- | ------------------------------------------------ |
+| **コード探索**   | Serena → `mcp__serena__find_symbol`     | 関数定義、クラス検索、依存関係分析               |
+| **ファイル操作** | Morphllm → `mcp__morphllm-fast-apply`   | 複数ファイル読み込み、一括編集、ディレクトリ探索 |
+| **複雑な分析**   | Sequential → `mcp__sequential-thinking` | デバッグ、設計検討、問題の根本原因分析           |
+| **ドキュメント** | Context7 → `mcp__context7`              | React/Next.js/Vue等の公式パターン確認            |
+| **DB操作**       | Supabase → `mcp__supabase`              | テーブル作成、マイグレーション、Edge Functions   |
 
 ### 自動フラグトリガー
 
@@ -806,7 +831,7 @@ grep -r "from '@/features/[^']*/\(components\|hooks\|utils\|api\|types\)" src/fe
 | UI開発             | `--frontend-architect --validate`              | frontend-architectエージェント＋境界チェック       |
 | リファクタリング   | `--morph --validate --safe-mode`               | Morphllm MCPでパターン適用＋安全実行               |
 | バグ修正           | `--think --sequential --validate`              | Sequential MCPで原因分析＋影響範囲確認             |
-| テスト作成         | `--playwright --delegate`                      | Playwright MCPでE2Eテスト＋並列実行                |
+| テスト作成         | `--delegate`                                   | Vitest単体テスト＋並列実行                         |
 
 ### MCPサーバー活用（実際に利用可能なMCP）
 
@@ -816,7 +841,6 @@ grep -r "from '@/features/[^']*/\(components\|hooks\|utils\|api\|types\)" src/fe
 | **Morphllm-fast-apply** | 高速ファイル操作・一括編集           | edit, modify, create, write, ディレクトリ     | ✅ 利用可能 |
 | **Sequential-thinking** | 構造化分析・問題解決                 | why, debug, analyze, design, 原因, なぜ       | ✅ 利用可能 |
 | **Context7**            | 公式ドキュメント参照                 | React, Next.js, Vue, library, 公式, docs      | ✅ 利用可能 |
-| **Playwright**          | ブラウザ自動化・E2Eテスト            | test, browser, screenshot, E2E, UI検証        | ✅ 利用可能 |
 | **Supabase**            | DB管理・認証・Edge Functions         | database, table, migration, auth, Supabase    | ✅ 利用可能 |
 | **IDE**                 | VS Code連携・診断情報                | diagnostic, execute, VS Code                  | ✅ 利用可能 |
 

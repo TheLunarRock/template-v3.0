@@ -25,11 +25,13 @@ pnpm setup:project
 ### ステップ2: SuperClaude v4をインストール（初回のみ）
 
 #### 方法A: npm使用（推奨・全OS対応）
+
 ```bash
 npm install -g @bifrost_inc/superclaude && superclaude install
 ```
 
 #### 方法B: pipx使用（Mac/Linux）
+
 ```bash
 # pipxがない場合は先にインストール
 brew install pipx  # Mac
@@ -52,16 +54,19 @@ pnpm dev
 ## ✨ テンプレートの機能
 
 ### 🤖 SuperClaude v4 統合
+
 - **14の専門エージェント**: system-architect、security-engineer、performance-engineer等
 - **/sc:コマンド体系**: 22の統一コマンド
 - **6つの適応モード**: Business Panel、Brainstorming、Orchestration等
 
 ### 📦 フィーチャーベース開発
+
 - **厳格な境界管理**: フィーチャー間の独立性を保証
 - **自動境界チェック**: `pnpm sc:boundaries`
 - **フィーチャー作成ウィザード**: `pnpm sc:feature [name]`
 
 ### 🎨 デザインシステム
+
 - **Rounded M+ フォント**: 日本語に最適化
 - **7つのUIスタイル**: Glassmorphism、Neumorphism、Cyberpunk等
 - **ダークモード対応**: 自動切り替え可能
@@ -69,6 +74,7 @@ pnpm dev
 ## 📝 使用可能なコマンド
 
 ### 開発コマンド
+
 ```bash
 pnpm dev              # 開発サーバー起動
 pnpm build            # プロダクションビルド
@@ -77,6 +83,7 @@ pnpm test             # テスト実行
 ```
 
 ### SuperClaude v4コマンド（/sc:）
+
 ```bash
 pnpm sc:start         # セッション開始＋境界チェック
 pnpm sc:feature       # 新フィーチャー作成
@@ -87,6 +94,7 @@ pnpm sc:business-panel # ビジネス分析モード
 ```
 
 ### 品質管理コマンド
+
 ```bash
 pnpm check:boundaries # 境界違反の検出
 pnpm fix:boundaries   # 境界違反の自動修正
@@ -97,16 +105,15 @@ pnpm validate:all    # 全品質チェック
 
 ## 🔧 MCPサーバーについて
 
-SuperClaude v4インストール時に、以下の6つのMCPサーバーが自動設定されます：
+SuperClaude v4インストール時に、以下の5つのMCPサーバーが自動設定されます：
 
-| サーバー | 機能 | APIキー |
-|---------|------|---------|
-| **Serena** | セッション永続性、プロジェクトメモリ | 不要 |
-| **Morphllm** | パターンベース一括編集 | 不要 |
-| **Sequential** | 複雑な分析、思考チェーン | 不要 |
-| **Context7** | 公式ドキュメント取得 | 不要 |
-| **Playwright** | ブラウザ自動化、E2Eテスト | 不要 |
-| **Magic** | UI自動生成（21st.dev） | 必要（オプション） |
+| サーバー       | 機能                                 | APIキー            |
+| -------------- | ------------------------------------ | ------------------ |
+| **Serena**     | セッション永続性、プロジェクトメモリ | 不要               |
+| **Morphllm**   | パターンベース一括編集               | 不要               |
+| **Sequential** | 複雑な分析、思考チェーン             | 不要               |
+| **Context7**   | 公式ドキュメント取得                 | 不要               |
+| **Magic**      | UI自動生成（21st.dev）               | 必要（オプション） |
 
 ### Magic MCPのAPIキー設定（オプション）
 
@@ -144,6 +151,7 @@ Claude Code（自動的に）:
 ### SuperClaudeインストールでエラーが出る場合
 
 #### pipxが見つからない（Mac/Linux）
+
 ```bash
 # Homebrewでインストール
 brew install pipx
@@ -154,6 +162,7 @@ python3 -m pip install --user pipx
 ```
 
 #### npmコマンドが見つからない
+
 ```bash
 # Node.jsをインストール
 # https://nodejs.org/ からダウンロード
@@ -176,6 +185,7 @@ pnpm check:boundaries --verbose
 
 1. Claude.aiを完全に再起動（ブラウザを閉じて開く）
 2. SuperClaudeの再インストール
+
 ```bash
 superclaude uninstall && superclaude install
 ```

@@ -53,20 +53,6 @@ jobs:
       - name: 単体テスト
         run: pnpm test:unit
       
-      - name: Playwrightブラウザインストール
-        run: pnpm exec playwright install chromium --with-deps
-      
-      - name: E2Eテスト
-        run: pnpm test:e2e
-      
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: test-results
-          path: |
-            test-results/
-            playwright-report/
-          retention-days: 30
 
   build:
     name: ビルドチェック
