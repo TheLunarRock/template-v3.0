@@ -14,15 +14,15 @@ jobs:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v2
         with:
-          version: 8
+          version: 9
       - uses: actions/setup-node@v4
         with:
           node-version: 18
           cache: 'pnpm'
-      
+
       - name: 依存関係インストール
         run: pnpm install --frozen-lockfile
-      
+
       - name: 型チェック
         run: pnpm typecheck
       
@@ -41,15 +41,15 @@ jobs:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v2
         with:
-          version: 8
+          version: 9
       - uses: actions/setup-node@v4
         with:
           node-version: 18
           cache: 'pnpm'
-      
+
       - name: 依存関係インストール
         run: pnpm install --frozen-lockfile
-      
+
       - name: 単体テスト
         run: pnpm test:unit
       
@@ -62,15 +62,15 @@ jobs:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v2
         with:
-          version: 8
+          version: 9
       - uses: actions/setup-node@v4
         with:
           node-version: 18
           cache: 'pnpm'
-      
+
       - name: 依存関係インストール
         run: pnpm install --frozen-lockfile
-      
+
       - name: プロダクションビルド
         run: pnpm build
       
