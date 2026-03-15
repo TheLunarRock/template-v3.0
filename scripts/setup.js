@@ -92,6 +92,7 @@ const setupSecurity = async () => {
     ghCli: false,
     globalGitignore: false,
     githubSettings: false,
+    isPrivateRepo: false,
   }
 
   // --- 1. gitleaksインストール ---
@@ -212,10 +213,29 @@ id_ecdsa
       if (repoInfo) {
         log.info(`リポジトリ: ${repoInfo}`)
 
-        // Secret Scanning + Push Protection + Dependabot有効化
-        try {
-          execSync(
-            `gh api repos/${repoInfo} -X PATCH --input - <<'EOF'
+        // リポジトリのvisibilityを取得
+        const visibility = execSync('gh repo view --json visibility --jq .visibility', {
+          stdio: 'pipe',
+          encoding: 'utf8',
+        })
+          .trim()
+          .toUpperCase()
+        const isPrivate = visibility === 'PRIVATE'
+        securityResults.isPrivateRepo = isPrivate
+
+        if (isPrivate) {
+          log.info('privateリポジトリを検出しました')
+          log.info(
+            'Secret Scanning / Push Protection: GitHub Advanced Security（Enterprise）が必要なためスキップ'
+          )
+          log.info('ブランチ保護: GitHub Pro以上のプランが必要なためスキップ')
+        }
+
+        // Secret Scanning + Push Protection + Dependabot有効化（publicのみ）
+        if (!isPrivate) {
+          try {
+            execSync(
+              `gh api repos/${repoInfo} -X PATCH --input - <<'EOF'
 {
   "security_and_analysis": {
     "secret_scanning": { "status": "enabled" },
@@ -224,16 +244,17 @@ id_ecdsa
   }
 }
 EOF`,
-            { stdio: 'pipe', shell: true }
-          )
-          log.success('Secret Scanning を有効化しました')
-          log.success('Push Protection を有効化しました')
-          log.success('Dependabot自動修正 を有効化しました')
-        } catch {
-          log.warning('セキュリティ設定の有効化に失敗しました（権限不足の可能性）')
+              { stdio: 'pipe', shell: true }
+            )
+            log.success('Secret Scanning を有効化しました')
+            log.success('Push Protection を有効化しました')
+            log.success('Dependabot自動修正 を有効化しました')
+          } catch {
+            log.warning('セキュリティ設定の有効化に失敗しました（権限不足の可能性）')
+          }
         }
 
-        // Dependabotアラート有効化
+        // Dependabotアラート有効化（public/private共通で利用可能）
         try {
           execSync(`gh api repos/${repoInfo}/vulnerability-alerts -X PUT`, { stdio: 'pipe' })
           log.success('Dependabotアラート を有効化しました')
@@ -241,15 +262,16 @@ EOF`,
           log.warning('Dependabotアラートの有効化に失敗しました')
         }
 
-        // ブランチ保護設定
-        try {
-          const defaultBranch = execSync(
-            `gh repo view --json defaultBranchRef --jq .defaultBranchRef.name`,
-            { stdio: 'pipe', encoding: 'utf8' }
-          ).trim()
+        // ブランチ保護設定（publicのみ）
+        if (!isPrivate) {
+          try {
+            const defaultBranch = execSync(
+              `gh repo view --json defaultBranchRef --jq .defaultBranchRef.name`,
+              { stdio: 'pipe', encoding: 'utf8' }
+            ).trim()
 
-          execSync(
-            `gh api repos/${repoInfo}/branches/${defaultBranch}/protection -X PUT --input - <<'EOF'
+            execSync(
+              `gh api repos/${repoInfo}/branches/${defaultBranch}/protection -X PUT --input - <<'EOF'
 {
   "required_status_checks": null,
   "enforce_admins": false,
@@ -260,11 +282,12 @@ EOF`,
   "block_creations": false
 }
 EOF`,
-            { stdio: 'pipe', shell: true }
-          )
-          log.success(`${defaultBranch}ブランチ保護を設定しました（force push/削除禁止）`)
-        } catch {
-          log.warning('ブランチ保護の設定に失敗しました（権限不足の可能性）')
+              { stdio: 'pipe', shell: true }
+            )
+            log.success(`${defaultBranch}ブランチ保護を設定しました（force push/削除禁止）`)
+          } catch {
+            log.warning('ブランチ保護の設定に失敗しました（権限不足の可能性）')
+          }
         }
 
         securityResults.githubSettings = true
@@ -733,9 +756,17 @@ jobs:
     if (securityResult.ghCli) results.installed.push('GitHub CLI (gh)')
     if (securityResult.globalGitignore) results.installed.push('グローバルgitignore')
     if (securityResult.githubSettings) {
-      results.installed.push('GitHub Secret Scanning / Push Protection')
-      results.installed.push('Dependabot自動修正')
-      results.installed.push('ブランチ保護 (force push/削除禁止)')
+      if (securityResult.isPrivateRepo) {
+        results.installed.push('Dependabotアラート')
+        results.installed.push(
+          'Secret Scanning / Push Protection: スキップ（privateリポジトリ - Enterprise必要）'
+        )
+        results.installed.push('ブランチ保護: スキップ（privateリポジトリ - Pro以上必要）')
+      } else {
+        results.installed.push('GitHub Secret Scanning / Push Protection')
+        results.installed.push('Dependabot自動修正')
+        results.installed.push('ブランチ保護 (force push/削除禁止)')
+      }
     } else {
       results.warnings.push('GitHub側セキュリティ設定が未完了（gh auth login後に再実行）')
     }
