@@ -77,7 +77,23 @@
       "WebFetch(domain:github.com)",
       "WebFetch(domain:raw.githubusercontent.com)"
     ],
-    "deny": [],
+    "deny": [
+      "Bash(rm -rf /)",
+      "Bash(rm -rf /*)",
+      "Bash(rm -rf ~)",
+      "Bash(rm -rf ~/*)",
+      "Bash(chmod 777 *)",
+      "Bash(mkfs*)",
+      "Bash(dd if=* of=/dev/*)",
+      "Bash(> /dev/sda*)",
+      "Bash(git push --force origin main)",
+      "Bash(git push --force origin master)",
+      "Read(**/*.pem)",
+      "Read(**/*.key)",
+      "Read(**/*credentials*)",
+      "Read(~/.ssh/*)",
+      "Read(~/.aws/*)"
+    ],
     "ask": []
   }
 }
