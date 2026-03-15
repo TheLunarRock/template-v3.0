@@ -964,13 +964,112 @@ chmod +x ~/.claude/slack-notify.sh
 
 ### 12.4 GitHub側セキュリティ設定
 
-| 機能                   | 状態    | 説明                                                                                     |
-| ---------------------- | ------- | ---------------------------------------------------------------------------------------- |
-| **Secret Scanning**    | ✅ 有効 | push済みコードからAPIキー・トークン等を自動検出。GitHubが200以上のサービスパターンを監視 |
-| **Push Protection**    | ✅ 有効 | 秘密情報を含むpushをGitHub側でブロック。gitleaksのサーバー版として機能                   |
-| **Dependabotアラート** | ✅ 有効 | 依存パッケージの脆弱性を自動検出し通知。CVEデータベースと照合                            |
-| **Dependabot自動修正** | ✅ 有効 | 修正パッチがある場合、PRを自動作成                                                       |
-| **ブランチ保護**       | ✅ 有効 | mainへのforce push禁止、ブランチ削除禁止。通常pushは許可                                 |
+#### 12.4.1 visibility別の適用範囲
+
+セットアップスクリプト（`scripts/setup.js`）は、リポジトリのvisibilityを `gh repo view --json visibility` で事前判定し、GitHubプランの制限に応じて適用する機能を自動的に分岐する。
+
+| 機能                   | publicリポジトリ | privateリポジトリ（Free） | 必要プラン                 |
+| ---------------------- | ---------------- | ------------------------- | -------------------------- |
+| **Secret Scanning**    | ✅ 有効化        | ⏭️ スキップ（理由表示）   | GitHub Advanced Security   |
+| **Push Protection**    | ✅ 有効化        | ⏭️ スキップ（理由表示）   | GitHub Advanced Security   |
+| **Dependabot自動修正** | ✅ 有効化        | ⏭️ スキップ（理由表示）   | GitHub Advanced Security   |
+| **Dependabotアラート** | ✅ 有効化        | ✅ 有効化                 | Free（public/private共通） |
+| **ブランチ保護**       | ✅ 有効化        | ⏭️ スキップ（理由表示）   | GitHub Pro以上             |
+
+#### 12.4.2 判定ロジック（setup.js内）
+
+```javascript
+// 1. リポジトリのvisibilityを取得
+const visibility = execSync('gh repo view --json visibility --jq .visibility', {
+  stdio: 'pipe',
+  encoding: 'utf8',
+})
+  .trim()
+  .toUpperCase()
+const isPrivate = visibility === 'PRIVATE'
+
+// 2. privateの場合: スキップ理由を表示し、API呼び出しをスキップ
+if (isPrivate) {
+  log.info('privateリポジトリを検出しました')
+  log.info(
+    'Secret Scanning / Push Protection: GitHub Advanced Security（Enterprise）が必要なためスキップ'
+  )
+  log.info('ブランチ保護: GitHub Pro以上のプランが必要なためスキップ')
+}
+
+// 3. Secret Scanning / Push Protection / Dependabot自動修正: publicのみ実行
+if (!isPrivate) {
+  /* gh api repos/{owner}/{repo} -X PATCH ... */
+}
+
+// 4. Dependabotアラート: public/private共通で実行
+execSync(`gh api repos/${repoInfo}/vulnerability-alerts -X PUT`, { stdio: 'pipe' })
+
+// 5. ブランチ保護: publicのみ実行
+if (!isPrivate) {
+  /* gh api repos/{owner}/{repo}/branches/{branch}/protection -X PUT ... */
+}
+```
+
+#### 12.4.3 privateリポジトリでの出力例
+
+```
+ℹ リポジトリ: TheLunarRock/x-postpilot
+ℹ privateリポジトリを検出しました
+ℹ Secret Scanning / Push Protection: GitHub Advanced Security（Enterprise）が必要なためスキップ
+ℹ ブランチ保護: GitHub Pro以上のプランが必要なためスキップ
+✓ Dependabotアラート を有効化しました
+```
+
+#### 12.4.4 publicリポジトリでの出力例
+
+```
+ℹ リポジトリ: TheLunarRock/template-v3.0
+✓ Secret Scanning を有効化しました
+✓ Push Protection を有効化しました
+✓ Dependabot自動修正 を有効化しました
+✓ Dependabotアラート を有効化しました
+✓ mainブランチ保護を設定しました（force push/削除禁止）
+```
+
+#### 12.4.5 セットアップ完了サマリーの分岐
+
+`securityResults`オブジェクトに`isPrivateRepo`フラグを含め、完了サマリーの表示内容を分岐する。
+
+```javascript
+const securityResults = {
+  gitleaks: false,
+  ghCli: false,
+  globalGitignore: false,
+  githubSettings: false,
+  isPrivateRepo: false, // visibility判定結果
+}
+```
+
+| 条件           | サマリー表示                                                                                                                                                           |
+| -------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| public + 成功  | `GitHub Secret Scanning / Push Protection`, `Dependabot自動修正`, `ブランチ保護 (force push/削除禁止)`                                                                 |
+| private + 成功 | `Dependabotアラート`, `Secret Scanning / Push Protection: スキップ（privateリポジトリ - Enterprise必要）`, `ブランチ保護: スキップ（privateリポジトリ - Pro以上必要）` |
+| 未認証/失敗    | `GitHub側セキュリティ設定が未完了（gh auth login後に再実行）`                                                                                                          |
+
+#### 12.4.6 機能詳細
+
+| 機能                   | 説明                                                                                     |
+| ---------------------- | ---------------------------------------------------------------------------------------- |
+| **Secret Scanning**    | push済みコードからAPIキー・トークン等を自動検出。GitHubが200以上のサービスパターンを監視 |
+| **Push Protection**    | 秘密情報を含むpushをGitHub側でブロック。gitleaksのサーバー版として機能                   |
+| **Dependabotアラート** | 依存パッケージの脆弱性を自動検出し通知。CVEデータベースと照合                            |
+| **Dependabot自動修正** | 修正パッチがある場合、PRを自動作成                                                       |
+| **ブランチ保護**       | mainへのforce push禁止、ブランチ削除禁止。通常pushは許可                                 |
+
+#### 12.4.7 設計判断（2026-03-15）
+
+| 項目                                    | 判断 | 理由                                                            |
+| --------------------------------------- | ---- | --------------------------------------------------------------- |
+| **visibility事前判定**                  | 採用 | API呼び出し→失敗→曖昧な警告を排除。原因を明確にユーザーに伝える |
+| **privateでもDependabotアラート有効化** | 採用 | Free planのprivateリポジトリでも利用可能な唯一のセキュリティAPI |
+| **privateでの警告→情報表示に変更**      | 採用 | `⚠`（問題あり）ではなく`ℹ`（プラン制限の説明）が適切            |
+| **API呼び出し自体をスキップ**           | 採用 | 失敗するAPIを呼ばないことで実行速度も向上                       |
 
 ### 12.5 ブランチ保護ルール（main）
 
@@ -1178,8 +1277,9 @@ pnpm setup:sc
 #   - gitleaksインストール（シークレットスキャン）
 #   - GitHub CLIインストール + 認証ガイド
 #   - グローバルgitignore設定
-#   - GitHub側セキュリティ有効化
-#     (Secret Scanning, Push Protection, Dependabot, ブランチ保護)
+#   - GitHub側セキュリティ有効化（visibility自動判定）
+#     publicリポ: Secret Scanning, Push Protection, Dependabot, ブランチ保護
+#     privateリポ: Dependabotアラートのみ（他はプラン制限でスキップ）
 #   - Claude Code通知設定（オプション）
 
 # 4. 環境変数設定

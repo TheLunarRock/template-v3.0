@@ -49,6 +49,22 @@
 5. **依存パッケージの脆弱性警告を無視しない** — Dependabot PRを確認
 6. **denyルールを削除・緩和しない** — 解除が必要な場合は`settings.local.json`で個別override
 
+## GitHub側セキュリティ設定のvisibility分岐
+
+`pnpm setup:sc`はリポジトリのvisibilityを自動判定し、GitHubプラン制限に応じて適用機能を分岐する。
+
+| 機能                   | publicリポジトリ | privateリポジトリ（Free） |
+| ---------------------- | ---------------- | ------------------------- |
+| **Secret Scanning**    | ✅ 有効化        | ⏭️ スキップ               |
+| **Push Protection**    | ✅ 有効化        | ⏭️ スキップ               |
+| **Dependabot自動修正** | ✅ 有効化        | ⏭️ スキップ               |
+| **Dependabotアラート** | ✅ 有効化        | ✅ 有効化                 |
+| **ブランチ保護**       | ✅ 有効化        | ⏭️ スキップ               |
+
+privateリポジトリではスキップ理由を`ℹ`（情報）として表示し、`⚠`（警告）は出さない。
+
+詳細は [SPECIFICATION.md](./SPECIFICATION.md) のセクション12.4を参照。
+
 ## リポジトリ公開ポリシー
 
 | 公開状態    | 対象              | 方針                                   |
