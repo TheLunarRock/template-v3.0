@@ -490,17 +490,19 @@ file1 = read(); file2 = read(); file3 = read();
 | **Sequential-thinking** | 構造化思考・複雑な分析           | デバッグ、設計、問題の根本原因分析                   |
 | **Context7**            | 公式ドキュメント参照             | React/Next.js/Vue等のライブラリ使用時                |
 | **Supabase**            | Supabaseプロジェクト管理         | DB操作、Edge Functions、認証設定                     |
+| **Stitch**              | UIデザイン・プロトタイピング     | テキストからUI生成、スクリーン編集、バリアント生成   |
 | **IDE**                 | VS Code連携                      | 診断情報取得、コード実行                             |
 
 ### 🔴 MCP優先順位ルール（絶対遵守）
 
-| タスク種別               | 第1選択（必須）       | 第2選択           | 絶対に使わない |
-| ------------------------ | --------------------- | ----------------- | -------------- |
-| **コード検索・分析**     | Serena (semantic)     | Grep/Glob         | bash grep/find |
-| **ファイル操作**         | Morphllm (fast-apply) | Native Read/Write | 手動操作       |
-| **複雑な分析・デバッグ** | Sequential (thinking) | Task agent        | 素の推論のみ   |
-| **ドキュメント参照**     | Context7              | WebSearch         | 記憶のみ       |
-| **DB操作（Supabase）**   | Supabase MCP          | -                 | 手動SQL        |
+| タスク種別                   | 第1選択（必須）       | 第2選択           | 絶対に使わない |
+| ---------------------------- | --------------------- | ----------------- | -------------- |
+| **コード検索・分析**         | Serena (semantic)     | Grep/Glob         | bash grep/find |
+| **ファイル操作**             | Morphllm (fast-apply) | Native Read/Write | 手動操作       |
+| **複雑な分析・デバッグ**     | Sequential (thinking) | Task agent        | 素の推論のみ   |
+| **ドキュメント参照**         | Context7              | WebSearch         | 記憶のみ       |
+| **DB操作（Supabase）**       | Supabase MCP          | -                 | 手動SQL        |
+| **UIデザイン・プロトタイプ** | Stitch MCP            | Magic MCP         | 手動CSS/HTML   |
 
 ### 🔴 MCP自動起動トリガー（必須使用）
 
@@ -539,6 +541,13 @@ const MCP_TRIGGERS = {
   マイグレーション: 'mcp__supabase__apply_migration',
   'Edge Function': 'mcp__supabase__deploy_edge_function',
   Supabase: 'mcp__supabase__search_docs',
+
+  // Stitch: UIデザイン・プロトタイピング
+  UIデザイン: 'mcp__stitch__list_projects',
+  プロトタイプ: 'mcp__stitch__create_project',
+  スクリーン: 'mcp__stitch__list_screens',
+  デザイン生成: 'mcp__stitch__generate_screen_from_text',
+  バリアント: 'mcp__stitch__generate_variants',
 }
 ```
 
@@ -560,6 +569,10 @@ mcp__context7__get-library-docs → mcp__serena__write_memory
 # パターン4: DB設計→実装（Supabase）
 mcp__supabase__list_tables → mcp__supabase__apply_migration
 "既存テーブル確認してからマイグレーション適用"
+
+# パターン5: デザイン→実装（Stitch→コード）
+mcp__stitch__get_screen → mcp__morphllm-fast-apply__write_file
+"Stitchデザインのカラー・タイポグラフィ仕様を取得してコード実装"
 ```
 
 ### ⚠️ MCP使用の明示的宣言（必須）
@@ -884,16 +897,17 @@ grep -r "from '@/features/[^']*/\(components\|hooks\|utils\|api\|types\)" src/fe
 
 ### MCPサーバー活用（実際に利用可能なMCP）
 
-| サーバー                | 主要用途                             | 自動トリガーキーワード                        | 状態        |
-| ----------------------- | ------------------------------------ | --------------------------------------------- | ----------- |
-| **Serena**              | セマンティック検索・プロジェクト記憶 | find, search, symbol, class, function, メモリ | ✅ 利用可能 |
-| **Morphllm-fast-apply** | 高速ファイル操作・一括編集           | edit, modify, create, write, ディレクトリ     | ✅ 利用可能 |
-| **Sequential-thinking** | 構造化分析・問題解決                 | why, debug, analyze, design, 原因, なぜ       | ✅ 利用可能 |
-| **Context7**            | 公式ドキュメント参照                 | React, Next.js, Vue, library, 公式, docs      | ✅ 利用可能 |
-| **Supabase**            | DB管理・認証・Edge Functions         | database, table, migration, auth, Supabase    | ✅ 利用可能 |
-| **IDE**                 | VS Code連携・診断情報                | diagnostic, execute, VS Code                  | ✅ 利用可能 |
+| サーバー                | 主要用途                             | 自動トリガーキーワード                           | 状態        |
+| ----------------------- | ------------------------------------ | ------------------------------------------------ | ----------- |
+| **Serena**              | セマンティック検索・プロジェクト記憶 | find, search, symbol, class, function, メモリ    | ✅ 利用可能 |
+| **Morphllm-fast-apply** | 高速ファイル操作・一括編集           | edit, modify, create, write, ディレクトリ        | ✅ 利用可能 |
+| **Sequential-thinking** | 構造化分析・問題解決                 | why, debug, analyze, design, 原因, なぜ          | ✅ 利用可能 |
+| **Context7**            | 公式ドキュメント参照                 | React, Next.js, Vue, library, 公式, docs         | ✅ 利用可能 |
+| **Supabase**            | DB管理・認証・Edge Functions         | database, table, migration, auth, Supabase       | ✅ 利用可能 |
+| **Stitch**              | UIデザイン・プロトタイピング         | UIデザイン, プロトタイプ, スクリーン, バリアント | ✅ 利用可能 |
+| **IDE**                 | VS Code連携・診断情報                | diagnostic, execute, VS Code                     | ✅ 利用可能 |
 
-**注**: Magic MCPは設定済みですが、Claude Codeのツールとして利用不可（2025-09-02時点）。UI開発にはfrontend-architectエージェントを使用してください。
+**注**: Magic MCPは設定済みですが、Claude Codeのツールとして利用不可（2025-09-02時点）。UI開発にはStitch MCPまたはfrontend-architectエージェントを使用してください。
 
 ### TodoWrite自動化（2ステップ以上で必須）
 
