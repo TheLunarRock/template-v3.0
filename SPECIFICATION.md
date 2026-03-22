@@ -1281,12 +1281,22 @@ pnpm setup:sc
 #     publicリポ: Secret Scanning, Push Protection, Dependabot, ブランチ保護
 #     privateリポ: Dependabotアラートのみ（他はプラン制限でスキップ）
 #   - Claude Code通知設定（オプション）
+#   - MCPサーバー設定手順の表示（セクション20参照）
 
-# 4. 環境変数設定
+# 4. MCPサーバー設定（初回のみ・手動）
+# setup:sc完了後に表示される手順に従う（詳細は§20参照）
+curl -LsSf https://astral.sh/uv/install.sh | sh
+claude mcp add serena -- uvx --from git+https://github.com/oraios/serena serena start-mcp-server
+claude mcp add context7 -- npx -y @upstash/context7-mcp@latest
+claude mcp add sequential-thinking -- npx -y @modelcontextprotocol/server-sequential-thinking
+claude mcp add morphllm-fast-apply -- npx @morph-llm/morph-fast-apply /home/
+claude mcp list  # 接続確認
+
+# 5. 環境変数設定
 cp .env.example .env.local
 # .env.localを編集
 
-# 5. 開発サーバー起動
+# 6. 開発サーバー起動
 pnpm dev
 
 # ブラウザで http://localhost:3000 を開く
@@ -1568,7 +1578,105 @@ Chrome側のバグ修正待ち。修正後、既存の `AutoLaunchProtocolsFromO
 | **モバイルファースト**     | 全プロジェクトはMOBILE（390px幅）で設計                 |
 | **FIDELITY配色**           | Material Design 3のFIDELITYバリアントを採用             |
 
+## 20. MCPサーバーセットアップ
+
+### 20.1 概要
+
+SuperClaudeテンプレートはClaude CodeのMCPサーバーを活用して開発体験を最大化する。MCPサーバーはユーザーレベルで設定されるため、テンプレートをクローンした各PC上で初回のみ手動設定が必要。
+
+`pnpm setup:sc`の完了メッセージ（Step 7）にセットアップ手順が表示される。
+
+### 20.2 前提条件
+
+| 前提ツール     | 用途                     | インストール方法                                   |
+| -------------- | ------------------------ | -------------------------------------------------- |
+| **Node.js**    | npx経由のMCPサーバー実行 | `nvm install --lts` または公式サイトから           |
+| **uv**         | Serena MCPサーバー実行   | `curl -LsSf https://astral.sh/uv/install.sh \| sh` |
+| **Claude CLI** | MCPサーバー登録・管理    | `npm install -g @anthropic-ai/claude-code`         |
+
+### 20.3 MCPサーバー一覧と設定コマンド
+
+#### 20.3.1 必須MCPサーバー（4サーバー）
+
+| MCPサーバー             | 用途                                 | 設定コマンド                                                                                       |
+| ----------------------- | ------------------------------------ | -------------------------------------------------------------------------------------------------- |
+| **Serena**              | プロジェクト記憶・セマンティック検索 | `claude mcp add serena -- uvx --from git+https://github.com/oraios/serena serena start-mcp-server` |
+| **Context7**            | 公式ライブラリドキュメント参照       | `claude mcp add context7 -- npx -y @upstash/context7-mcp@latest`                                   |
+| **Sequential-thinking** | 構造化思考・複雑な分析               | `claude mcp add sequential-thinking -- npx -y @modelcontextprotocol/server-sequential-thinking`    |
+| **Morphllm-fast-apply** | 高速ファイル操作・パターン編集       | `claude mcp add morphllm-fast-apply -- npx @morph-llm/morph-fast-apply /home/`                     |
+
+#### 20.3.2 任意MCPサーバー（用途に応じて追加）
+
+| MCPサーバー    | 用途                         | 設定コマンド                                                             | 備考                                  |
+| -------------- | ---------------------------- | ------------------------------------------------------------------------ | ------------------------------------- |
+| **Supabase**   | DB管理・認証・Edge Functions | `claude mcp add supabase -- npx -y @supabase/mcp-server-supabase@latest` | 環境変数`SUPABASE_ACCESS_TOKEN`が必要 |
+| **Stitch**     | UIデザイン・プロトタイピング | `claude mcp add stitch -- npx @_davideast/stitch-mcp proxy`              | Google認証が必要                      |
+| **Magic**      | 21st.devコンポーネント生成   | `claude mcp add magic -- npx -y @21st-dev/magic@latest`                  | APIキーが必要な場合あり               |
+| **Playwright** | ブラウザ自動化・E2Eテスト    | `claude mcp add playwright -- npx @playwright/mcp@latest`                | テスト用途のみ                        |
+
+### 20.4 セットアップ手順
+
+```bash
+# Step 1: uv をインストール（Serenaに必要）
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# Step 2: 必須MCPサーバーを一括登録
+claude mcp add serena -- uvx --from git+https://github.com/oraios/serena serena start-mcp-server
+claude mcp add context7 -- npx -y @upstash/context7-mcp@latest
+claude mcp add sequential-thinking -- npx -y @modelcontextprotocol/server-sequential-thinking
+claude mcp add morphllm-fast-apply -- npx @morph-llm/morph-fast-apply /home/
+
+# Step 3: 設定確認
+claude mcp list
+# 全サーバーが「✓ Connected」と表示されれば成功
+```
+
+### 20.5 設定ファイルの保存先
+
+MCPサーバーの設定は以下の場所に保存される。
+
+| ファイル                                | 内容                                | 備考                                           |
+| --------------------------------------- | ----------------------------------- | ---------------------------------------------- |
+| `~/.claude/settings.json`               | MCPサーバー接続定義（`mcpServers`） | `claude mcp add`で自動追加される               |
+| `.claude/settings.json`（プロジェクト） | MCPツール使用許可（`permissions`）  | テンプレートに同梱済み。Serena等の全ツール許可 |
+| `.serena/project.yml`                   | Serenaプロジェクト設定              | テンプレートに同梱済み（TypeScript / LSP）     |
+| `.serena/memories/`                     | Serenaメモリファイル群              | セッション間で永続化される作業記録             |
+
+### 20.6 トラブルシューティング
+
+| 症状                                 | 原因                                | 解決策                                                              |
+| ------------------------------------ | ----------------------------------- | ------------------------------------------------------------------- |
+| `serena: ✗ Failed to connect`        | `uv`/`uvx`が未インストール          | `curl -LsSf https://astral.sh/uv/install.sh \| sh` を実行           |
+| `serena: ✗ Failed to connect`        | シェル再起動が必要                  | `source ~/.zshrc` またはターミナル再起動                            |
+| `mcp__serena__*`ツールが表示されない | MCPサーバーが未登録                 | `claude mcp add serena ...` を実行                                  |
+| Serenaメモリが空                     | 初回クローンのため正常              | `.serena/memories/`は使用開始後に蓄積される                         |
+| `morphllm: ✗ Failed`                 | npxのキャッシュ問題                 | `npx --clear-cache` 後に再度`claude mcp list`                       |
+| 全MCPが`Failed`                      | Claude CLIのバージョンが古い        | `npm update -g @anthropic-ai/claude-code`                           |
+| `permission denied`エラー            | `.claude/settings.json`に許可がない | テンプレートの`settings.json`に全ツール許可済み。ファイル破損を確認 |
+
+### 20.7 setup.js完了メッセージでの表示
+
+`pnpm setup:sc`実行後のStep 7完了レポートに以下が表示される。
+
+```
+🚀 次のステップ:
+  ...
+5. MCPサーバー設定（初回のみ）:
+   Serena（プロジェクト記憶・セマンティック検索）の設定:
+   # 前提: uv をインストール（Serenaに必要）
+   curl -LsSf https://astral.sh/uv/install.sh | sh
+   # Serena MCPサーバーを追加
+   claude mcp add serena -- uvx --from git+https://github.com/oraios/serena serena start-mcp-server
+
+   その他の推奨MCPサーバー:
+   claude mcp add context7 -- npx -y @upstash/context7-mcp@latest
+   claude mcp add sequential-thinking -- npx -y @modelcontextprotocol/server-sequential-thinking
+   claude mcp add morphllm-fast-apply -- npx @morph-llm/morph-fast-apply /home/
+
+   設定確認: claude mcp list
+```
+
 ---
 
 **最終更新**: 2026-03-23
-**バージョン**: 2.5.0
+**バージョン**: 2.6.0

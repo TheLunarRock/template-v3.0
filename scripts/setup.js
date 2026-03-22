@@ -864,6 +864,20 @@ ${colors.yellow}🚀 次のステップ:${colors.reset}
    ${colors.green}pnpm validate:all${colors.reset}      # 全検証実行
    ${colors.green}pnpm preflight${colors.reset}         # デプロイ前チェック
 
+5. ${colors.bold}MCPサーバー設定（初回のみ）:${colors.reset}
+   Serena（プロジェクト記憶・セマンティック検索）の設定:
+   ${colors.dim}# 前提: uv をインストール（Serenaに必要）${colors.reset}
+   ${colors.green}curl -LsSf https://astral.sh/uv/install.sh | sh${colors.reset}
+   ${colors.dim}# Serena MCPサーバーを追加${colors.reset}
+   ${colors.green}claude mcp add serena -- uvx --from git+https://github.com/oraios/serena serena start-mcp-server${colors.reset}
+
+   その他の推奨MCPサーバー:
+   ${colors.green}claude mcp add context7 -- npx -y @upstash/context7-mcp@latest${colors.reset}
+   ${colors.green}claude mcp add sequential-thinking -- npx -y @modelcontextprotocol/server-sequential-thinking${colors.reset}
+   ${colors.green}claude mcp add morphllm-fast-apply -- npx @morph-llm/morph-fast-apply /home/${colors.reset}
+
+   ${colors.dim}設定確認: claude mcp list${colors.reset}
+
 ${colors.blue}📚 ドキュメント:${colors.reset}
   • CLAUDE.md         - Claude Code開発ガイド
   • PROJECT_INFO.md   - プロジェクト固有設定

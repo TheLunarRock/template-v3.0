@@ -481,6 +481,26 @@ file1 = read(); file2 = read(); file3 = read();
 **MCPサーバーは実ツールとして優先的に使用します。**
 **タスク開始時に適切なMCPを選択し、使用しない場合は理由を説明します。**
 
+### ⚠️ MCPサーバー初回セットアップ（別PCでのクローン時）
+
+MCPサーバーはユーザーレベルで設定されるため、テンプレートをクローンした各PC上で初回のみ手動設定が必要。`pnpm setup:sc`の完了メッセージに手順が表示される。
+
+```bash
+# 前提: uv をインストール（Serenaに必要）
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# 必須MCPサーバーを登録
+claude mcp add serena -- uvx --from git+https://github.com/oraios/serena serena start-mcp-server
+claude mcp add context7 -- npx -y @upstash/context7-mcp@latest
+claude mcp add sequential-thinking -- npx -y @modelcontextprotocol/server-sequential-thinking
+claude mcp add morphllm-fast-apply -- npx @morph-llm/morph-fast-apply /home/
+
+# 設定確認
+claude mcp list
+```
+
+詳細は [SPECIFICATION.md](./SPECIFICATION.md) のセクション20を参照。
+
 ### 🎯 利用可能なMCPサーバー（積極使用必須）
 
 | MCPサーバー             | 用途                             | 使用すべきタイミング                                 |
