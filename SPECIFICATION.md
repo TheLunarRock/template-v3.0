@@ -102,6 +102,12 @@ template-v3.0/
 │   └── utils/                # ユーティリティ
 │       ├── cache/            # キャッシュ機能
 │       └── error-handling/   # エラーハンドリング
+├── superclaude/               # SuperClaudeコンテキストファイル
+│   ├── FLAGS.md              # 行動フラグ定義
+│   ├── PRINCIPLES.md         # 設計原則
+│   ├── RULES.md              # 行動ルール
+│   ├── MCP_*.md              # MCP選択ガイダンス（6ファイル）
+│   └── MODE_*.md             # 行動モード定義（5ファイル）
 ├── tests/
 │   ├── regression/           # 回帰テスト
 │   └── unit/                 # ユニットテスト
@@ -1676,7 +1682,162 @@ MCPサーバーの設定は以下の場所に保存される。
    設定確認: claude mcp list
 ```
 
+## 21. SuperClaudeコンテキストバンドリング
+
+### 21.1 概要
+
+SuperClaudeのコンテキストファイル群をテンプレートに同梱し、クローンした時点でSuperClaude機能が利用可能になる仕組み。
+
+### 21.2 問題と解決
+
+| 項目         | 内容                                                                                                                                                                                                      |
+| ------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **問題**     | SuperClaudeのコンテキストファイル（FLAGS.md等）は元来 `~/.claude/` にユーザーレベルで配置されるため、テンプレートをクローンしただけでは機能しない。友人がクローンした際に手動でファイルを送る必要があった |
+| **解決**     | テンプレート内の `superclaude/` ディレクトリにファイルを同梱し、CLAUDE.mdの `@` 参照で自動読み込み                                                                                                        |
+| **影響範囲** | プロジェクトローカルのみ（`~/.claude/` への書き込みなし、他プロジェクトに影響なし）                                                                                                                       |
+| **設計判断** | グローバル展開方式（`~/.claude/` にコピー）は他プロジェクトに影響するため不採用。プロジェクトローカル方式を採用                                                                                           |
+
+### 21.3 ファイル構成
+
+```
+superclaude/                     # 14ファイル（約43KB）
+├── FLAGS.md                     # 行動フラグ定義（--brainstorm, --think等）
+├── PRINCIPLES.md                # SOLID, DRY, KISS等の設計原則
+├── RULES.md                     # 詳細な行動ルール（最大14KB・最重要）
+├── MCP_Context7.md              # Context7 MCP選択ガイダンス
+├── MCP_Magic.md                 # Magic MCP選択ガイダンス
+├── MCP_Morphllm.md              # Morphllm MCP選択ガイダンス
+├── MCP_Playwright.md            # Playwright MCP選択ガイダンス
+├── MCP_Sequential.md            # Sequential MCP選択ガイダンス
+├── MCP_Serena.md                # Serena MCP選択ガイダンス
+├── MODE_Brainstorming.md        # ブレインストーミングモード
+├── MODE_Introspection.md        # 内省モード
+├── MODE_Orchestration.md        # オーケストレーションモード
+├── MODE_Task_Management.md      # タスク管理モード
+└── MODE_Token_Efficiency.md     # トークン効率モード
+```
+
+### 21.4 各ファイルの役割詳細
+
+#### コアフレームワーク（3ファイル）
+
+| ファイル        | サイズ | 内容                                                                                                                                                                              |
+| --------------- | ------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `FLAGS.md`      | 4.8KB  | `--brainstorm`, `--think`, `--think-hard`, `--ultrathink`, `--delegate`, `--validate`, `--safe-mode`, `--uc` 等のフラグ定義。トリガー条件、動作変更、フラグ優先順位ルールを含む   |
+| `PRINCIPLES.md` | 2.6KB  | SOLID原則、DRY/KISS/YAGNI、システム思考、データ駆動意思決定、リスク管理、品質4象限（機能・構造・性能・セキュリティ）の定義                                                        |
+| `RULES.md`      | 14.4KB | 優先度別（🔴CRITICAL/🟡IMPORTANT/🟢RECOMMENDED）の行動ルール。ワークフロー、計画効率、実装完全性、スコープ規律、コード整理、失敗調査、Git運用、ツール最適化、安全性ルール等を網羅 |
+
+#### MCP選択ガイダンス（6ファイル）
+
+| ファイル            | 対象MCP             | トリガーキーワード                           | 他MCPとの併用パターン                              |
+| ------------------- | ------------------- | -------------------------------------------- | -------------------------------------------------- |
+| `MCP_Context7.md`   | Context7            | import, require, React, Next.js等            | Sequential→分析後にContext7→パターン確認           |
+| `MCP_Magic.md`      | Magic (21st.dev)    | button, form, modal, /ui, /21                | Context7→フレームワーク統合、Sequential→要件分析   |
+| `MCP_Morphllm.md`   | Morphllm            | 複数ファイル編集、一括置換、スタイル強制     | Serena→セマンティック分析後にMorphllm→一括編集     |
+| `MCP_Playwright.md` | Playwright          | E2Eテスト、ブラウザテスト、アクセシビリティ  | Sequential→テスト戦略→Playwright→実行              |
+| `MCP_Sequential.md` | Sequential-thinking | デバッグ、設計、根本原因分析                 | Context7→公式パターン参照、Serena→プロジェクト記憶 |
+| `MCP_Serena.md`     | Serena              | シンボル操作、プロジェクトメモリ、大規模解析 | Morphllm→編集実行、Sequential→アーキテクチャ分析   |
+
+#### 行動モード（5ファイル）
+
+| ファイル                   | モード名             | 起動トリガー                          | 行動変更                                                      |
+| -------------------------- | -------------------- | ------------------------------------- | ------------------------------------------------------------- |
+| `MODE_Brainstorming.md`    | ブレインストーミング | "maybe", "thinking about", 曖昧な要望 | ソクラテス対話、非推測的探索、要件ブリーフ生成                |
+| `MODE_Introspection.md`    | 内省                 | 自己分析要求、エラー回復、メタ認知    | 透明性マーカー（🤔🎯⚡📊💡）、パターン検出                    |
+| `MODE_Orchestration.md`    | オーケストレーション | 複数ツール操作、性能制約              | ツール選択マトリクス、リソース管理（Green/Yellow/Red）        |
+| `MODE_Task_Management.md`  | タスク管理           | 3ステップ超の操作、複数ディレクトリ   | 階層管理（Plan→Phase→Task→Todo）、Serenaメモリ連携            |
+| `MODE_Token_Efficiency.md` | トークン効率         | コンテキスト75%超、`--uc`フラグ       | シンボル通信（→⇒←✅❌⚠️等）、略語システム、30-50%トークン削減 |
+
+### 21.5 読み込みメカニズム
+
+Claude Code の `@` 参照構文により自動読み込み。パスはCLAUDE.mdの位置からの相対パスで解決される。
+
+#### CLAUDE.md内の記述（実際のコード）
+
+```markdown
+## 🧠 SuperClaude コンテキストファイル（自動読み込み）
+
+@superclaude/FLAGS.md
+@superclaude/PRINCIPLES.md
+@superclaude/RULES.md
+@superclaude/MCP_Context7.md
+@superclaude/MCP_Magic.md
+@superclaude/MCP_Morphllm.md
+@superclaude/MCP_Playwright.md
+@superclaude/MCP_Sequential.md
+@superclaude/MCP_Serena.md
+@superclaude/MODE_Brainstorming.md
+@superclaude/MODE_Introspection.md
+@superclaude/MODE_Orchestration.md
+@superclaude/MODE_Task_Management.md
+@superclaude/MODE_Token_Efficiency.md
+```
+
+#### `@` 参照のパス解決ルール
+
+| 構文                    | 解決先                                   | 用途                   |
+| ----------------------- | ---------------------------------------- | ---------------------- |
+| `@superclaude/FLAGS.md` | `<project-root>/superclaude/FLAGS.md`    | プロジェクト内ファイル |
+| `@FLAGS.md`             | `<CLAUDE.mdと同じディレクトリ>/FLAGS.md` | 同一ディレクトリ       |
+| `@~/path/file.md`       | `$HOME/path/file.md`                     | ユーザーホーム         |
+
+- パスはCLAUDE.mdがある位置からの相対パスで解決される
+- サブディレクトリパスをサポート（`@subdir/file.md`）
+- 再帰的インポートは最大5段階まで対応
+
+### 21.6 クローン後の完全利用フロー
+
+```
+1. git clone <template-repo> my-app    # superclaude/ 含む全ファイルが取得される
+   cd my-app
+
+2. pnpm setup:sc                        # 開発環境セットアップ
+                                         # （依存関係、テスト、CI/CD、セキュリティ等）
+
+3. MCPサーバー登録（初回のみ・各PC上で手動）:
+   curl -LsSf https://astral.sh/uv/install.sh | sh    # uv（Serena前提）
+   claude mcp add serena -- uvx --from git+https://github.com/oraios/serena serena start-mcp-server
+   claude mcp add context7 -- npx -y @upstash/context7-mcp@latest
+   claude mcp add sequential-thinking -- npx -y @modelcontextprotocol/server-sequential-thinking
+   claude mcp add morphllm-fast-apply -- npx @morph-llm/morph-fast-apply /home/
+   claude mcp list                       # 確認
+
+4. claude                                # Claude Code起動
+                                         # → CLAUDE.md読み込み
+                                         # → @superclaude/*.md 14ファイル自動展開
+                                         # → SuperClaude全機能が動作
+```
+
+### 21.7 既にSuperClaudeをグローバルインストール済みの環境
+
+`~/.claude/` に同じファイルが存在する場合（テンプレート作成者本人等）：
+
+| レイヤー     | 読み込み元                                                     | 内容                    |
+| ------------ | -------------------------------------------------------------- | ----------------------- |
+| グローバル   | `~/.claude/CLAUDE.md` → `@FLAGS.md` → `~/.claude/FLAGS.md`     | SuperClaudeコンテキスト |
+| プロジェクト | `CLAUDE.md` → `@superclaude/FLAGS.md` → `superclaude/FLAGS.md` | 同一内容                |
+
+両方から読み込まれるが、同一内容の重複読み込みのみで機能的な問題はない。`pnpm setup:sc` も `~/.claude/` への書き込みは一切行わない。
+
+### 21.8 SUPERCLAUDE_FINAL.mdとの関係
+
+| ファイル               | 役割                                  | 対象                 | 読み込み方法                          |
+| ---------------------- | ------------------------------------- | -------------------- | ------------------------------------- |
+| `SUPERCLAUDE_FINAL.md` | SuperClaudeの使い方概要ガイド         | 人間向けドキュメント | CLAUDE.mdからマークダウンリンクで参照 |
+| `superclaude/*.md`     | Claude Codeの行動ルール・コンテキスト | Claude Code向け      | CLAUDE.mdから `@` 参照で自動読み込み  |
+
+両方がテンプレートに同梱される。役割が異なるため両方必要。
+
+### 21.9 ファイル更新・メンテナンス方針
+
+| 操作                          | 手順                                                                   |
+| ----------------------------- | ---------------------------------------------------------------------- |
+| SuperClaudeコンテキストの更新 | `superclaude/*.md` を直接編集してコミット                              |
+| グローバルとの同期            | グローバル `~/.claude/` のファイルを `superclaude/` にコピーして上書き |
+| 新規モード/MCPの追加          | `superclaude/` にファイル追加 + CLAUDE.mdに `@` 参照を追記             |
+| ファイル削除                  | `superclaude/` からファイル削除 + CLAUDE.mdから `@` 参照を削除         |
+
 ---
 
-**最終更新**: 2026-03-23
-**バージョン**: 2.6.0
+**最終更新**: 2026-03-25
+**バージョン**: 2.7.0

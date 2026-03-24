@@ -22,24 +22,23 @@ cd my-awesome-app
 pnpm setup:project
 ```
 
-### ステップ2: SuperClaude v4をインストール（初回のみ）
+### ステップ2: MCPサーバー設定（初回のみ）
 
-#### 方法A: npm使用（推奨・全OS対応）
-
-```bash
-npm install -g @bifrost_inc/superclaude && superclaude install
-```
-
-#### 方法B: pipx使用（Mac/Linux）
+SuperClaudeのコンテキストファイルはテンプレートに同梱済みです（`superclaude/` ディレクトリ）。
+追加インストールは不要ですが、MCPサーバーは各PC上で初回のみ手動設定が必要です。
 
 ```bash
-# pipxがない場合は先にインストール
-brew install pipx  # Mac
-# または
-python3 -m pip install --user pipx
+# 前提: uv をインストール（Serenaに必要）
+curl -LsSf https://astral.sh/uv/install.sh | sh
 
-# SuperClaudeをインストール
-pipx install SuperClaude && SuperClaude install
+# 必須MCPサーバーを登録
+claude mcp add serena -- uvx --from git+https://github.com/oraios/serena serena start-mcp-server
+claude mcp add context7 -- npx -y @upstash/context7-mcp@latest
+claude mcp add sequential-thinking -- npx -y @modelcontextprotocol/server-sequential-thinking
+claude mcp add morphllm-fast-apply -- npx @morph-llm/morph-fast-apply /home/
+
+# 設定確認
+claude mcp list
 ```
 
 ### ステップ3: 開発開始
@@ -105,22 +104,16 @@ pnpm validate:all    # 全品質チェック
 
 ## 🔧 MCPサーバーについて
 
-SuperClaude v4インストール時に、以下の5つのMCPサーバーが自動設定されます：
+MCPサーバーはステップ2で手動登録が必要です。ツールの使用許可は `.claude/settings.json` にテンプレートとして同梱済みです。
 
-| サーバー       | 機能                                 | APIキー            |
-| -------------- | ------------------------------------ | ------------------ |
-| **Serena**     | セッション永続性、プロジェクトメモリ | 不要               |
-| **Morphllm**   | パターンベース一括編集               | 不要               |
-| **Sequential** | 複雑な分析、思考チェーン             | 不要               |
-| **Context7**   | 公式ドキュメント取得                 | 不要               |
-| **Magic**      | UI自動生成（21st.dev）               | 必要（オプション） |
+| サーバー       | 機能                                 | APIキー |
+| -------------- | ------------------------------------ | ------- |
+| **Serena**     | セッション永続性、プロジェクトメモリ | 不要    |
+| **Morphllm**   | パターンベース一括編集               | 不要    |
+| **Sequential** | 複雑な分析、思考チェーン             | 不要    |
+| **Context7**   | 公式ドキュメント取得                 | 不要    |
 
-### Magic MCPのAPIキー設定（オプション）
-
-UI自動生成機能を使用する場合：
-
-1. [21st.dev](https://21st.dev)でAPIキーを取得
-2. Claude.aiの設定でMagic MCPにAPIキーを設定
+詳細は [SPECIFICATION.md](./SPECIFICATION.md) のセクション20を参照。
 
 ## 🎯 Claude Codeでの使い方
 
@@ -148,29 +141,6 @@ Claude Code（自動的に）:
 
 ## 🚨 トラブルシューティング
 
-### SuperClaudeインストールでエラーが出る場合
-
-#### pipxが見つからない（Mac/Linux）
-
-```bash
-# Homebrewでインストール
-brew install pipx
-pipx ensurepath
-
-# または pip経由
-python3 -m pip install --user pipx
-```
-
-#### npmコマンドが見つからない
-
-```bash
-# Node.jsをインストール
-# https://nodejs.org/ からダウンロード
-# またはnvmを使用
-curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.0/install.sh | bash
-nvm install 18
-```
-
 ### 境界違反が検出される場合
 
 ```bash
@@ -183,12 +153,9 @@ pnpm check:boundaries --verbose
 
 ### MCPサーバーが動作しない場合
 
-1. Claude.aiを完全に再起動（ブラウザを閉じて開く）
-2. SuperClaudeの再インストール
-
-```bash
-superclaude uninstall && superclaude install
-```
+1. ターミナルを再起動（`source ~/.zshrc`）
+2. `claude mcp list` で登録状態を確認
+3. 詳細は [SPECIFICATION.md](./SPECIFICATION.md) のセクション20.6を参照
 
 ## 📚 詳細ドキュメント
 
@@ -200,8 +167,7 @@ superclaude uninstall && superclaude install
 
 ### 質問・問題がある場合
 
-1. **SuperClaude Framework**: [GitHub Issues](https://github.com/SuperClaude-Org/SuperClaude_Framework/issues)
-2. **このテンプレート**: プロジェクトのIssuesセクション
+1. **このテンプレート**: プロジェクトのIssuesセクション
 
 ## 📋 チェックリスト
 
@@ -209,10 +175,10 @@ superclaude uninstall && superclaude install
 
 - [ ] テンプレートをクローンした
 - [ ] `pnpm setup:project`を実行した
-- [ ] SuperClaude v4をインストールした
+- [ ] MCPサーバーを登録した（ステップ2）
+- [ ] `claude mcp list` で全MCPが表示される
 - [ ] `pnpm dev`で開発サーバーが起動した
 - [ ] `pnpm sc:boundaries`で境界チェックが動作した
-- [ ] Claude.aiでMCPサーバーが認識されている
 
 すべてチェックできたら、準備完了です！🎉
 
