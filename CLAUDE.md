@@ -9,6 +9,23 @@
 | **[PROJECT_INFO.md](./PROJECT_INFO.md)**   | プロジェクト固有情報                 |
 | **[README.md](./README.md)**               | プロジェクト概要                     |
 
+## 🧠 SuperClaude コンテキストファイル（自動読み込み）
+
+@superclaude/FLAGS.md
+@superclaude/PRINCIPLES.md
+@superclaude/RULES.md
+@superclaude/MCP_Context7.md
+@superclaude/MCP_Magic.md
+@superclaude/MCP_Morphllm.md
+@superclaude/MCP_Playwright.md
+@superclaude/MCP_Sequential.md
+@superclaude/MCP_Serena.md
+@superclaude/MODE_Brainstorming.md
+@superclaude/MODE_Introspection.md
+@superclaude/MODE_Orchestration.md
+@superclaude/MODE_Task_Management.md
+@superclaude/MODE_Token_Efficiency.md
+
 # ═══════════════════════════════════════════════════
 
 # 🔐 セキュリティ多層防御（最優先・絶対遵守）
@@ -422,7 +439,8 @@ file1 = read(); file2 = read(); file3 = read();
 | **Framework Version** | SuperClaude v4.0.8                   |
 | **Template Edition**  | Production (Enterprise-ready)        |
 | **Architecture**      | Feature-based with strict boundaries |
-| **Last Updated**      | 2025-08-31                           |
+| **Context Bundling**  | テンプレート同梱済み（superclaude/） |
+| **Last Updated**      | 2026-03-25                           |
 
 ## 🎯 v4新機能：14の専門エージェント
 
@@ -483,7 +501,8 @@ file1 = read(); file2 = read(); file3 = read();
 
 ### ⚠️ MCPサーバー初回セットアップ（別PCでのクローン時）
 
-MCPサーバーはユーザーレベルで設定されるため、テンプレートをクローンした各PC上で初回のみ手動設定が必要。`pnpm setup:sc`の完了メッセージに手順が表示される。
+SuperClaudeのコンテキストファイルはテンプレートに同梱済み（`superclaude/` ディレクトリ、CLAUDE.mdの `@` 参照で自動読み込み）。
+MCPサーバーのみユーザーレベル設定のため、テンプレートをクローンした各PC上で初回のみ手動設定が必要。`pnpm setup:sc`の完了メッセージに手順が表示される。
 
 ```bash
 # 前提: uv をインストール（Serenaに必要）
