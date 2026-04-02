@@ -57,6 +57,20 @@
 
 **通常の開発操作には影響しない:** `rm src/...`、`chmod +x`、`git push origin feature/...`等は許可。
 
+## 全自動開発設定（settings.local.json）
+
+`pnpm setup:sc`で自動生成される許可設定により、開発中の確認プロンプトはほぼゼロ。
+
+| 区分      | 対象                                       | 備考                                    |
+| --------- | ------------------------------------------ | --------------------------------------- |
+| **allow** | `Edit`, `Write`, `Bash`, 全MCP, `Skill` 等 | 開発操作は全て自動実行                  |
+| **ask**   | `mcp__supabase__execute_sql`のみ           | 生SQL実行時だけ確認（データ誤削除防止） |
+| **deny**  | なし（settings.json側で保護）              | 上記のdenyルールが最優先で適用          |
+
+**重要:** `execute_sql`以外の全操作は自動実行される。DBのデータを直接削除するSQLのみ確認が入る。
+
+詳細は [SPECIFICATION.md](./SPECIFICATION.md) のセクション12.11を参照。
+
 ## セキュリティに関するClaude Code絶対ルール
 
 1. **秘密情報をコードにハードコードしない** — 環境変数（`.env.local`）を使用
