@@ -32,17 +32,20 @@
 
 # ═══════════════════════════════════════════════════
 
-## セキュリティ体制（7層防御）
+## セキュリティ体制（8層防御）
 
-| レイヤー  | 対策                                                        | 場所        |
-| --------- | ----------------------------------------------------------- | ----------- |
-| **第1層** | `.gitignore`（秘密鍵・認証・DB・ログ等の包括的除外）        | ローカル    |
-| **第2層** | `gitleaks` pre-commit（パターンマッチで秘密情報検出）       | ローカル    |
-| **第3層** | `~/.gitignore_global`（全プロジェクト共通セーフティネット） | ローカル    |
-| **第4層** | Claude Code denyルール（破壊的操作・秘密情報読み取り防止）  | Claude Code |
-| **第5層** | GitHub Secret Scanning（push済みコードのトークン検出）      | GitHub      |
-| **第6層** | GitHub Push Protection（秘密情報を含むpushをブロック）      | GitHub      |
-| **第7層** | Dependabot（脆弱性自動検出・修正PR自動作成）                | GitHub      |
+| レイヤー  | 対策                                                          | 場所        |
+| --------- | ------------------------------------------------------------- | ----------- |
+| **第1層** | `.gitignore`（秘密鍵・認証・DB・ログ等の包括的除外）          | ローカル    |
+| **第2層** | `gitleaks` pre-commit（パターンマッチで秘密情報検出）         | ローカル    |
+| **第3層** | `~/.gitignore_global`（全プロジェクト共通セーフティネット）   | ローカル    |
+| **第4層** | Claude Code denyルール（破壊的操作・秘密情報読み取り防止）    | Claude Code |
+| **第5層** | GitHub Secret Scanning（push済みコードのトークン検出）        | GitHub      |
+| **第6層** | GitHub Push Protection（秘密情報を含むpushをブロック）        | GitHub      |
+| **第7層** | Dependabot（脆弱性自動検出・修正PR自動作成）                  | GitHub      |
+| **第8層** | セキュリティヘッダー6種（クリックジャッキング・MIME・HSTS等） | ブラウザ    |
+
+詳細は [SPECIFICATION.md](./SPECIFICATION.md) のセクション12.9を参照。
 
 ## Claude Code denyルール（settings.json）
 
@@ -69,7 +72,7 @@
 
 **重要:** `execute_sql`以外の全操作は自動実行される。DBのデータを直接削除するSQLのみ確認が入る。
 
-詳細は [SPECIFICATION.md](./SPECIFICATION.md) のセクション12.11を参照。
+詳細は [SPECIFICATION.md](./SPECIFICATION.md) のセクション12.12を参照。
 
 ## セキュリティに関するClaude Code絶対ルール
 
@@ -1216,7 +1219,7 @@ git checkout -b feature/[機能名]-[日付]
 | --------------------- | -------------------------------------- | -------------------------------- |
 | **boundary-reviewer** | 「サブエージェントで境界チェックして」 | フィーチャー境界違反の意味的分析 |
 
-**既存機能との関係**: 補完であり置き換えではない。CLAUDE.mdルール・`pnpm check:boundaries`・7層防御・Git Hooksは従来通り動作する。
+**既存機能との関係**: 補完であり置き換えではない。CLAUDE.mdルール・`pnpm check:boundaries`・8層防御・Git Hooksは従来通り動作する。
 
 詳細は [SPECIFICATION.md](./SPECIFICATION.md) のセクション22を参照。
 
