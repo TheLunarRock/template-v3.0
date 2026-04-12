@@ -216,6 +216,27 @@ import bundleAnalyzer from '@next/bundle-analyzer'
 
 const nextConfig = {
   reactStrictMode: true,
+  async headers() {
+    return [
+      {
+        source: '/(.*)',
+        headers: [
+          { key: 'X-Frame-Options', value: 'DENY' },
+          { key: 'X-Content-Type-Options', value: 'nosniff' },
+          { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
+          { key: 'X-DNS-Prefetch-Control', value: 'on' },
+          {
+            key: 'Strict-Transport-Security',
+            value: 'max-age=63072000; includeSubDomains; preload',
+          },
+          {
+            key: 'Permissions-Policy',
+            value: 'camera=(), microphone=(), geolocation=()',
+          },
+        ],
+      },
+    ]
+  },
 }
 
 const withBundleAnalyzer = bundleAnalyzer({
@@ -225,6 +246,17 @@ const withBundleAnalyzer = bundleAnalyzer({
 
 export default process.env.ANALYZE === 'true' ? withBundleAnalyzer(nextConfig) : nextConfig
 ```
+
+**セキュリティヘッダー（第8層防御）:**
+
+| ヘッダー                    | 値                                             | 防御対象             |
+| --------------------------- | ---------------------------------------------- | -------------------- |
+| `X-Frame-Options`           | `DENY`                                         | クリックジャッキング |
+| `X-Content-Type-Options`    | `nosniff`                                      | MIMEスニッフィング   |
+| `Referrer-Policy`           | `strict-origin-when-cross-origin`              | リファラー情報漏洩   |
+| `X-DNS-Prefetch-Control`    | `on`                                           | DNS解決の最適化      |
+| `Strict-Transport-Security` | `max-age=63072000; includeSubDomains; preload` | HTTPS強制（2年）     |
+| `Permissions-Policy`        | `camera=(), microphone=(), geolocation=()`     | ブラウザAPI制限      |
 
 ### 5.3 Vitest設定（vitest.config.ts）
 
@@ -666,6 +698,17 @@ jobs:
 > E2Eテストが必要なプロジェクトでは、各リポジトリで個別にci.ymlへステップを追加すること。
 
 ## 10. Git Hooks
+
+### 10.0 共通仕様
+
+| 項目            | 値                                  |
+| --------------- | ----------------------------------- |
+| **shebang**     | `#!/usr/bin/env sh`                 |
+| **huskyソース** | `. "$(dirname -- "$0")/_/husky.sh"` |
+| **文��コード**  | UTF-8                               |
+| **改行��ード**  | LF                                  |
+
+全てのhuskyフックは先頭にshebangとhuskyソース行を含む。これによりシェル環境を明示し、huskyフレームワークとの互換性を保証する。
 
 ### 10.1 pre-commit（実行順序）
 
@@ -1490,9 +1533,22 @@ vercel
 
 ### 17.3 コード品質
 
-- ESLint 9 flat config
+- ESLint 9 flat config（`eslint.config.mjs`）
 - Prettier統合
 - 境界違反ゼロトレランス
+
+#### ESLint除外パターン（Global ignores）
+
+| パターン                       | 理由                       |
+| ------------------------------ | -------------------------- |
+| `.next/**`                     | Next.jsビルド出力          |
+| `node_modules/**`              | 依存パッケージ             |
+| `coverage/**`                  | テストカバレッジ出力       |
+| `*.config.js` / `*.config.mjs` | 設定ファイル               |
+| `scripts/**/*.js`              | ユーティリティスクリプト   |
+| `out/**` / `build/**`          | ビルド出力                 |
+| `public/**`                    | 静的アセット（リント不要） |
+| `next-env.d.ts`                | Next.js自動生成型定義      |
 
 ## 18. 既知の問題
 
@@ -2275,5 +2331,5 @@ describe('Regression: [ID] - [説明]', () => {
 
 ---
 
-**最終更新**: 2026-03-30
-**バージョン**: 2.9.0
+**最終更新**: 2026-04-13
+**バージョン**: 3.0.0（huskyフックshebang標準化・ESLint public除外・セキュリティヘッダー仕様記載・Git Hooks共通仕様追加）

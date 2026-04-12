@@ -24,6 +24,7 @@ export default tseslint.config(
       "scripts/**/*.js",
       "out/**",
       "build/**",
+      "public/**",
       "next-env.d.ts",
     ],
   },
