@@ -214,49 +214,63 @@ export type { FeatureItem, FeatureConfig } from './types'
 ```javascript
 import bundleAnalyzer from '@next/bundle-analyzer'
 
+const cspDirectives = [
+  "default-src 'self'",
+  "script-src 'self' 'unsafe-inline'",
+  "style-src 'self' 'unsafe-inline'",
+  "img-src 'self' data: blob:",
+  "font-src 'self' data:",
+  "connect-src 'self'",
+  "frame-ancestors 'none'",
+  "base-uri 'self'",
+  "form-action 'self'",
+]
+
+const securityHeaders = [
+  { key: 'Content-Security-Policy', value: cspDirectives.join('; ') },
+  { key: 'X-Frame-Options', value: 'DENY' },
+  // ... 他5種省略（全7種）
+]
+
 const nextConfig = {
   reactStrictMode: true,
   async headers() {
-    return [
-      {
-        source: '/(.*)',
-        headers: [
-          { key: 'X-Frame-Options', value: 'DENY' },
-          { key: 'X-Content-Type-Options', value: 'nosniff' },
-          { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
-          { key: 'X-DNS-Prefetch-Control', value: 'on' },
-          {
-            key: 'Strict-Transport-Security',
-            value: 'max-age=63072000; includeSubDomains; preload',
-          },
-          {
-            key: 'Permissions-Policy',
-            value: 'camera=(), microphone=(), geolocation=()',
-          },
-        ],
-      },
-    ]
+    return [{ source: '/(.*)', headers: securityHeaders }]
   },
 }
 
-const withBundleAnalyzer = bundleAnalyzer({
-  enabled: process.env.ANALYZE === 'true',
-  openAnalyzer: true,
-})
-
+// Bundle Analyzer（省略）
 export default process.env.ANALYZE === 'true' ? withBundleAnalyzer(nextConfig) : nextConfig
 ```
 
-**セキュリティヘッダー（第8層防御）:**
+**セキュリティヘッダー（第8層防御・7種）:**
 
-| ヘッダー                    | 値                                             | 防御対象             |
-| --------------------------- | ---------------------------------------------- | -------------------- |
-| `X-Frame-Options`           | `DENY`                                         | クリックジャッキング |
-| `X-Content-Type-Options`    | `nosniff`                                      | MIMEスニッフィング   |
-| `Referrer-Policy`           | `strict-origin-when-cross-origin`              | リファラー情報漏洩   |
-| `X-DNS-Prefetch-Control`    | `on`                                           | DNS解決の最適化      |
-| `Strict-Transport-Security` | `max-age=63072000; includeSubDomains; preload` | HTTPS強制（2年）     |
-| `Permissions-Policy`        | `camera=(), microphone=(), geolocation=()`     | ブラウザAPI制限      |
+| ヘッダー                    | 値                                                           | 防御対象                |
+| --------------------------- | ------------------------------------------------------------ | ----------------------- |
+| `Content-Security-Policy`   | `default-src 'self'; script-src 'self' 'unsafe-inline'; ...` | XSS・外部スクリプト注入 |
+| `X-Frame-Options`           | `DENY`                                                       | クリックジャッキング    |
+| `X-Content-Type-Options`    | `nosniff`                                                    | MIMEスニッフィング      |
+| `Referrer-Policy`           | `strict-origin-when-cross-origin`                            | リファラー情報漏洩      |
+| `X-DNS-Prefetch-Control`    | `on`                                                         | DNS解決の最適化         |
+| `Strict-Transport-Security` | `max-age=63072000; includeSubDomains; preload`               | HTTPS強制（2年）        |
+| `Permissions-Policy`        | `camera=(), microphone=(), geolocation=()`                   | ブラウザAPI制限         |
+
+**CSPディレクティブ詳細:**
+
+| ディレクティブ    | 値                       | 理由                                           |
+| ----------------- | ------------------------ | ---------------------------------------------- |
+| `default-src`     | `'self'`                 | デフォルトで同一オリジンのみ許可               |
+| `script-src`      | `'self' 'unsafe-inline'` | Next.js App Routerのインラインスクリプトに必要 |
+| `style-src`       | `'self' 'unsafe-inline'` | Tailwind CSSのインラインスタイルに必要         |
+| `img-src`         | `'self' data: blob:`     | Base64画像・Blob URLを許可                     |
+| `font-src`        | `'self' data:`           | インラインフォントを許可                       |
+| `connect-src`     | `'self'`                 | API通信を同一オリジンに制限                    |
+| `frame-ancestors` | `'none'`                 | iframingを完全禁止                             |
+| `base-uri`        | `'self'`                 | base URIハイジャック防止                       |
+| `form-action`     | `'self'`                 | フォームハイジャック防止                       |
+
+**クローン先でのカスタマイズ例:**
+Supabase使用時は `connect-src` と `img-src` に `https://*.supabase.co` を追加。
 
 ### 5.3 Vitest設定（vitest.config.ts）
 
