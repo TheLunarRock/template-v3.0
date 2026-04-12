@@ -2345,4 +2345,4 @@ describe('Regression: [ID] - [説明]', () => {
 ---
 
 **最終更新**: 2026-04-13
-**バージョン**: 3.0.0（huskyフックshebang標準化・ESLint public除外・セキュリティヘッダー仕様記載・Git Hooks共通仕様追加）
+**バージョン**: 3.1.0（CSPヘッダー追加・Google Fonts許可・セキュリティヘッダー7種化）
