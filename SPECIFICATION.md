@@ -217,9 +217,9 @@ import bundleAnalyzer from '@next/bundle-analyzer'
 const cspDirectives = [
   "default-src 'self'",
   "script-src 'self' 'unsafe-inline'",
-  "style-src 'self' 'unsafe-inline'",
+  "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
   "img-src 'self' data: blob:",
-  "font-src 'self' data:",
+  "font-src 'self' data: https://fonts.gstatic.com",
   "connect-src 'self'",
   "frame-ancestors 'none'",
   "base-uri 'self'",
@@ -257,17 +257,17 @@ export default process.env.ANALYZE === 'true' ? withBundleAnalyzer(nextConfig) :
 
 **CSPディレクティブ詳細:**
 
-| ディレクティブ    | 値                       | 理由                                           |
-| ----------------- | ------------------------ | ---------------------------------------------- |
-| `default-src`     | `'self'`                 | デフォルトで同一オリジンのみ許可               |
-| `script-src`      | `'self' 'unsafe-inline'` | Next.js App Routerのインラインスクリプトに必要 |
-| `style-src`       | `'self' 'unsafe-inline'` | Tailwind CSSのインラインスタイルに必要         |
-| `img-src`         | `'self' data: blob:`     | Base64画像・Blob URLを許可                     |
-| `font-src`        | `'self' data:`           | インラインフォントを許可                       |
-| `connect-src`     | `'self'`                 | API通信を同一オリジンに制限                    |
-| `frame-ancestors` | `'none'`                 | iframingを完全禁止                             |
-| `base-uri`        | `'self'`                 | base URIハイジャック防止                       |
-| `form-action`     | `'self'`                 | フォームハイジャック防止                       |
+| ディレクティブ    | 値                                                    | 理由                                           |
+| ----------------- | ----------------------------------------------------- | ---------------------------------------------- |
+| `default-src`     | `'self'`                                              | デフォルトで同一オリジンのみ許可               |
+| `script-src`      | `'self' 'unsafe-inline'`                              | Next.js App Routerのインラインスクリプトに必要 |
+| `style-src`       | `'self' 'unsafe-inline' https://fonts.googleapis.com` | Tailwind CSS + Google Fonts CSS                |
+| `img-src`         | `'self' data: blob:`                                  | Base64画像・Blob URLを許可                     |
+| `font-src`        | `'self' data: https://fonts.gstatic.com`              | Google Fontsファイルを許可                     |
+| `connect-src`     | `'self'`                                              | API通信を同一オリジンに制限                    |
+| `frame-ancestors` | `'none'`                                              | iframingを完全禁止                             |
+| `base-uri`        | `'self'`                                              | base URIハイジャック防止                       |
+| `form-action`     | `'self'`                                              | フォームハイジャック防止                       |
 
 **クローン先でのカスタマイズ例:**
 Supabase使用時は `connect-src` と `img-src` に `https://*.supabase.co` を追加。
