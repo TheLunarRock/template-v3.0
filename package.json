@@ -60,7 +60,7 @@
     "sc:business-panel": "echo 'Business analysis mode activated'",
     "sc:parallel": "node scripts/setup.js --sc-parallel",
     "sc:mcp": "echo 'MCP-First mode: Context7, Sequential, Morphllm, Serena'",
-    "prepare": "husky install",
+    "prepare": "husky",
     "postinstall": "chmod +x .husky/* 2>/dev/null || true",
     "quality:check": "pnpm lint && pnpm typecheck && pnpm check:boundaries",
     "quality:fix": "pnpm lint --fix && pnpm fix:boundaries",
