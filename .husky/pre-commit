@@ -1,6 +1,3 @@
-#!/usr/bin/env sh
-. "$(dirname -- "$0")/_/husky.sh"
-
 # 🔐 シークレットスキャン（gitleaks）
 echo "🔐 シークレットスキャン..."
 if command -v gitleaks >/dev/null 2>&1; then
