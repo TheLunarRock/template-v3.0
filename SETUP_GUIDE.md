@@ -2,53 +2,113 @@
 
 このガイドでは、SuperClaude v4 Production Editionテンプレートを使用して、エンタープライズグレードのNext.jsアプリケーションを開始する方法を説明します。
 
-## 📋 前提条件
+## 📋 初回PCチェックリスト（新規PC・友人向け）
 
-- **Node.js**: 18.0.0以上
-- **pnpm**: 8.0.0以上（`npm install -g pnpm`でインストール）
-- **Git**: 最新版
-- **Claude.ai**: アカウント（無料プランでOK）
+> **既存PC（既にこのテンプレートを使ったことがある）の方は、このセクションをスキップしてOK。**
+> `pnpm setup:sc` 実行時に Pre-check が自動的に不足を検出して案内します。
 
-## 🎯 クイックスタート（3ステップ）
+新しいPCで初めてこのテンプレートを使う場合、`pnpm setup:sc` を実行する前に以下のツールが必要です。
 
-### ステップ1: テンプレートをクローン
+### 🔴 必須（これがないと `pnpm setup:sc` 自体が動かない）
 
 ```bash
-# リポジトリをクローン
-git clone https://github.com/[your-username]/template-v3.0 my-awesome-app
-cd my-awesome-app
-
-# プロジェクトをセットアップ（依存関係のインストール含む）
-pnpm setup:project
+# macOS の場合（Homebrew前提）
+brew install node pnpm
 ```
 
-### ステップ2: MCPサーバー設定（初回のみ）
+| ツール      | バージョン  | 用途                                      |
+| ----------- | ----------- | ----------------------------------------- |
+| **Node.js** | `>=20.19.0` | Next.js / pnpm scriptsの実行環境          |
+| **pnpm**    | `>=9.0.0`   | 依存パッケージ管理 + setup スクリプト実行 |
 
-SuperClaudeのコンテキストファイルはテンプレートに同梱済みです（`superclaude/` ディレクトリ）。
-追加インストールは不要ですが、MCPサーバーは各PC上で初回のみ手動設定が必要です。
+### 🟡 強く推奨（フル機能のため）
 
 ```bash
-# 前提: uv をインストール（Serenaに必要）
+# macOS の場合
+brew install gh gitleaks
+gh auth login
+
+# Python パッケージマネージャー（Serena MCP用）
 curl -LsSf https://astral.sh/uv/install.sh | sh
 
-# 必須MCPサーバーを登録
+# Claude Code CLI
+npm install -g @anthropic-ai/claude-code
+```
+
+| ツール       | 用途                                                                          |
+| ------------ | ----------------------------------------------------------------------------- |
+| **gh**       | 第5-6層セキュリティ自動化（Secret Scanning / Push Protection / ブランチ保護） |
+| **gitleaks** | 第2層 pre-commit シークレット検出 + 第9層 二重防御                            |
+| **uv**       | Serena MCP（セマンティック検索・プロジェクト記憶）                            |
+| **claude**   | SuperClaude統合・MCPサーバー登録                                              |
+
+### 🟢 MCPサーバー登録（claude CLI インストール後・初回のみ）
+
+```bash
 claude mcp add serena -- uvx --from git+https://github.com/oraios/serena serena start-mcp-server
 claude mcp add context7 -- npx -y @upstash/context7-mcp@latest
 claude mcp add sequential-thinking -- npx -y @modelcontextprotocol/server-sequential-thinking
 claude mcp add morphllm-fast-apply -- npx @morph-llm/morph-fast-apply /home/
 
-# 設定確認
+# 確認
 claude mcp list
 ```
 
-### ステップ3: 開発開始
+> **これらが不足していても `pnpm setup:sc` の Pre-check が自動的に検出し、コピペできるコマンドを表示します。** 完全自動化していない理由は、グローバルツールのインストールは権限・環境差異の問題があり、ユーザーの判断に委ねるべきだからです。
+
+## 🎯 クイックスタート（3ステップ）
+
+### ステップ1: テンプレートをクローン
+
+**推奨: GitHub Desktop から直接クローン**
+
+GitHub Desktop を開き、`File → Clone Repository → URL` でリポジトリURLを貼り付けてクローン。
+
+> **既知の問題（2026-03-15）**: Chrome 146以降では GitHub Web UI の「Open with GitHub Desktop」ボタンが動作しません。GitHub Desktop から直接クローンしてください。
 
 ```bash
-# 開発サーバーを起動
-pnpm dev
+# CLI からクローンする場合
+git clone https://github.com/[your-username]/template-v3.0 my-awesome-app
+cd my-awesome-app
+```
 
+### ステップ2: セットアップ（依存関係インストール＋環境構築）
+
+Cursor 等のエディタでプロジェクトを開き、内蔵ターミナルで実行:
+
+```bash
+pnpm setup:sc
+```
+
+このコマンドで以下が自動実行されます:
+
+- **Pre-check**: 前提ツール（Node.js/pnpm/gh/gitleaks/uv/claude/MCP）の確認
+- **Step 0**: `pnpm install`（node_modules不在時のみ）
+- **Step 1**: `.claude/settings.local.json` + `.env.local` 生成
+- **Step 2-3**: テスト環境構築（Vitest）
+- **Step 4**: GitHub Actions ワークフロー（`ci.yml` + `security.yml`）
+- **Step 5-5.7**: SuperClaude統合 / Claude Code通知 / セキュリティ自動化（gitleaks + GitHub設定）
+- **Step 6**: VS Code設定
+- **Step 7**: 完了レポート
+
+### ステップ3: Claude Code 起動と開発開始
+
+```bash
+# Cursor 内ターミナルで Claude Code を起動
+claude
+
+# Claude Code に自然言語で機能実装を依頼
+# 例: 「ユーザー認証機能を追加して」
+```
+
+実装した機能の動作確認が必要になったときに、別途:
+
+```bash
+pnpm dev
 # ブラウザで http://localhost:3000 を開く
 ```
+
+> **注**: `pnpm dev` はセットアップ完了の必須ステップではありません。実装の動作確認が必要になったタイミングで起動するコマンドです。型チェック・テスト・ESLintは pre-commit フックで自動実行されるため、コミット時に自動的に品質が保証されます。
 
 ## ✨ テンプレートの機能
 

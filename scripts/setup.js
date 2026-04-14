@@ -84,6 +84,137 @@ const brewInstallIfMissing = (tool, displayName) => {
   }
 }
 
+// 前提ツールのチェック（必須＋任意）
+// 鶏と卵問題のため、Node.js / pnpm がない場合は自動インストールせず、案内だけ行う
+const checkPrerequisites = () => {
+  log.section('Pre-check: 前提ツールの確認')
+
+  // 必須ツール（不足すれば即終了）
+  const required = [
+    {
+      name: 'Node.js',
+      command: 'node --version',
+      install: 'brew install node  # または https://nodejs.org/ から公式インストーラー',
+    },
+    {
+      name: 'pnpm',
+      command: 'pnpm --version',
+      install: 'brew install pnpm  # または npm install -g pnpm',
+    },
+  ]
+
+  // 任意ツール（不足しても続行・警告のみ）
+  const optional = [
+    {
+      name: 'gh (GitHub CLI)',
+      command: 'gh --version',
+      note: '第5-6層セキュリティ自動化（Secret Scanning / Push Protection / ブランチ保護）に必要',
+      install: 'brew install gh && gh auth login',
+    },
+    {
+      name: 'gitleaks',
+      command: 'gitleaks version',
+      note: '第2層 pre-commit シークレット検出 + 第9層 二重防御に必要',
+      install: 'brew install gitleaks',
+    },
+    {
+      name: 'uv (Python package manager)',
+      command: 'uv --version',
+      note: 'Serena MCP（セマンティック検索・プロジェクト記憶）に必要',
+      install: 'curl -LsSf https://astral.sh/uv/install.sh | sh',
+    },
+    {
+      name: 'claude (Claude Code CLI)',
+      command: 'claude --version',
+      note: 'SuperClaude統合・MCPサーバー登録に必要',
+      install: 'npm install -g @anthropic-ai/claude-code',
+    },
+  ]
+
+  // 必須チェック
+  let allRequiredOk = true
+  const missingRequired = []
+  for (const check of required) {
+    try {
+      execSync(check.command, { stdio: 'pipe' })
+      log.success(`${check.name}: インストール済み`)
+    } catch {
+      log.error(`${check.name}: 未インストール（必須）`)
+      missingRequired.push(check)
+      allRequiredOk = false
+    }
+  }
+
+  if (!allRequiredOk) {
+    console.log('')
+    log.error(
+      '必須ツールが不足しています。以下を実行してから再度 pnpm setup:sc を実行してください:'
+    )
+    console.log('')
+    missingRequired.forEach((m) => {
+      console.log(`  ${colors.bold}${m.name}:${colors.reset}`)
+      console.log(`    ${m.install}`)
+      console.log('')
+    })
+    process.exit(1)
+  }
+
+  // 任意チェック
+  const missingOptional = []
+  for (const check of optional) {
+    try {
+      execSync(check.command, { stdio: 'pipe' })
+      log.success(`${check.name}: インストール済み`)
+    } catch {
+      log.warning(`${check.name}: 未インストール`)
+      missingOptional.push(check)
+    }
+  }
+
+  // 任意ツールが不足している場合は案内表示
+  if (missingOptional.length > 0) {
+    console.log('')
+    log.info('任意ツールが未インストールです。フル機能を有効にするには以下を実行してください:')
+    console.log('')
+    missingOptional.forEach((m) => {
+      console.log(`  ${colors.bold}${m.name}${colors.reset} — ${m.note}`)
+      console.log(`    ${m.install}`)
+      console.log('')
+    })
+    log.info('（不足のままでも基本セットアップは続行します）')
+  }
+
+  // MCPサーバー登録チェック（claude CLIがある場合のみ）
+  try {
+    execSync('claude --version', { stdio: 'pipe' })
+    const mcpList = execSync('claude mcp list', { stdio: 'pipe', encoding: 'utf8' })
+    const requiredMcps = ['serena', 'context7', 'sequential-thinking', 'morphllm-fast-apply']
+    const missingMcps = requiredMcps.filter((mcp) => !mcpList.includes(mcp))
+
+    if (missingMcps.length === 0) {
+      log.success(`MCPサーバー: 4種すべて登録済み`)
+    } else {
+      console.log('')
+      log.warning(`MCPサーバー未登録: ${missingMcps.join(', ')}`)
+      log.info('SuperClaudeのMCP-First原則を有効にするため、以下を実行してください:')
+      console.log('')
+      const mcpCommands = {
+        serena:
+          'claude mcp add serena -- uvx --from git+https://github.com/oraios/serena serena start-mcp-server',
+        context7: 'claude mcp add context7 -- npx -y @upstash/context7-mcp@latest',
+        'sequential-thinking':
+          'claude mcp add sequential-thinking -- npx -y @modelcontextprotocol/server-sequential-thinking',
+        'morphllm-fast-apply':
+          'claude mcp add morphllm-fast-apply -- npx @morph-llm/morph-fast-apply /home/',
+      }
+      missingMcps.forEach((mcp) => console.log(`  ${mcpCommands[mcp]}`))
+      console.log('')
+    }
+  } catch {
+    // claude CLI がない場合はスキップ（既に上で警告表示済み）
+  }
+}
+
 // セキュリティ自動セットアップ
 const setupSecurity = async () => {
   const homeDir = os.homedir()
@@ -459,6 +590,9 @@ async function setup() {
 ${colors.bold}🚀 SuperClaude v4 Production Edition - セットアップ${colors.reset}
 ${colors.dim}エンタープライズグレード・フィーチャーベース開発環境${colors.reset}
 `)
+
+  // ========== Pre-check: 前提ツールの確認 ==========
+  checkPrerequisites()
 
   // ========== Step 0: 依存関係の自動インストール ==========
   if (!fs.existsSync('node_modules')) {
