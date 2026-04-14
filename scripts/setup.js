@@ -627,23 +627,25 @@ jobs:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v2
         with:
-          version: 8
+          version: 9
       - uses: actions/setup-node@v4
         with:
-          node-version: 18
+          node-version: 20
           cache: 'pnpm'
-      
+
       - name: 依存関係インストール
         run: pnpm install --frozen-lockfile
-      
+
       - name: 型チェック
         run: pnpm typecheck
-      
+
       - name: フィーチャー境界チェック
         run: pnpm check:boundaries
-      
+
       - name: 全体チェック
-        run: pnpm check
+        run: |
+          cp .env.ci .env.local 2>/dev/null || true
+          pnpm check
 
   test:
     name: テスト実行
@@ -652,18 +654,17 @@ jobs:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v2
         with:
-          version: 8
+          version: 9
       - uses: actions/setup-node@v4
         with:
-          node-version: 18
+          node-version: 20
           cache: 'pnpm'
-      
+
       - name: 依存関係インストール
         run: pnpm install --frozen-lockfile
-      
+
       - name: 単体テスト
         run: pnpm test:unit
-      
 
   build:
     name: ビルドチェック
@@ -673,24 +674,103 @@ jobs:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v2
         with:
-          version: 8
+          version: 9
       - uses: actions/setup-node@v4
         with:
-          node-version: 18
+          node-version: 20
           cache: 'pnpm'
-      
+
       - name: 依存関係インストール
         run: pnpm install --frozen-lockfile
-      
+
       - name: プロダクションビルド
         run: pnpm build
-      
+
       - name: Preflightチェック
         run: pnpm preflight
 `
     fs.writeFileSync(ciPath, ciWorkflow)
     log.success('GitHub Actions CI/CDワークフローを作成しました')
     results.created.push(ciPath)
+  }
+
+  // セキュリティワークフロー（第9層防御）
+  const securityPath = path.join(workflowDir, 'security.yml')
+  if (!fs.existsSync(securityPath)) {
+    const securityWorkflow = `name: Security
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    # 毎週月曜 09:00 JST（00:00 UTC）に実行。新規CVE・脆弱性パターンを定期検知
+    - cron: '0 0 * * 1'
+
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  dependency-audit:
+    name: 依存パッケージ脆弱性監査（pnpm audit）
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v2
+        with:
+          version: 9
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'pnpm'
+
+      - name: 依存関係インストール
+        run: pnpm install --frozen-lockfile
+
+      - name: 本番依存の脆弱性監査（high以上でブロック）
+        run: pnpm audit --prod --audit-level=high
+
+      - name: 全依存の脆弱性監査（moderate以上・警告のみ）
+        run: pnpm audit --audit-level=moderate
+        continue-on-error: true
+
+  gitleaks:
+    name: シークレットスキャン（gitleaks・二重防御）
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: gitleaks実行
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: \${{ secrets.GITHUB_TOKEN }}
+
+  codeql:
+    name: 静的解析（CodeQL SAST）
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: CodeQL初期化
+        uses: github/codeql-action/init@v3
+        with:
+          languages: javascript-typescript
+          queries: security-and-quality
+
+      - name: CodeQL解析
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: '/language:javascript-typescript'
+`
+    fs.writeFileSync(securityPath, securityWorkflow)
+    log.success('GitHub Actions セキュリティワークフロー（第9層防御）を作成しました')
+    results.created.push(securityPath)
   }
 
   // ========== Step 5: SuperClaude統合強化 ==========

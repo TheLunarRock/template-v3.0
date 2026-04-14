@@ -25,10 +25,10 @@ jobs:
 
       - name: 型チェック
         run: pnpm typecheck
-      
+
       - name: フィーチャー境界チェック
         run: pnpm check:boundaries
-      
+
       - name: 全体チェック
         run: |
           cp .env.ci .env.local 2>/dev/null || true
@@ -52,7 +52,6 @@ jobs:
 
       - name: 単体テスト
         run: pnpm test:unit
-      
 
   build:
     name: ビルドチェック
@@ -73,6 +72,6 @@ jobs:
 
       - name: プロダクションビルド
         run: pnpm build
-      
+
       - name: Preflightチェック
         run: pnpm preflight
