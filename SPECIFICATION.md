@@ -1397,6 +1397,65 @@ Permissions-Policy: camera=(), microphone=(), geolocation=()
 
 **現時点で 0件**（`pnpm audit` で確認、本番・開発依存ともにクリーン）。
 
+#### 12.10.5 手動依存衛生の運用方針
+
+定期的な依存更新（Dependabot Version Updates相当）は**意図的に自動化していない**。理由は開発体験の保護であり、テンプレートの設計判断として明確化する。
+
+| 項目                                  | 採否               | 理由                                                             |
+| ------------------------------------- | ------------------ | ---------------------------------------------------------------- |
+| **dependabot.yml（version updates）** | 不採用             | 週次PR氾濫・breaking change によるCI失敗・開発フロー中断のリスク |
+| **Dependabot Security Updates**       | 採用（デフォルト） | 脆弱性検知時のみPR作成。受動的だが実害発生時のみ動く             |
+| **第9層 dependency-audit**            | 採用               | 週次cronで能動的に新規CVE検知。失敗時は人間が判断して対処        |
+| **手動 `pnpm update`**                | 推奨               | 月次〜四半期に1度、開発者が能動的に実行（後述）                  |
+
+**手動更新の推奨フロー（月次〜四半期）:**
+
+```bash
+# 1. 現在の脆弱性を確認
+pnpm audit
+
+# 2. 対話的に更新候補を確認
+pnpm update --interactive
+
+# 3. パッチ更新のみを優先（安全）
+pnpm update --interactive --latest=false
+
+# 4. 更新後の検証
+pnpm typecheck && pnpm test && pnpm build
+
+# 5. 問題なければコミット
+git add package.json pnpm-lock.yaml
+git commit -m "chore: 依存パッケージを更新"
+```
+
+**新規CVE検知時の対処フロー（第9層 audit が失敗した場合）:**
+
+```bash
+# 1. 詳細を確認
+pnpm audit
+
+# 2. 影響範囲を特定
+pnpm why <vulnerable-package>
+
+# 3. 直接依存ならアップデート
+pnpm update <package>
+
+# 4. 間接依存（transitive）なら pnpm.overrides で局所修正
+#    package.json の "pnpm.overrides" にバージョン範囲指定で追加
+#    例: "minimatch@>=10.0.0 <10.2.3": "^10.2.3"
+
+# 5. 動作確認後コミット
+```
+
+**設計判断の根拠（2026-04-13）:**
+
+| 判断                        | 理由                                                                                     |
+| --------------------------- | ---------------------------------------------------------------------------------------- |
+| **PRより通知**              | Dependabot Security UpdatesのPR + 第9層auditの失敗通知で「いつ動くべきか」が分かれば十分 |
+| **能動より受動の防御**      | 個人開発テンプレートでは「常に最新」より「壊れない」が優先                               |
+| **過剰な自動化の回避**      | 自動PR管理は開発体験を悪化させる。判断は人間が行う                                       |
+| **`pnpm.overrides` の常備** | 透過的依存の脆弱性に対する確実な対処手段として常時運用                                   |
+
 ### 12.11 Claude Code denyルール（破壊的操作・秘密情報保護）
 
 Claude Codeのツール実行に対して、破壊的操作と秘密情報へのアクセスをdenyルールで防止する。
