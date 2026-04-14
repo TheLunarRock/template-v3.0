@@ -115,7 +115,7 @@ pnpm dev
 ### 🤖 SuperClaude v4 統合
 
 - **14の専門エージェント**: system-architect、security-engineer、performance-engineer等
-- **/sc:コマンド体系**: 22の統一コマンド
+- **`sc:` プレフィックスのpnpmスクリプト**: 境界チェック・フィーチャー作成・包括検証を統合する16種（`pnpm sc:start` / `pnpm sc:feature` / `pnpm sc:boundaries` / `pnpm sc:validate` ほか）
 - **6つの適応モード**: Business Panel、Brainstorming、Orchestration等
 
 ### 📦 フィーチャーベース開発
@@ -164,7 +164,7 @@ pnpm validate:all    # 全品質チェック
 
 ## 🔧 MCPサーバーについて
 
-MCPサーバーはステップ2で手動登録が必要です。ツールの使用許可は `.claude/settings.json` にテンプレートとして同梱済みです。
+MCPサーバーは各PC上で初回のみ手動登録が必要です（本ガイド冒頭「🟢 MCPサーバー登録」または `pnpm setup:sc` 完了時の案内を参照）。ツールの使用許可は `.claude/settings.json` にテンプレートとして同梱済みです。
 
 | サーバー       | 機能                                 | APIキー |
 | -------------- | ------------------------------------ | ------- |
@@ -234,8 +234,8 @@ pnpm check:boundaries --verbose
 セットアップが完了したことを確認：
 
 - [ ] テンプレートをクローンした
-- [ ] `pnpm setup:project`を実行した
-- [ ] MCPサーバーを登録した（ステップ2）
+- [ ] `pnpm setup:sc`を実行した
+- [ ] MCPサーバーを登録した（初回PCチェックリスト / `pnpm setup:sc` 完了後の案内に従って）
 - [ ] `claude mcp list` で全MCPが表示される
 - [ ] `pnpm dev`で開発サーバーが起動した
 - [ ] `pnpm sc:boundaries`で境界チェックが動作した

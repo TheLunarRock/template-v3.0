@@ -12,7 +12,7 @@
 
 ## 🎯 このドキュメントの目的
 
-SuperClaude v4の**22コマンド・14エージェント・6モード・6 MCPサーバー**をコンテキスト駆動で活用するための統合ガイドです。
+SuperClaude v4の**16スクリプト・14エージェント・6モード・MCPサーバー群**をコンテキスト駆動で活用するための統合ガイドです。
 
 ## ⚡ 10秒クイックスタート
 
@@ -31,15 +31,15 @@ pnpm sc:start && mcp__serena__activate_project
 
 ## 📊 SuperClaude v4.0.8 コンテキスト仕様
 
-| コンポーネント    | 数     | コンテキスト状態        | 活用方法                   |
-| ----------------- | ------ | ----------------------- | -------------------------- |
-| **Commands**      | 22     | ✅ コンテキストトリガー | `/sc:`でパターン読み込み   |
-| **Agents**        | 14     | ✅ 専門知識コンテキスト | キーワードで活性化         |
-| **Modes**         | 6      | ✅ 行動パターン変更     | トリガーで切替             |
-| **MCP Servers**   | 5/6    | ⚠️ 5つ利用可能          | Magic以外のMCP動作確認済み |
-| **Session永続化** | ∞      | ✅ Cross-conversation   | Serenaメモリ活用           |
-| **Token効率**     | 30-50% | ✅ 圧縮パターン         | シンボル通信               |
-| **並列実行**      | Max 15 | ✅ 並列推奨             | 独立操作識別               |
+| コンポーネント    | 数     | コンテキスト状態        | 活用方法                      |
+| ----------------- | ------ | ----------------------- | ----------------------------- |
+| **Commands**      | 16     | ✅ コンテキストトリガー | `pnpm sc:*`でパターン読み込み |
+| **Agents**        | 14     | ✅ 専門知識コンテキスト | キーワードで活性化            |
+| **Modes**         | 6      | ✅ 行動パターン変更     | トリガーで切替                |
+| **MCP Servers**   | 5/6    | ⚠️ 5つ利用可能          | Magic以外のMCP動作確認済み    |
+| **Session永続化** | ∞      | ✅ Cross-conversation   | Serenaメモリ活用              |
+| **Token効率**     | 30-50% | ✅ 圧縮パターン         | シンボル通信                  |
+| **並列実行**      | Max 15 | ✅ 並列推奨             | 独立操作識別                  |
 
 ## 🔥 MCP-First原則（最重要）
 
@@ -255,7 +255,7 @@ async function superClaudeContextFlow(userRequest) {
 - [ ] **並列実行**: 独立操作は必ず並列化
 - [ ] **メモリ保存**: 30分ごと＋タスク完了時
 - [ ] **境界チェック**: 実装後に`pnpm sc:boundaries`
-- [ ] **セッション終了**: `pnpm sc:save && pnpm sc:reflect`
+- [ ] **セッション終了**: Claude Codeで `/sc:save` を実行してコンテキストを永続化
 
 ### 📊 活用度スコア（自己診断）
 
@@ -268,47 +268,41 @@ async function superClaudeContextFlow(userRequest) {
 | エージェント活用 | 15点      | □        |
 | **合計**         | **100点** | **/100** |
 
-## 🎮 22の/sc:コマンド完全リファレンス
+## 🎮 16 pnpm sc: スクリプト完全リファレンス
+
+実測: `package.json` の `sc:*` スクリプトは以下16種（`pnpm test tests/consistency/command-references.test.ts` で整合性検証済み）。
 
 ```typescript
-const SC_COMMANDS_FULL = {
-  // 計画フェーズ（3コマンド）
-  '/sc:brainstorm': '要件探索・アイデア出し',
-  '/sc:plan': '実装計画作成',
-  '/sc:estimate': '工数見積もり',
+const SC_SCRIPTS_ACTUAL = {
+  // 計画フェーズ（3）
+  'pnpm sc:plan': '計画セッション開始（git-safety-check 付き）',
+  'pnpm sc:brainstorm': 'ブレインストーミングモード（安全ブランチ自動作成）',
+  'pnpm sc:parallel': '並列処理セットアップ（setup.js --sc-parallel）',
 
-  // セットアップ（3コマンド）
-  '/sc:start': 'セッション開始【必須】',
-  '/sc:init': 'プロジェクト初期化',
-  '/sc:feature': 'フィーチャー作成',
+  // セットアップ（3）
+  'pnpm sc:start': 'セッション開始【必須】（git status + 境界チェック）',
+  'pnpm sc:feature': 'フィーチャー作成ウィザード',
+  'pnpm sc:mcp': 'MCP-Firstモード案内（Context7/Sequential/Morphllm/Serena）',
 
-  // 開発（3コマンド）
-  '/sc:implement': '実装実行',
-  '/sc:refactor': 'リファクタリング',
-  '/sc:optimize': '最適化',
+  // 実装（3）
+  'pnpm sc:implement': '実装実行（claude:implement 呼び出し）',
+  'pnpm sc:refactor': '境界違反の自動修正リファクタリング',
+  'pnpm sc:optimize': 'バンドル分析・最適化',
 
-  // 品質保証（5コマンド）
-  '/sc:boundaries': '境界チェック',
-  '/sc:analyze': '依存関係分析',
-  '/sc:validate': '包括的検証',
-  '/sc:test': 'テスト実行',
-  '/sc:security': 'セキュリティ監査',
+  // 品質保証（6）
+  'pnpm sc:boundaries': '境界違反チェック',
+  'pnpm sc:analyze': 'フィーチャー依存関係分析',
+  'pnpm sc:validate': '包括的品質チェック',
+  'pnpm sc:test': 'テスト実行',
+  'pnpm sc:review': 'typecheck + lint のコードレビュー',
+  'pnpm sc:debug': 'Vitest UI によるデバッグ',
 
-  // ドキュメント（2コマンド）
-  '/sc:document': 'ドキュメント生成',
-  '/sc:api-docs': 'API仕様書作成',
-
-  // デプロイ（3コマンド）
-  '/sc:build': 'ビルド実行',
-  '/sc:deploy': 'デプロイ実行',
-  '/sc:rollback': 'ロールバック',
-
-  // 分析（3コマンド）
-  '/sc:business-panel': 'ビジネス価値分析',
-  '/sc:metrics': 'メトリクス分析',
-  '/sc:review': 'コードレビュー',
+  // 分析（1）
+  'pnpm sc:business-panel': 'ビジネス価値分析モード',
 }
 ```
+
+> **注**: Claude Codeのスラッシュコマンド（`/sc:save` / `/sc:load` / `/sc:reflect` 等）は SuperClaude フレームワーク（ユーザーグローバル `~/.claude/commands/sc/`）由来で、テンプレート同梱の pnpm スクリプトとは別レイヤーです。
 
 ## ✅ 最終チェックリスト
 
@@ -327,7 +321,7 @@ const SC_COMMANDS_FULL = {
 
 ### コンテキストファイルによる振る舞い変更
 
-- **22コマンド**: ワークフローパターン提供
+- **16 pnpm sc: スクリプト**: ワークフローパターン提供
 - **14エージェント**: 専門知識コンテキスト
 - **6モード**: インタラクションスタイル変更
 - **5 MCPサーバー**: 実ツールとの統合（Magic MCPは設定済みだが利用不可）

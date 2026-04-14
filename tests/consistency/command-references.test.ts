@@ -59,7 +59,14 @@ const STANDARD_COMMANDS = new Set([
   'vitest',
 ])
 
-const docs = ['CLAUDE.md', 'SETUP_GUIDE.md', 'SPECIFICATION.md', 'README.md', 'PROJECT_INFO.md']
+const docs = [
+  'CLAUDE.md',
+  'SETUP_GUIDE.md',
+  'SPECIFICATION.md',
+  'README.md',
+  'PROJECT_INFO.md',
+  'SUPERCLAUDE_FINAL.md',
+]
 
 describe('整合性: ドキュメント内の pnpm コマンドが package.json scripts に実在する', () => {
   describe.each(docs)('%s', (doc) => {
