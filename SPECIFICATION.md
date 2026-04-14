@@ -1740,44 +1740,176 @@ gitleaks git . --verbose
 
 ## 14. セットアップ手順
 
+### 14.1 全体フロー（クローンから開発開始まで）
+
 ```bash
-# 1. リポジトリクローン
+# 1. リポジトリクローン（GitHub Desktop推奨 / Chrome 146のボタン無効化問題に注意）
 git clone [repository-url] my-app
 cd my-app
 
-# 2. 依存関係インストール
-pnpm install
-
-# 3. 自動セットアップ（セキュリティ含む全自動）
+# 2. 自動セットアップ（pnpm setup:sc が pnpm install を内包）
 pnpm setup:sc
-# 以下が自動実行される:
-#   - gitleaksインストール（シークレットスキャン）
-#   - GitHub CLIインストール + 認証ガイド
-#   - グローバルgitignore設定
-#   - GitHub側セキュリティ有効化（visibility自動判定）
-#     publicリポ: Secret Scanning, Push Protection, Dependabot, ブランチ保護
-#     privateリポ: Dependabotアラートのみ（他はプラン制限でスキップ）
-#   - Claude Code通知設定（オプション）
-#   - MCPサーバー設定手順の表示（セクション20参照）
+#   ↓ Pre-check（前提ツールの自動検出）
+#   ↓ Step 0: pnpm install（node_modules 不在時のみ）
+#   ↓ Step 1〜7: 環境構築・CI/CD・通知・セキュリティ自動化
 
-# 4. MCPサーバー設定（初回のみ・手動）
-# setup:sc完了後に表示される手順に従う（詳細は§20参照）
+# 3. Claude Code 起動（Cursor内ターミナル）
+claude
+
+# 4. 自然言語で機能実装を依頼
+# 例: 「ユーザー認証機能を追加して」
+#    → Claude Code が CLAUDE.md / SPECIFICATION.md を参照し
+#      フィーチャー境界を遵守して実装
+
+# 5. 動作確認（必要なときだけ・必須ではない）
+pnpm dev
+# ブラウザで http://localhost:3000 を開く
+```
+
+> **重要**: `pnpm dev` はセットアップの必須ステップではない。pre-commit フックで typecheck/lint/test/整合性チェックが自動実行されるため、コミット時点で品質が保証される。`pnpm dev` は実装の動作確認が必要になったときに起動する。
+
+### 14.2 `pnpm setup:sc` の Pre-check 機能（前提ツール自動検出）
+
+`pnpm setup:sc` 実行時、Step 0 の前に `checkPrerequisites()` 関数が前提ツールを自動検出する。新規PCで友人がクローンした際に、何が不足しているかを一目で把握できる仕組み。
+
+#### 14.2.1 検出対象ツール
+
+| 区分    | ツール                | コマンド           | 失敗時の挙動                       | 用途                                               |
+| ------- | --------------------- | ------------------ | ---------------------------------- | -------------------------------------------------- |
+| 🔴 必須 | **Node.js**           | `node --version`   | exit 1 + インストール案内表示      | Next.js / pnpm scripts の実行環境                  |
+| 🔴 必須 | **pnpm**              | `pnpm --version`   | exit 1 + インストール案内表示      | 依存パッケージ管理 + setup スクリプト実行          |
+| 🟡 任意 | **gh (GitHub CLI)**   | `gh --version`     | warning + 案内表示・続行           | 第5-6層セキュリティ自動化（Secret Scanning等）     |
+| 🟡 任意 | **gitleaks**          | `gitleaks version` | warning + 案内表示・続行           | 第2層 pre-commit シークレット検出 + 第9層 二重防御 |
+| 🟡 任意 | **uv**                | `uv --version`     | warning + 案内表示・続行           | Serena MCP（セマンティック検索・プロジェクト記憶） |
+| 🟡 任意 | **claude (Code CLI)** | `claude --version` | warning + 案内表示・続行           | SuperClaude統合・MCPサーバー登録                   |
+| 🟢 推奨 | **MCP サーバー4種**   | `claude mcp list`  | warning（claude CLI ある場合のみ） | AI ファースト開発の根幹                            |
+
+#### 14.2.2 完全自動インストールを採用しない理由（鶏と卵問題）
+
+| 理由           | 説明                                                                                  |
+| -------------- | ------------------------------------------------------------------------------------- |
+| **鶏と卵問題** | `pnpm setup:sc` を実行するには pnpm が必要。pnpm 自体を pnpm scripts では入れられない |
+| **環境差異**   | macOS / Linux / Windows、Homebrew の有無、proxy 環境、sudo 権限の有無で挙動が変わる   |
+| **副作用回避** | 友人のグローバル環境を勝手に変更すると不安感を与える。判断は人間に委ねる              |
+
+→ **検出 + コピペ可能なコマンド表示**という最小自動化に留める。
+
+#### 14.2.3 必須ツール不足時の出力例
+
+```
+━━━ Pre-check: 前提ツールの確認 ━━━
+
+✗ Node.js: 未インストール（必須）
+✗ pnpm: 未インストール（必須）
+
+✗ 必須ツールが不足しています。以下を実行してから再度 pnpm setup:sc を実行してください:
+
+  Node.js:
+    brew install node  # または https://nodejs.org/ から公式インストーラー
+
+  pnpm:
+    brew install pnpm  # または npm install -g pnpm
+```
+
+→ 友人がコピペで対処可能。
+
+#### 14.2.4 任意ツール不足時の出力例
+
+```
+━━━ Pre-check: 前提ツールの確認 ━━━
+
+✓ Node.js: インストール済み
+✓ pnpm: インストール済み
+⚠ gh (GitHub CLI): 未インストール
+⚠ gitleaks: 未インストール
+⚠ uv: 未インストール
+⚠ claude (Claude Code CLI): 未インストール
+
+ℹ 任意ツールが未インストールです。フル機能を有効にするには以下を実行してください:
+
+  gh (GitHub CLI) — 第5-6層セキュリティ自動化（Secret Scanning / Push Protection / ブランチ保護）
+    brew install gh && gh auth login
+
+  gitleaks — 第2層 pre-commit シークレット検出 + 第9層 二重防御
+    brew install gitleaks
+
+  uv — Serena MCP（セマンティック検索・プロジェクト記憶）
+    curl -LsSf https://astral.sh/uv/install.sh | sh
+
+  claude (Claude Code CLI) — SuperClaude統合・MCPサーバー登録
+    npm install -g @anthropic-ai/claude-code
+
+ℹ （不足のままでも基本セットアップは続行します）
+```
+
+→ 友人は判断して必要なものだけ入れられる。
+
+#### 14.2.5 完全成功時の出力例（既存PC）
+
+```
+━━━ Pre-check: 前提ツールの確認 ━━━
+
+✓ Node.js: インストール済み
+✓ pnpm: インストール済み
+✓ gh (GitHub CLI): インストール済み
+✓ gitleaks: インストール済み
+✓ uv (Python package manager): インストール済み
+✓ claude (Claude Code CLI): インストール済み
+✓ MCPサーバー: 4種すべて登録済み
+```
+
+→ 何もなくスムーズに Step 0 へ進む。
+
+### 14.3 `pnpm setup:sc` の実行ステップ詳細（8ステップ）
+
+| Step    | 内容                                                                                       | 既存ファイルがある場合         |
+| ------- | ------------------------------------------------------------------------------------------ | ------------------------------ |
+| **0**   | `pnpm install`（`node_modules` 不在時のみ）                                                | スキップ                       |
+| **1**   | `.claude/settings.local.json` + `.env.local` 自動生成                                      | 既存ファイル保護のためスキップ |
+| **2**   | `tests/unit/`, `tests/unit/features/` ディレクトリ作成                                     | 既存なら何もしない             |
+| **3**   | Vitest 単体テスト環境構築                                                                  | 既存なら何もしない             |
+| **4**   | `.github/workflows/ci.yml` + `security.yml` 生成                                           | 既存ならスキップ（破壊しない） |
+| **5**   | SuperClaude v4 統合確認（CLAUDE.md / PROJECT_INFO.md の存在）                              | -                              |
+| **5.5** | Claude Code 通知設定（対話式: Slack Webhook 等）                                           | 既設定ならスキップ             |
+| **5.7** | セキュリティ自動セットアップ（gitleaks インストール / GitHub 設定 / グローバル gitignore） | 既設定ならスキップ             |
+| **6**   | VS Code / Cursor 設定                                                                      | 既設定ならスキップ             |
+| **7**   | 完了レポート + MCPサーバー設定手順表示                                                     | -                              |
+
+### 14.4 MCPサーバー初回登録（claude CLI が必要）
+
+```bash
+# 前提: uv をインストール（Serena MCP に必要）
 curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# 必須MCPサーバー4種を登録
 claude mcp add serena -- uvx --from git+https://github.com/oraios/serena serena start-mcp-server
 claude mcp add context7 -- npx -y @upstash/context7-mcp@latest
 claude mcp add sequential-thinking -- npx -y @modelcontextprotocol/server-sequential-thinking
 claude mcp add morphllm-fast-apply -- npx @morph-llm/morph-fast-apply /home/
-claude mcp list  # 接続確認
 
-# 5. 環境変数設定
-cp .env.example .env.local
-# .env.localを編集
-
-# 6. 開発サーバー起動
-pnpm dev
-
-# ブラウザで http://localhost:3000 を開く
+# 接続確認
+claude mcp list
 ```
+
+→ 詳細はセクション20を参照。
+
+### 14.5 環境変数の設定（必要に応じて）
+
+```bash
+# .env.local は pnpm setup:sc で自動生成済み
+# Supabase 等の外部サービスを使用する場合のみ編集
+nano .env.local
+```
+
+### 14.6 設計判断（2026-04-14）
+
+| 項目                           | 判断 | 理由                                                             |
+| ------------------------------ | ---- | ---------------------------------------------------------------- |
+| **Pre-check で必須ツール検証** | 採用 | 鶏と卵問題があるため自動インストールはせず、検出と案内に留める   |
+| **任意ツールも warning 表示**  | 採用 | 不足していても基本セットアップは続行可能。フル機能化は人間が判断 |
+| **MCP登録チェック**            | 採用 | claude CLI がある場合のみ実行。SuperClaude のMCP-First原則を支援 |
+| **エラーメッセージへの案内**   | 採用 | コピペ可能なコマンドを表示し、友人の認知負荷を最小化             |
+| **既存ファイル破壊の禁止**     | 採用 | Step 1〜6 すべて存在チェックでスキップ。再実行で破壊されない     |
 
 ## 15. デプロイ
 
@@ -2757,5 +2889,16 @@ PRマージ可能
 
 ---
 
-**最終更新**: 2026-04-14
-**バージョン**: 3.3.0（第23章ドキュメント整合性チェック追加・39テストで実装/仕様の永続的整合性を保証）
+**最終更新**: 2026-04-15
+**バージョン**: 3.4.0（第14章セットアップ手順を全面拡張・Pre-check機能の詳細仕様を明文化・8ステップ実行詳細を追加）
+
+---
+
+## 改訂履歴（直近）
+
+| バージョン | 日付       | 変更内容                                                                                                                                           |
+| ---------- | ---------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **3.4.0**  | 2026-04-15 | 第14章を全面拡張: Pre-check 機能（6種ツール自動検出+MCP登録チェック）の詳細仕様、`pnpm setup:sc` 8ステップ実行詳細、設計判断（鶏と卵問題の回避）   |
+| **3.3.0**  | 2026-04-14 | 第23章「ドキュメント整合性チェック」追加: 39テスト/7ファイルで AI ファースト時代の型システムを実現。protect-config.js の保護対象不整合を発見・修正 |
+| **3.2.0**  | 2026-04-14 | 第9層防御（CI/CDセキュリティワークフロー）追加: CodeQL SAST + pnpm audit + gitleaks Actions二重防御。next 15.5.15 パッチ適用                       |
+| **3.1.0**  | 2026-04-13 | CSPヘッダー追加・Google Fonts 許可・セキュリティヘッダー7種化                                                                                      |

@@ -61,6 +61,42 @@
 
 **通常の開発操作には影響しない:** `rm src/...`、`chmod +x`、`git push origin feature/...`等は許可。
 
+## クローンから開発開始までの完全フロー（友人向け含む）
+
+```bash
+# 1. GitHub Desktopまたはgit cloneでクローン（Chrome 146のボタン無効化問題に注意）
+git clone [url] my-app && cd my-app
+
+# 2. Cursor内ターミナルで自動セットアップ
+pnpm setup:sc
+#   ↓ Pre-check: 前提ツール6種を自動検出（不足あればコピペ用コマンド表示）
+#   ↓ Step 0: pnpm install（node_modules不在時のみ）
+#   ↓ Step 1〜7: 設定/テスト/CI/通知/セキュリティ自動化
+
+# 3. Claude Code 起動
+claude
+
+# 4. 自然言語で機能実装を依頼（pnpm dev は不要）
+# 例: 「ユーザー認証機能を追加して」
+
+# 5. 動作確認が必要なときだけ
+pnpm dev
+```
+
+### Pre-check が検出する前提ツール
+
+| 区分    | ツール   | 不足時の挙動                           |
+| ------- | -------- | -------------------------------------- |
+| 🔴 必須 | Node.js  | exit 1 + `brew install node` 案内      |
+| 🔴 必須 | pnpm     | exit 1 + `brew install pnpm` 案内      |
+| 🟡 任意 | gh       | warning + `brew install gh` 案内       |
+| 🟡 任意 | gitleaks | warning + `brew install gitleaks` 案内 |
+| 🟡 任意 | uv       | warning + 案内 (Serena MCP に必要)     |
+| 🟡 任意 | claude   | warning + 案内 (Claude Code CLI)       |
+| 🟢 推奨 | MCP4種   | warning + 各 `claude mcp add` 案内     |
+
+詳細は [SPECIFICATION.md](./SPECIFICATION.md) のセクション14（特に14.2「Pre-check機能」）を参照。
+
 ## 全自動開発設定（settings.local.json）
 
 `pnpm setup:sc`で自動生成される許可設定により、開発中の確認プロンプトはほぼゼロ。
