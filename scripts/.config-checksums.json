@@ -1,6 +1,8 @@
 {
   "tsconfig.json": "3c60801c6f6acb63fc960f871cff7f58c39187de04d77247053f40e46330701e",
+  "eslint.config.mjs": "c1ee778907f4c946804e43f4b0371c407227ac01b18859ecf288cf5fa961b5d1",
   "vitest.config.ts": "ca9032b0b885721bd876b0e527992595dcbe3088493d968a0e4091ef301ad594",
+  "next.config.mjs": "0aabfd122af0c4a4b3f85b14a3c61f4e52fc73c364c6109304d197bb480cde4c",
   "tailwind.config.ts": "3e16873a3e40d43f17b364a079f275e7adf4f38ffd632fa94a9e8f5c65cfdd1a",
   "postcss.config.js": "6bbbfd323867a78af8d7ee348a179835202fc7a71f4c2b3e3f34de6f5f895c76"
 }

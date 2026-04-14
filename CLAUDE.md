@@ -83,6 +83,7 @@
 4. **`--no-verify`でコミットフックを回避しない** — セキュリティチェックは必須
 5. **依存パッケージの脆弱性警告を無視しない** — Dependabot PRを確認
 6. **denyルールを削除・緩和しない** — 解除が必要な場合は`settings.local.json`で個別override
+7. **整合性テスト（`tests/consistency/`）を回避しない** — ドキュメントと実装の乖離は AI の信頼性を破壊するため、必ず両方を同時更新
 
 ## GitHub側セキュリティ設定のvisibility分岐
 
@@ -1222,6 +1223,35 @@ git checkout -b feature/[機能名]-[日付]
 **既存機能との関係**: 補完であり置き換えではない。CLAUDE.mdルール・`pnpm check:boundaries`・9層防御・Git Hooksは従来通り動作する。
 
 詳細は [SPECIFICATION.md](./SPECIFICATION.md) のセクション22を参照。
+
+# ═══════════════════════════════════════════════════
+
+# 📐 ドキュメント整合性チェック（AIファースト時代の型システム）
+
+# ═══════════════════════════════════════════════════
+
+ドキュメントと実装の乖離は AI の信頼性を破壊するため、`tests/consistency/` 配下の **39テスト**で自動検証する。pre-commit と CI で自動実行される。
+
+## 整合性が保証される対象
+
+| カテゴリ               | テストファイル               | 検証内容                                                             |
+| ---------------------- | ---------------------------- | -------------------------------------------------------------------- |
+| **コードテンプレート** | `setup-templates.test.ts`    | `setup.js` 内の `ci.yml` / `security.yml` テンプレート vs 実ファイル |
+| **コマンド参照**       | `command-references.test.ts` | ドキュメント内の pnpm コマンド参照が `package.json` scripts に実在   |
+| **ファイルパス参照**   | `file-references.test.ts`    | ドキュメント内のパス参照が実在                                       |
+| **バージョン番号**     | `version-numbers.test.ts`    | `package.json` engines.node がワークフローと整合                     |
+| **層の数**             | `layer-count.test.ts`        | 「N層防御」が CLAUDE.md と SPECIFICATION.md で一致                   |
+| **保護ファイルリスト** | `protected-files.test.ts`    | `protect-config.js` と CLAUDE.md の保護表が一致                      |
+| **MCPサーバーリスト**  | `mcp-list.test.ts`           | 必須MCP4種が全ドキュメント・スクリプトに記載                         |
+
+## Claude Code への絶対指示
+
+1. **ドキュメントと実装は常にセットで更新する** — 片方だけ更新すると整合性テストでブロックされる
+2. **整合性テストの失敗は無視しない** — 失敗メッセージに修正方法が明記されているので従う
+3. **テスト対象を増やしたら検証も増やす** — 新しい構造的整合性が必要なら `tests/consistency/` に追加する
+4. **「とりあえず通す」ための回避コードを書かない** — 本物の不整合を直す方が常に正しい
+
+詳細は [SPECIFICATION.md](./SPECIFICATION.md) のセクション23を参照。
 
 ---
 
