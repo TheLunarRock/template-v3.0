@@ -4,12 +4,13 @@
  * 設定ファイル保護スクリプト
  *
  * このスクリプトは以下の設定ファイルが変更されていないことを確認します：
- * - tsconfig.json       (TypeScript)
- * - eslint.config.mjs   (ESLint v9 flat config)
- * - vitest.config.ts    (Vitest)
- * - next.config.mjs     (Next.js)
- * - tailwind.config.ts  (Tailwind CSS)
- * - postcss.config.js   (PostCSS)
+ * - tsconfig.json                            (TypeScript)
+ * - eslint.config.mjs                        (ESLint v9 flat config)
+ * - vitest.config.ts                         (Vitest)
+ * - next.config.mjs                          (Next.js)
+ * - tailwind.config.ts                       (Tailwind CSS)
+ * - postcss.config.js                        (PostCSS)
+ * - .claude/hooks/db-destructive-warning.sh  (DB破壊警告Hook)
  *
  * もし変更が検出された場合、エラーを表示してプロセスを停止します。
  *
@@ -31,6 +32,7 @@ const PROTECTED_FILES = [
   'next.config.mjs',
   'tailwind.config.ts',
   'postcss.config.js',
+  '.claude/hooks/db-destructive-warning.sh',
 ]
 
 // 正しいチェックサムを保存するファイル

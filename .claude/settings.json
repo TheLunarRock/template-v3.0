@@ -82,6 +82,12 @@
       "Bash(rm -rf /*)",
       "Bash(rm -rf ~)",
       "Bash(rm -rf ~/*)",
+      "Bash(rm -rf .)",
+      "Bash(rm -rf ./)",
+      "Bash(rm -rf ./*)",
+      "Bash(rm -rf ../)",
+      "Bash(rm -rf ../*)",
+      "Bash(rm -rf *)",
       "Bash(chmod 777 *)",
       "Bash(mkfs*)",
       "Bash(dd if=* of=/dev/*)",
@@ -94,6 +100,30 @@
       "Read(~/.ssh/*)",
       "Read(~/.aws/*)"
     ],
-    "ask": []
+    "ask": [
+      "mcp__supabase__execute_sql",
+      "mcp__supabase__apply_migration",
+      "mcp__supabase__delete_branch",
+      "mcp__supabase__reset_branch",
+      "mcp__supabase__merge_branch",
+      "Bash(psql:*)",
+      "Bash(supabase db reset:*)",
+      "Bash(supabase db push:*)",
+      "Bash(supabase db drop:*)",
+      "Bash(supabase migration repair:*)"
+    ]
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "mcp__supabase__(execute_sql|apply_migration|delete_branch|reset_branch|merge_branch)",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/db-destructive-warning.sh\""
+          }
+        ]
+      }
+    ]
   }
 }
