@@ -110,6 +110,25 @@ pnpm dev
 
 > **注**: `pnpm dev` はセットアップ完了の必須ステップではありません。実装の動作確認が必要になったタイミングで起動するコマンドです。型チェック・テスト・ESLintは pre-commit フックで自動実行されるため、コミット時に自動的に品質が保証されます。
 
+### ステップ4（任意）: Supabase 使用時の追加設定
+
+Supabase を利用する場合、Claude Code 経由の事故を更に防ぐため以下を設定してください。テンプレート側では **MCP の破壊系5種 + Bash Supabase CLI** に対する二重防御（Hook警告 + ask承認）が既に有効化されていますが、以下はユーザー側で実施が必要です。
+
+#### 4-1. Supabase アクセストークンは最小権限で発行
+
+Supabase Dashboard → Account → Access Tokens で、MCP 用トークンを **Owner ではなく** 以下の範囲で発行:
+
+- **推奨**: Developer ロール（プロジェクト内のコード/ブランチ操作のみ）
+- **本番運用**: Supabase Branching で作成した開発ブランチ専用トークン（本番直結トークンは使用しない）
+
+Owner トークンはメンバー管理・課金にも影響するため、Claude Code に渡さないでください。
+
+#### 4-2. Point-in-Time Recovery を本番で有効化
+
+Supabase Dashboard → Project Settings → Database → Backups で **PITR を有効化** （Pro plan 以上）。万一の DB 破壊時に任意の時点まで復旧可能になります。
+
+詳細は [SPECIFICATION.md](./SPECIFICATION.md) のセクション12.15 を参照。
+
 ## ✨ テンプレートの機能
 
 ### 🤖 SuperClaude v4 統合

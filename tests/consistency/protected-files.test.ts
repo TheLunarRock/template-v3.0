@@ -45,8 +45,10 @@ describe('整合性: 設定ファイル保護リストが CLAUDE.md と protect-
       )
     }
     const section = sectionMatch[0]
-    // **fileName.ext** 形式を抽出
-    return [...section.matchAll(/\*\*([a-zA-Z][a-zA-Z0-9._-]*\.[a-zA-Z]+)\*\*/g)].map((m) => m[1])
+    // **fileName.ext** または **path/to/fileName.ext** 形式を抽出
+    return [...section.matchAll(/\*\*([./a-zA-Z][a-zA-Z0-9./_-]*\.[a-zA-Z]+)\*\*/g)].map(
+      (m) => m[1]
+    )
   }
 
   it('protect-config.js の PROTECTED_FILES が全て実在する', () => {
