@@ -1943,8 +1943,8 @@ packages:
     engines: {node: '>=18'}
     hasBin: true
 
-  i18next-fs-backend@2.6.1:
-    resolution: {integrity: sha512-eYWTX7QT7kJ0sZyCPK6x1q+R63zvNKv2D6UdbMf15A8vNb2ZLyw4NNNZxPFwXlIv/U+oUtg8SakW6ZgJZcoqHQ==}
+  i18next-fs-backend@2.6.4:
+    resolution: {integrity: sha512-lzbUnowXYd5RFO8flpQhd9khYWNgrzwtxHw1kktJCiTRBaAEiLB2t9EPSXRj8qlC7WcEgFDIsmBUixyludcznw==}
 
   i18next@25.8.18:
     resolution: {integrity: sha512-lzY5X83BiL5AP77+9DydbrqkQHFN9hUzWGjqjLpPcp5ZOzuu1aSoKaU3xbBLSjWx9dAzW431y+d+aogxOZaKRA==}
@@ -5082,7 +5082,7 @@ snapshots:
 
   husky@9.1.7: {}
 
-  i18next-fs-backend@2.6.1: {}
+  i18next-fs-backend@2.6.4: {}
 
   i18next@25.8.18(typescript@5.9.3):
     dependencies:
@@ -5472,7 +5472,7 @@ snapshots:
       core-js: 3.48.0
       hoist-non-react-statics: 3.3.2
       i18next: 25.8.18(typescript@5.9.3)
-      i18next-fs-backend: 2.6.1
+      i18next-fs-backend: 2.6.4
       next: 15.5.15(@babel/core@7.29.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
       react: 19.2.4
       react-i18next: 16.5.8(i18next@25.8.18(typescript@5.9.3))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(typescript@5.9.3)
