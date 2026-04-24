@@ -359,7 +359,6 @@ id_ecdsa
           log.info(
             'Secret Scanning / Push Protection: GitHub Advanced Security（Enterprise）が必要なためスキップ'
           )
-          log.info('ブランチ保護: GitHub Pro以上のプランが必要なためスキップ')
         }
 
         // Secret Scanning + Push Protection + Dependabot有効化（publicのみ）
@@ -393,33 +392,9 @@ EOF`,
           log.warning('Dependabotアラートの有効化に失敗しました')
         }
 
-        // ブランチ保護設定（publicのみ）
-        if (!isPrivate) {
-          try {
-            const defaultBranch = execSync(
-              `gh repo view --json defaultBranchRef --jq .defaultBranchRef.name`,
-              { stdio: 'pipe', encoding: 'utf8' }
-            ).trim()
-
-            execSync(
-              `gh api repos/${repoInfo}/branches/${defaultBranch}/protection -X PUT --input - <<'EOF'
-{
-  "required_status_checks": null,
-  "enforce_admins": false,
-  "required_pull_request_reviews": null,
-  "restrictions": null,
-  "allow_force_pushes": false,
-  "allow_deletions": false,
-  "block_creations": false
-}
-EOF`,
-              { stdio: 'pipe', shell: true }
-            )
-            log.success(`${defaultBranch}ブランチ保護を設定しました（force push/削除禁止）`)
-          } catch {
-            log.warning('ブランチ保護の設定に失敗しました（権限不足の可能性）')
-          }
-        }
+        // ブランチ保護はデフォルトでは適用しない（個人開発前提）
+        // チーム開発に移行する際は `pnpm sc:enable-pr` を実行
+        log.info('ブランチ保護: PR運用OFF（デフォルト）。チーム移行時は pnpm sc:enable-pr を実行')
 
         securityResults.githubSettings = true
       }
@@ -986,12 +961,11 @@ jobs:
         results.installed.push(
           'Secret Scanning / Push Protection: スキップ（privateリポジトリ - Enterprise必要）'
         )
-        results.installed.push('ブランチ保護: スキップ（privateリポジトリ - Pro以上必要）')
       } else {
         results.installed.push('GitHub Secret Scanning / Push Protection')
         results.installed.push('Dependabot自動修正')
-        results.installed.push('ブランチ保護 (force push/削除禁止)')
       }
+      results.installed.push('ブランチ保護: PR運用OFF（チーム移行時は pnpm sc:enable-pr）')
     } else {
       results.warnings.push('GitHub側セキュリティ設定が未完了（gh auth login後に再実行）')
     }

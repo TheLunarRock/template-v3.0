@@ -144,17 +144,20 @@ Actionable rules for enhanced Claude Code framework operation.
 **Priority**: 🔴 **Triggers**: Session start, before changes, risky operations
 
 - **Always Check Status First**: Start every session with `git status` and `git branch`
-- **Feature Branches Only**: Create feature branches for ALL work, never work on main/master
+- **Branch Strategy by PR Mode**: Read `PR_MODE_FLAG` in project CLAUDE.md
+  - **PR Mode ON (team development)**: Feature branches required, never work on main/master, create PR via `gh pr create`
+  - **PR Mode OFF (solo development)**: main direct push allowed, feature branches optional
 - **Incremental Commits**: Commit frequently with meaningful messages, not giant commits
 - **Verify Before Commit**: Always `git diff` to review changes before staging
 - **Create Restore Points**: Commit before risky operations for easy rollback
-- **Branch for Experiments**: Use branches to safely test different approaches
+- **Branch for Experiments**: Use branches to safely test different approaches even in solo mode
 - **Clean History**: Use descriptive commit messages, avoid "fix", "update", "changes"
 - **Non-Destructive Workflow**: Always preserve ability to rollback changes
 
-✅ **Right**: `git checkout -b feature/auth` → work → commit → PR  
-❌ **Wrong**: Work directly on main/master branch  
-**Detection**: `git branch` should show feature branch, not main/master
+✅ **Right (PR ON)**: `git checkout -b feature/auth` → work → commit → `gh pr create`  
+✅ **Right (PR OFF)**: work on main → commit → `git push origin main`  
+❌ **Wrong**: Working on main when PR Mode is ON  
+**Detection**: Check `PR_MODE_FLAG` in CLAUDE.md before deciding branch strategy
 
 ## Tool Optimization
 
@@ -257,7 +260,7 @@ Task type → Best tool:
 
 - `git status && git branch` before starting
 - Read before Write/Edit operations
-- Feature branches only, never main/master
+- Branch strategy follows `PR_MODE_FLAG` in CLAUDE.md (ON: feature branches, OFF: main direct push allowed)
 - Root cause analysis, never skip validation
 - Absolute paths, no auto-commit
 

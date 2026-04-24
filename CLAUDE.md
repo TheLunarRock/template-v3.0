@@ -1253,14 +1253,35 @@ describe('Regression: [ID] - [説明]', () => {
 
 ## 🔵 Git/GitHub設定
 
-```bash
-# 機能ブランチで作業（必須）
-git checkout -b feature/[機能名]-[日付]
+### PR運用モード（個人開発 ⇄ チーム開発の切替）
 
+このテンプレートは **PR運用OFF（個人開発前提）** がデフォルトです。チーム開発に移行する際にコマンド1つでON/OFFを切り替えられます。
+
+<!-- PR_MODE_FLAG_START -->
+
+**PR運用モード**: OFF
+
+<!-- PR_MODE_FLAG_END -->
+
+| モード               | 挙動                                                                    | Claude Code の振る舞い                                 |
+| -------------------- | ----------------------------------------------------------------------- | ------------------------------------------------------ |
+| **OFF**（個人開発）  | main直push可。ブランチ保護なし。`claude-code-review.yml` 不在           | feature branch 強制せず、`git push origin main` で完結 |
+| **ON**（チーム開発） | main直push禁止（PR必須）。`claude-code-review.yml` でClaude自動レビュー | feature branch + `gh pr create` を毎回実行             |
+
+**切替コマンド:**
+
+```bash
+pnpm sc:enable-pr   # OFF → ON: ブランチ保護適用 + claude-code-review.yml 復活 + フラグON
+pnpm sc:disable-pr  # ON → OFF: ブランチ保護解除 + workflow削除 + フラグOFF
+```
+
+**Claude Code の動作判定:** 上記フラグ（`PR運用モード: ON/OFF`）を読み取り、ONなら feature branch + PR、OFFなら main直push で進めます。プロンプト指示で一時的に切り替えることも可能ですが、永続化したい場合は必ず上記コマンドを実行してください。
+
+詳細は [SPECIFICATION.md セクション24](./SPECIFICATION.md) を参照。
+
+```bash
 # SuperClaude自動追跡
 --task-manage  # 進捗を自動管理
-
-# mainへの直接コミット禁止
 ```
 
 ## 💡 SuperClaude活用のコツ

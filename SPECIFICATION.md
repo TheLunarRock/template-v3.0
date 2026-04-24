@@ -1233,15 +1233,29 @@ const securityResults = {
 | **privateでの警告→情報表示に変更**      | 採用 | `⚠`（問題あり）ではなく`ℹ`（プラン制限の説明）が適切            |
 | **API呼び出し自体をスキップ**           | 採用 | 失敗するAPIを呼ばないことで実行速度も向上                       |
 
-### 12.5 ブランチ保護ルール（main）
+### 12.5 ブランチ保護ルール（PR運用モード依存）
 
-| ルール                     | 設定 | 理由                                                |
-| -------------------------- | ---- | --------------------------------------------------- |
-| **Force push**             | 禁止 | 履歴の破壊を防止                                    |
-| **ブランチ削除**           | 禁止 | mainの誤削除を防止                                  |
-| **PR必須**                 | 不要 | 個人/少人数開発では過剰。ワークフローの軽量性を維持 |
-| **ステータスチェック必須** | 不要 | CI設定済みだが、個人開発のため強制しない            |
-| **管理者への強制**         | 無効 | オーナー自身の柔軟性を維持                          |
+ブランチ保護は **PR運用モード**（第24章）に応じて動的に適用される。`pnpm setup:sc` では適用されず、`pnpm sc:enable-pr` 実行時のみ以下の保護が有効化される。
+
+#### 12.5.1 PR運用モード OFF（デフォルト・個人開発）
+
+| ルール           | 設定     | 理由                                   |
+| ---------------- | -------- | -------------------------------------- |
+| **ブランチ保護** | 未適用   | 個人開発の自由度を最大化。main直push可 |
+| **Force push**   | 制限なし | リモート未保護                         |
+| **PR必須**       | 不要     | feature branch も任意                  |
+
+#### 12.5.2 PR運用モード ON（チーム開発・`pnpm sc:enable-pr` 実行後）
+
+| ルール                     | 設定 | 理由                                            |
+| -------------------------- | ---- | ----------------------------------------------- |
+| **Force push**             | 禁止 | 履歴の破壊を防止（`allow_force_pushes: false`） |
+| **ブランチ削除**           | 禁止 | mainの誤削除を防止（`allow_deletions: false`）  |
+| **PR必須**                 | 必須 | `required_pull_request_reviews` 1承認以上       |
+| **ステータスチェック必須** | 不要 | `required_status_checks: null`                  |
+| **管理者への強制**         | 無効 | `enforce_admins: false`（オーナー柔軟性維持）   |
+
+切替詳細は第24章を参照。
 
 ### 12.6 グローバルgitignore（~/.gitignore_global）
 
@@ -3250,18 +3264,322 @@ PRマージ可能
 
 ---
 
-**最終更新**: 2026-04-18
-**バージョン**: 3.6.0（第12.15章に Supabase DB保護の完全仕様を追加: Hook + ask 二重防御、Bash CLI 単層防御、Hookスクリプト改変検知、Hook完全アルゴリズム仕様、防御の限界と「うっかりミス防止」設計思想の明文化）
+## 24. PR運用モード切替（個人開発 ⇄ チーム開発）
+
+### 24.1 概要
+
+このテンプレートは **個人開発をデフォルト挙動とする**。チーム開発に移行する際、`pnpm sc:enable-pr` コマンド1つで以下を一括適用し、`pnpm sc:disable-pr` で完全に元に戻せる、可逆的な切替機能を提供する。
+
+| モード               | 既定値 | main直push | feature branch | ブランチ保護 | claude-code-review.yml           | Claude Code の振る舞い                                  |
+| -------------------- | ------ | ---------- | -------------- | ------------ | -------------------------------- | ------------------------------------------------------- |
+| **OFF**（個人開発）  | ✅     | 可         | 任意           | 未適用       | 不在                             | feature branch を強制せず main に直push                 |
+| **ON**（チーム開発） |        | 禁止       | 必須           | 適用         | 存在（PR時 Claude 自動レビュー） | `git checkout -b feature/x` → `gh pr create` を毎回実行 |
+
+### 24.2 設計思想
+
+#### 課題
+
+- テンプレートデフォルトで「Feature Branches Only」ルールを Claude Code に強制すると、個人開発で毎回 PR を作る運用となり、レビュー不要の小規模変更でも工程が冗長化する
+- 一方、チーム開発では PR レビューと保護が必須となるため、両立する仕組みが必要
+
+#### 解決策
+
+CLAUDE.md 内に **永続化フラグ**（`PR_MODE_FLAG`）を埋め込み、Claude Code はこのフラグを参照して挙動を切り替える。フラグ・ワークフロー・ブランチ保護の3者を1コマンドで一括切替するため、auto memory のような揮発性ストレージに依存せず、git管理されチーム全員に伝わる。
+
+### 24.3 PR_MODE_FLAG の仕様
+
+#### 24.3.1 配置場所
+
+`CLAUDE.md` の「🔵 Git/GitHub設定」セクション内、HTMLコメントマーカーで囲まれたブロック。
+
+```markdown
+<!-- PR_MODE_FLAG_START -->
+
+**PR運用モード**: OFF
+
+<!-- PR_MODE_FLAG_END -->
+```
+
+#### 24.3.2 取りうる値
+
+| 値    | 意味                   | Claude Code への指示                            |
+| ----- | ---------------------- | ----------------------------------------------- |
+| `OFF` | 個人開発（デフォルト） | main直push可、feature branch任意                |
+| `ON`  | チーム開発             | feature branch必須、`gh pr create` でPR作成必須 |
+
+#### 24.3.3 マーカー設計の理由
+
+- **HTMLコメント形式**: Markdown 描画時に非表示。閲覧者には自然なプロセが見える
+- **START/END 2行**: 正規表現で確実にブロック全体を特定して書き換え可能
+- **`PR_MODE_FLAG` という一意キー**: 他の文脈と衝突しない。スクリプトが `grep` で確実に検出できる
+
+#### 24.3.4 書き換え用正規表現
+
+```javascript
+const flagRegex = /(<!-- PR_MODE_FLAG_START -->[\s\S]*?<!-- PR_MODE_FLAG_END -->)/
+```
+
+`[\s\S]*?` で非貪欲マッチさせて、START から最初に出現する END までを捕捉する。`/s` フラグなしで動作するため Node.js の旧バージョンにも対応。
+
+### 24.4 ファイル構成
+
+| ファイル                                   | 役割                                                |
+| ------------------------------------------ | --------------------------------------------------- |
+| `scripts/sc-enable-pr.js`                  | OFF→ON 切替スクリプト                               |
+| `scripts/sc-disable-pr.js`                 | ON→OFF 切替スクリプト                               |
+| `package.json` scripts                     | `sc:enable-pr` / `sc:disable-pr` のエントリポイント |
+| `CLAUDE.md` PR_MODE_FLAG ブロック          | 現在のモード（永続化）                              |
+| `superclaude/RULES.md` Git Workflow        | フラグ参照の方針を記述                              |
+| `.github/workflows/claude-code-review.yml` | ON 時のみ存在（PR 時の Claude 自動レビュー）        |
+
+### 24.5 sc-enable-pr.js 動作仕様（OFF→ON）
+
+#### 24.5.1 処理フロー
+
+```
+1. CLAUDE.md の PR_MODE_FLAG を ON に書き換え
+   ├ ファイル存在チェック → 不在ならスキップ警告
+   ├ マーカー検出 → 不在ならスキップ警告
+   └ 既に ON なら no-op（冪等）
+
+2. .github/workflows/claude-code-review.yml を生成
+   ├ workflows ディレクトリ未存在なら作成（mkdir -p）
+   ├ 既存ファイルなら上書きせずスキップ（保守的）
+   └ 内容は 24.5.3 のテンプレート文字列
+
+3. GitHub のブランチ保護を適用
+   ├ gh auth status → 未認証ならスキップ警告
+   ├ gh repo view → リモート未設定ならスキップ警告
+   ├ デフォルトブランチ取得（通常 main）
+   └ gh api PUT で 24.5.4 の保護ルールを適用
+```
+
+#### 24.5.2 冪等性
+
+| 状態              | 挙動                                      |
+| ----------------- | ----------------------------------------- |
+| フラグ既に ON     | 「既に ON です」と表示してスキップ        |
+| workflow 既に存在 | 上書きせずスキップ                        |
+| 保護既に適用済み  | PUT で同内容を再適用（GitHub 側で no-op） |
+
+#### 24.5.3 claude-code-review.yml テンプレート
+
+```yaml
+name: Claude コードレビュー
+
+on:
+  pull_request:
+    types: [opened, synchronize]
+
+jobs:
+  claude-review:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+      issues: read
+      id-token: write
+
+    steps:
+      - name: リポジトリをチェックアウト
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Claude コードレビューを実行
+        id: claude-review
+        uses: anthropics/claude-code-action@beta
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          model: 'claude-opus-4-1-20250805'
+          direct_prompt: |
+            このプルリクエストをレビューして、以下の観点からフィードバックをお願いします：
+            - コード品質とベストプラクティス
+            - 潜在的なバグや問題
+            - パフォーマンスの考慮事項
+            - セキュリティ上の懸念
+            - テストカバレッジ
+
+            建設的で役立つフィードバックをお願いします。
+```
+
+#### 24.5.4 ブランチ保護 PUT 仕様
+
+```bash
+gh api repos/${repoInfo}/branches/${defaultBranch}/protection -X PUT --input - <<'EOF'
+{
+  "required_status_checks": null,
+  "enforce_admins": false,
+  "required_pull_request_reviews": {
+    "dismiss_stale_reviews": false,
+    "require_code_owner_reviews": false,
+    "required_approving_review_count": 1
+  },
+  "restrictions": null,
+  "allow_force_pushes": false,
+  "allow_deletions": false
+}
+EOF
+```
+
+| キー                              | 値    | 意味                                               |
+| --------------------------------- | ----- | -------------------------------------------------- |
+| `required_status_checks`          | null  | CIステータス必須化しない（個別プロジェクトで設定） |
+| `enforce_admins`                  | false | オーナー柔軟性を維持                               |
+| `required_approving_review_count` | 1     | 最低1承認必須                                      |
+| `dismiss_stale_reviews`           | false | レビュー後の追加コミットで承認を破棄しない         |
+| `require_code_owner_reviews`      | false | CODEOWNERS 不要                                    |
+| `allow_force_pushes`              | false | 履歴破壊を防止                                     |
+| `allow_deletions`                 | false | mainの誤削除を防止                                 |
+
+#### 24.5.5 失敗時の挙動
+
+| 失敗箇所              | 挙動                                                        |
+| --------------------- | ----------------------------------------------------------- |
+| `gh auth status` 失敗 | warning + 「`gh auth login` 後に再実行」案内 → 続行         |
+| `gh repo view` 失敗   | warning + 「リモート未設定」案内 → 続行                     |
+| ブランチ保護 PUT 失敗 | warning + エラーメッセージ1行表示 → 続行                    |
+| privateリポジトリ     | info で「Pro 以上必要」表示後、PUT 試行（403 ならスキップ） |
+
+すべての失敗は **非致命的**。フラグ更新と workflow 生成は成功しており、後で `gh auth login` 等で再実行可能。
+
+### 24.6 sc-disable-pr.js 動作仕様（ON→OFF）
+
+#### 24.6.1 処理フロー
+
+```
+1. CLAUDE.md の PR_MODE_FLAG を OFF に書き換え
+
+2. .github/workflows/claude-code-review.yml を削除（fs.unlinkSync）
+   └ 既に不在なら「既に存在しません」と表示してスキップ
+
+3. GitHub のブランチ保護を解除
+   ├ gh api DELETE で保護を完全解除
+   ├ 404 (Not Found) は「既に未設定」として正常扱い
+   └ その他のエラーは warning で続行
+```
+
+#### 24.6.2 ブランチ保護解除コマンド
+
+```bash
+gh api repos/${repoInfo}/branches/${defaultBranch}/protection -X DELETE
+```
+
+レスポンス:
+
+- 200/204: 解除成功
+- 404: 既に保護なし（正常扱い）
+- 403: 権限不足（warning + 続行）
+
+### 24.7 setup.js との関係
+
+#### 24.7.1 setup.js のブランチ保護自動適用は廃止
+
+`pnpm setup:sc` 実行時の Step 5（GitHubセキュリティ自動化）から、ブランチ保護 PUT 処理は完全削除された（行 396-422 が削除）。デフォルトでは保護は適用されず、明示的に `pnpm sc:enable-pr` を実行した時のみ適用される。
+
+#### 24.7.2 Step 5 の表示変更
+
+```
+変更前: ✓ mainブランチ保護を設定しました（force push/削除禁止）
+変更後: ℹ ブランチ保護: PR運用OFF（デフォルト）。チーム移行時は pnpm sc:enable-pr を実行
+```
+
+#### 24.7.3 完了サマリ表示
+
+```
+変更前 (public): ✓ ブランチ保護 (force push/削除禁止)
+変更前 (private): ⚠ ブランチ保護: スキップ（privateリポジトリ - Pro以上必要）
+変更後 (共通): ℹ ブランチ保護: PR運用OFF（チーム移行時は pnpm sc:enable-pr）
+```
+
+### 24.8 Claude Code の振る舞い
+
+#### 24.8.1 フラグ参照の規範
+
+`superclaude/RULES.md` の Git Workflow セクションで以下を規定:
+
+```markdown
+- **Branch Strategy by PR Mode**: Read `PR_MODE_FLAG` in project CLAUDE.md
+  - **PR Mode ON (team development)**: Feature branches required, never work on main/master, create PR via `gh pr create`
+  - **PR Mode OFF (solo development)**: main direct push allowed, feature branches optional
+```
+
+セッション開始時に Claude Code が CLAUDE.md を読み込む際、このフラグを観測して以降のブランチ戦略を決定する。
+
+#### 24.8.2 OFF モード時の挙動
+
+```bash
+# Claude Code は以下のフローで動作
+git status && git branch
+# 必要なら main で直接編集
+git add ...
+git commit -m "..."
+git push origin main
+```
+
+#### 24.8.3 ON モード時の挙動
+
+```bash
+# Claude Code は以下のフローで動作
+git checkout -b feature/[task]-[date]
+# 編集
+git add ...
+git commit -m "..."
+git push -u origin feature/[task]-[date]
+gh pr create --title "..." --body "..."
+```
+
+### 24.9 整合性テスト保護
+
+| テスト                       | 検証内容                                                          |
+| ---------------------------- | ----------------------------------------------------------------- |
+| `command-references.test.ts` | `pnpm sc:enable-pr` / `pnpm sc:disable-pr` が package.json に実在 |
+| `file-references.test.ts`    | ドキュメント内で参照される `scripts/sc-enable-pr.js` 等が実在     |
+
+これらにより、ドキュメントとコードの乖離を pre-commit 時点で検出する。
+
+### 24.10 既知の制約
+
+#### 24.10.1 別PCへのクローン時の挙動
+
+CLAUDE.md（git管理対象）にフラグが永続化されているため、**別PCでクローンしても自動的に正しいモードで動作する**。auto memory のようなローカル限定情報には依存しない。
+
+#### 24.10.2 GitHub プラン制限
+
+privateリポジトリでブランチ保護を適用するには GitHub Pro 以上のプランが必要。Free プランの private では `pnpm sc:enable-pr` の workflow 生成と CLAUDE.md フラグ更新のみ成功し、ブランチ保護は 403 でスキップされる。この場合、main直push の物理的な禁止は効かないが、Claude Code の挙動は CLAUDE.md フラグに従って ON モードで動作する。
+
+#### 24.10.3 一時的な切替
+
+「このタスクだけ PR で対応したい」のような一時切替は、フラグを変えずに Claude Code に「今だけ feature branch + PR で進めて」と指示するだけで実現可能（auto memory には保存しない）。永続的な切替が必要な場合のみ `pnpm sc:enable-pr` を実行する。
+
+### 24.11 設計判断
+
+| 項目                                      | 判断   | 理由                                                                                  |
+| ----------------------------------------- | ------ | ------------------------------------------------------------------------------------- |
+| **デフォルトを OFF（個人開発）にする**    | 採用   | このテンプレートの主用途は個人開発。チーム開発はオプトイン                            |
+| **フラグを CLAUDE.md に埋め込む**         | 採用   | git管理されチーム全員に伝わる。auto memory のような揮発性ストレージは個人 PC に閉じる |
+| **HTMLコメントマーカー方式**              | 採用   | Markdown表示に影響せず、正規表現で確実に書き換え可能                                  |
+| **setup.js の分岐で対話プロンプト化**     | 不採用 | 「クローンした人ごとに環境が違う」状態になり、保守コスト増。後から `enable-pr` で OK  |
+| **既存ファイルの上書き禁止（enable-pr）** | 採用   | ユーザーが workflow をカスタマイズしている場合の事故を防止                            |
+| **ブランチ保護解除時の 404 を正常扱い**   | 採用   | 「既に解除済み」と「未設定」を区別せず冪等動作                                        |
+| **`required_approving_review_count: 1`**  | 採用   | チーム開発の最低限。2人以上にしたい場合はユーザーが手動で調整                         |
+| **`required_status_checks: null`**        | 採用   | プロジェクト固有のCIジョブ名に依存させない（汎用テンプレートのため）                  |
+
+---
+
+**最終更新**: 2026-04-25
+**バージョン**: 3.7.0（第24章「PR運用モード切替」を新設: 個人開発⇄チーム開発の可逆的切替仕様、`pnpm sc:enable-pr` / `pnpm sc:disable-pr` の完全アルゴリズム、CLAUDE.md PR_MODE_FLAG 永続化機構、setup.js のブランチ保護自動適用廃止、claude-code-review.yml のテンプレート同梱化を追加）
 
 ---
 
 ## 改訂履歴（直近）
 
-| バージョン | 日付       | 変更内容                                                                                                                                                                                                                                                                                                                                       |
-| ---------- | ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **3.6.0**  | 2026-04-18 | 第12.15章に Supabase DB保護仕様を全面追加（8サブセクション）: MCP破壊系5種への警告Hook + ask 二重防御、Bash Supabase CLI への ask 単層防御、Hookスクリプトのチェックサム保護、Hook完全仕様（再現可能レベル）、防御の限界と「うっかりミス防止」設計思想の明文化。CLAUDE.md にも絶対ルール#8〜11を追加し protect-config の保護対象に Hook を追加 |
-| **3.5.0**  | 2026-04-15 | 第7.5章に SuperClaude v4 統合コマンド16種の完全カタログ追加・`pnpm sc:*`（テンプレート同梱）と Claude Code `/sc:` スラッシュコマンド（SuperClaude 本家）の区別を明文化。架空コマンド12個の削除・`SUPERCLAUDE_FINAL.md` を整合性テスト対象に追加（39→40）。歴史文書 `docs/SUPERCLAUDE_V42_*.md` に文脈注記挿入                                  |
-| **3.4.0**  | 2026-04-15 | 第14章を全面拡張: Pre-check 機能（6種ツール自動検出+MCP登録チェック）の詳細仕様、`pnpm setup:sc` 8ステップ実行詳細、設計判断（鶏と卵問題の回避）                                                                                                                                                                                               |
-| **3.3.0**  | 2026-04-14 | 第23章「ドキュメント整合性チェック」追加: 39テスト/7ファイルで AI ファースト時代の型システムを実現。protect-config.js の保護対象不整合を発見・修正                                                                                                                                                                                             |
-| **3.2.0**  | 2026-04-14 | 第9層防御（CI/CDセキュリティワークフロー）追加: CodeQL SAST + pnpm audit + gitleaks Actions二重防御。next 15.5.15 パッチ適用                                                                                                                                                                                                                   |
-| **3.1.0**  | 2026-04-13 | CSPヘッダー追加・Google Fonts 許可・セキュリティヘッダー7種化                                                                                                                                                                                                                                                                                  |
+| バージョン | 日付       | 変更内容                                                                                                                                                                                                                                                                                                                                                                               |
+| ---------- | ---------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **3.7.0**  | 2026-04-25 | 第24章「PR運用モード切替」を新設（11サブセクション）: 個人開発⇄チーム開発の可逆的切替、`pnpm sc:enable-pr` / `pnpm sc:disable-pr` の完全動作仕様、CLAUDE.md `PR_MODE_FLAG` 永続化機構（HTMLコメントマーカー方式）、ブランチ保護 PUT/DELETE API 仕様、claude-code-review.yml テンプレート同梱化、setup.js のブランチ保護自動適用廃止。第12.5章を PR運用モード依存の動的適用仕様に再構成 |
+| **3.6.0**  | 2026-04-18 | 第12.15章に Supabase DB保護仕様を全面追加（8サブセクション）: MCP破壊系5種への警告Hook + ask 二重防御、Bash Supabase CLI への ask 単層防御、Hookスクリプトのチェックサム保護、Hook完全仕様（再現可能レベル）、防御の限界と「うっかりミス防止」設計思想の明文化。CLAUDE.md にも絶対ルール#8〜11を追加し protect-config の保護対象に Hook を追加                                         |
+| **3.5.0**  | 2026-04-15 | 第7.5章に SuperClaude v4 統合コマンド16種の完全カタログ追加・`pnpm sc:*`（テンプレート同梱）と Claude Code `/sc:` スラッシュコマンド（SuperClaude 本家）の区別を明文化。架空コマンド12個の削除・`SUPERCLAUDE_FINAL.md` を整合性テスト対象に追加（39→40）。歴史文書 `docs/SUPERCLAUDE_V42_*.md` に文脈注記挿入                                                                          |
+| **3.4.0**  | 2026-04-15 | 第14章を全面拡張: Pre-check 機能（6種ツール自動検出+MCP登録チェック）の詳細仕様、`pnpm setup:sc` 8ステップ実行詳細、設計判断（鶏と卵問題の回避）                                                                                                                                                                                                                                       |
+| **3.3.0**  | 2026-04-14 | 第23章「ドキュメント整合性チェック」追加: 39テスト/7ファイルで AI ファースト時代の型システムを実現。protect-config.js の保護対象不整合を発見・修正                                                                                                                                                                                                                                     |
+| **3.2.0**  | 2026-04-14 | 第9層防御（CI/CDセキュリティワークフロー）追加: CodeQL SAST + pnpm audit + gitleaks Actions二重防御。next 15.5.15 パッチ適用                                                                                                                                                                                                                                                           |
+| **3.1.0**  | 2026-04-13 | CSPヘッダー追加・Google Fonts 許可・セキュリティヘッダー7種化                                                                                                                                                                                                                                                                                                                          |

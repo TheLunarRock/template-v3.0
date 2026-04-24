@@ -36,7 +36,10 @@ const PATH_PREFIXES = [
  * 必要最小限に留める。
  */
 const ALLOWED_MISSING = new Set<string>([
-  // 例: 'src/features/[機能名]'  ← プレースホルダー
+  // PR運用モード ON 時のみ pnpm sc:enable-pr が生成する。
+  // OFF（テンプレートデフォルト）状態では存在しないが、SPECIFICATION.md §24 で
+  // 仕様として記載されているため許可する。
+  '.github/workflows/claude-code-review.yml',
 ])
 
 const docs = ['CLAUDE.md', 'SPECIFICATION.md', 'SETUP_GUIDE.md', 'README.md', 'PROJECT_INFO.md']
