@@ -60,6 +60,8 @@
     "sc:business-panel": "echo 'Business analysis mode activated'",
     "sc:parallel": "node scripts/setup.js --sc-parallel",
     "sc:mcp": "echo 'MCP-First mode: Context7, Sequential, Morphllm, Serena'",
+    "sc:enable-pr": "node scripts/sc-enable-pr.js",
+    "sc:disable-pr": "node scripts/sc-disable-pr.js",
     "prepare": "husky",
     "postinstall": "chmod +x .husky/* 2>/dev/null || true",
     "quality:check": "pnpm lint && pnpm typecheck && pnpm check:boundaries",
