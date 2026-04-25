@@ -40,6 +40,10 @@ const ALLOWED_MISSING = new Set<string>([
   // OFF（テンプレートデフォルト）状態では存在しないが、SPECIFICATION.md §24 で
   // 仕様として記載されているため許可する。
   '.github/workflows/claude-code-review.yml',
+  // .gitignore で除外されている個人用設定ファイル。
+  // 各ローカル環境で生成されるが git 管理外のため CI では存在しない。
+  // CLAUDE.md / SPECIFICATION.md / SETUP_GUIDE.md で仕様として参照されるため許可。
+  '.claude/settings.local.json',
 ])
 
 const docs = ['CLAUDE.md', 'SPECIFICATION.md', 'SETUP_GUIDE.md', 'README.md', 'PROJECT_INFO.md']
