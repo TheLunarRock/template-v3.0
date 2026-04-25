@@ -456,13 +456,13 @@ async function main() {
   if (isFull) {
     log.section('テスト実行')
 
-    // ユニットテスト
-    log.info('ユニットテスト実行中...')
-    const testResult = runCommand(`${pmRun} test:unit`, true, true)
+    // ユニットテスト + カバレッジ計測（v3.7.5〜統合）
+    log.info('ユニットテスト + カバレッジ計測実行中...')
+    const testResult = runCommand(`${pmRun} test:coverage`, true, true)
     results.tests = testResult
 
     if (testResult.success) {
-      log.success('ユニットテスト: 全て合格')
+      log.success('ユニットテスト + カバレッジ計測: 全て合格（coverage/index.html 生成済み）')
     } else {
       log.error('ユニットテスト: 失敗あり')
       results.totalErrors++

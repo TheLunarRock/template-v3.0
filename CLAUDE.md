@@ -384,6 +384,11 @@ push/PR → quality（型+境界+lint） ─┐
 - **build**はquality・test両方の成功後に実行
 - 実行環境: ubuntu-latest / Node.js は **`.nvmrc` 参照（v3.7.2〜）** / pnpm 9
 - **test ジョブはカバレッジを計測**し `coverage/` を `actions/upload-artifact@v4` で14日保持（v3.7.2〜）
+- **`pnpm validate` が coverage 計測まで統合**（v3.7.5〜）— ローカルでも `coverage/index.html` が常に最新
+
+### カバレッジ閾値（thresholds）について
+
+テンプレートデフォルトでは **閾値強制を行わない**（v3.7.5〜）。理由は個人開発デフォルト（PR運用OFF）でレビュアー不在のため。**Claude Codeルール**: テンプレート段階で `vitest.config.ts` に `thresholds` を追加しない。チーム移行プロジェクトで必要なら、SPECIFICATION.md §17.2 の v3 系フラット記法で追加すること。
 
 ### Node.js バージョン管理の単一の真実の源
 
