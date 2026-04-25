@@ -13,10 +13,20 @@ import bundleAnalyzer from '@next/bundle-analyzer'
  * クローン先でSupabase等の外部サービスを追加する場合:
  *   connect-src に 'https://*.supabase.co' を追加
  *   img-src に 'https://*.supabase.co' を追加
+ *
+ * 開発環境のみ 'unsafe-eval' を許可する（v3.7.3〜）:
+ * Next.js dev サーバーの React Refresh / HMR が内部で eval を使用するため。
+ * 本番ビルドでは React Refresh が無効化されるので 'unsafe-eval' は不要。
+ * dev は localhost のみで動作するため、外部からの XSS リスクはなく実害ゼロ。
  */
+const isDevelopment = process.env.NODE_ENV === 'development'
+const scriptSrc = isDevelopment
+  ? "'self' 'unsafe-inline' 'unsafe-eval'"
+  : "'self' 'unsafe-inline'"
+
 const cspDirectives = [
   "default-src 'self'",
-  "script-src 'self' 'unsafe-inline'",
+  `script-src ${scriptSrc}`,
   "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
   "img-src 'self' data: blob:",
   "font-src 'self' data: https://fonts.gstatic.com",
