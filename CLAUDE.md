@@ -377,12 +377,17 @@ pnpm setup:sc
 ```
 push/PR → quality（型+境界+lint） ─┐
                                     ├→ build（ビルド+preflight）
-       → test（Vitest単体テスト） ─┘
+       → test（Vitest+カバレッジ計測） ─┘
 ```
 
 - **quality**と**test**は並列実行（依存関係なし）
 - **build**はquality・test両方の成功後に実行
-- 実行環境: ubuntu-latest / Node.js 18 / pnpm 8
+- 実行環境: ubuntu-latest / Node.js は **`.nvmrc` 参照（v3.7.2〜）** / pnpm 9
+- **test ジョブはカバレッジを計測**し `coverage/` を `actions/upload-artifact@v4` で14日保持（v3.7.2〜）
+
+### Node.js バージョン管理の単一の真実の源
+
+`.nvmrc` を唯一の真実の源として、CI（`node-version-file: '.nvmrc'`）・ローカル（`nvm use`）・`engines.node`（範囲指定）が同期される。`.nvmrc` を更新するだけで全環境のバージョンが切り替わる。**Claude Codeルール**: CI/security ワークフローの Node バージョンを直書きせず、必ず `.nvmrc` 参照を使用すること。
 
 ## E2Eテスト削除の設計判断（2026-03-13）
 

@@ -95,26 +95,62 @@ describe('整合性: バージョン番号がファイル間で一致する', ()
     ).toBe(majorVersion)
   })
 
-  it('Node.js メジャーバージョンが ci.yml / security.yml で一致する', () => {
-    const minNodeMajor = pkg.engines.node.replace(/^[^\d]*/, '').split('.')[0]
+  it('CI/security ワークフローが .nvmrc を単一の真実の源として参照している', () => {
     const ciYml = readFileSync(path.join(ROOT, '.github/workflows/ci.yml'), 'utf8')
     const securityYml = readFileSync(path.join(ROOT, '.github/workflows/security.yml'), 'utf8')
 
-    const extractNodeVersions = (text: string): string[] =>
-      [...text.matchAll(/setup-node@v\d+[\s\S]*?node-version:\s*(\d+)/g)].map((m) => m[1])
-
-    const allVersions = [...extractNodeVersions(ciYml), ...extractNodeVersions(securityYml)]
-    const unique = [...new Set(allVersions)]
-
-    expect(
-      unique.length,
-      `\nNode.js メジャーバージョンが ci.yml / security.yml で不整合: ${unique.join(', ')}\n` +
-        `修正方法: 両ファイルで setup-node の node-version を統一してください。`
-    ).toBe(1)
+    // 直書き禁止: setup-node の node-version: <数値リテラル> を検出して落とす
+    const directVersionRegex = /setup-node@v\d+[\s\S]*?node-version:\s*['"]?(\d[\d.]*)['"]?\s*$/gm
+    const ciDirect = [...ciYml.matchAll(directVersionRegex)]
+    const secDirect = [...securityYml.matchAll(directVersionRegex)]
 
     expect(
-      Number(unique[0]) >= Number(minNodeMajor),
-      `\nワークフローの Node.js バージョン (${unique[0]}) が package.json engines.node の最小要件 (${minNodeMajor}) を満たしていません。`
+      ciDirect.length + secDirect.length,
+      `\nワークフロー内に node-version の直書きが検出されました（v3.7.2〜禁止）。\n` +
+        `修正方法: setup-node ステップで node-version-file: '.nvmrc' を使用してください。`
+    ).toBe(0)
+
+    // node-version-file: '.nvmrc' が両ファイルに存在することを確認
+    const nvmrcRefRegex = /setup-node@v\d+[\s\S]*?node-version-file:\s*['"]\.nvmrc['"]/g
+    const ciRefs = [...ciYml.matchAll(nvmrcRefRegex)]
+    const secRefs = [...securityYml.matchAll(nvmrcRefRegex)]
+
+    expect(
+      ciRefs.length > 0,
+      `\nci.yml に node-version-file: '.nvmrc' 参照が見つかりません。\n` +
+        `修正方法: 全ての setup-node ステップで .nvmrc を参照してください。`
+    ).toBe(true)
+
+    expect(
+      secRefs.length > 0,
+      `\nsecurity.yml に node-version-file: '.nvmrc' 参照が見つかりません。\n` +
+        `修正方法: 全ての setup-node ステップで .nvmrc を参照してください。`
+    ).toBe(true)
+  })
+
+  it('.nvmrc が package.json engines.node の最小要件を満たす', () => {
+    const nvmrc = readFileSync(path.join(ROOT, '.nvmrc'), 'utf8').trim()
+    const minNodeVersion = pkg.engines.node.replace(/^[^\d]*/, '')
+    const [nvmMajor, nvmMinor = '0', nvmPatch = '0'] = nvmrc.split('.').map(Number) as [
+      number,
+      number?,
+      number?,
+    ]
+    const [minMajor, minMinor = 0, minPatch = 0] = minNodeVersion.split('.').map(Number) as [
+      number,
+      number?,
+      number?,
+    ]
+
+    const meets =
+      nvmMajor > minMajor ||
+      (nvmMajor === minMajor && Number(nvmMinor) > minMinor) ||
+      (nvmMajor === minMajor && Number(nvmMinor) === minMinor && Number(nvmPatch) >= minPatch)
+
+    expect(
+      meets,
+      `\n.nvmrc (${nvmrc}) が package.json engines.node (${pkg.engines.node}) の最小要件を満たしていません。\n` +
+        `修正方法: .nvmrc を ${minNodeVersion} 以上に更新してください。`
     ).toBe(true)
   })
 })

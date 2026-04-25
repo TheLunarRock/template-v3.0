@@ -17,7 +17,7 @@ jobs:
           version: 9
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version-file: '.nvmrc'
           cache: 'pnpm'
 
       - name: 依存関係インストール
@@ -44,14 +44,22 @@ jobs:
           version: 9
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version-file: '.nvmrc'
           cache: 'pnpm'
 
       - name: 依存関係インストール
         run: pnpm install --frozen-lockfile
 
-      - name: 単体テスト
-        run: pnpm test:unit
+      - name: 単体テスト + カバレッジ計測
+        run: pnpm test:coverage
+
+      - name: カバレッジレポートをアーティファクト化
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: coverage/
+          retention-days: 14
 
   build:
     name: ビルドチェック
@@ -64,7 +72,7 @@ jobs:
           version: 9
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version-file: '.nvmrc'
           cache: 'pnpm'
 
       - name: 依存関係インストール

@@ -2,7 +2,7 @@
  * 国際化カスタムフック
  *
  * Next.js App Routerと互換性のある簡易i18nフック
- * 将来的にnext-i18nextの完全統合時に拡張可能
+ * 必要になった時点で next-intl 等の i18n ライブラリを追加して拡張する
  */
 
 import { useState, useEffect } from 'react'
@@ -49,8 +49,7 @@ export function useI18n() {
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const t = (key: string, _namespace = 'common'): string => {
-    // 簡易的な翻訳関数（将来的にはnext-i18nextに置き換え）
-    // 実際の実装では、翻訳ファイルから動的に読み込む
+    // 簡易的な翻訳関数（必要時に翻訳ファイルから動的に読み込む実装に拡張）
     // _namespace は将来的に使用
     return key
   }
