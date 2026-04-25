@@ -555,12 +555,52 @@ interface StructuredError {
 
 ### 7.3 品質管理コマンド
 
-| コマンド                | 説明               |
-| ----------------------- | ------------------ |
-| `pnpm check`            | 包括的品質チェック |
-| `pnpm check:boundaries` | 境界違反検出       |
-| `pnpm fix:boundaries`   | 境界違反自動修正   |
-| `pnpm validate:all`     | 全検証実行         |
+| コマンド                | 説明                                                 |
+| ----------------------- | ---------------------------------------------------- |
+| `pnpm check`            | 包括的品質チェック                                   |
+| `pnpm check:boundaries` | 境界違反検出                                         |
+| `pnpm fix:boundaries`   | 境界違反自動修正                                     |
+| `pnpm validate`         | 統合検証（型/lint/境界/テスト+coverage/ビルド）      |
+| `pnpm validate:all`     | 全検証実行（`pnpm validate` のエイリアス）           |
+| `pnpm test:coverage`    | カバレッジ計測単独実行（`coverage/index.html` 生成） |
+
+#### `pnpm validate` の完全実行アルゴリズム（v3.7.5〜）
+
+`scripts/validate-sc.js` が以下の順序で各チェックを実行する:
+
+```
+1. テンプレート機能チェック
+   ├ Git Hooks（pre-commit, commit-msg）の実行権限確認
+   ├ SuperClaude設定（CLAUDE.md, superclaude/, .claude/settings.json）の存在確認
+   ├ フィーチャー境界スクリプト（scripts/check-boundaries.js）の存在確認
+   └ Vitest設定（vitest.config.ts）の存在確認
+
+2. フィーチャー境界チェック（pnpm check:boundaries）
+   ├ src/features/*/index.ts の公開API分析
+   ├ 境界違反検出（直接インポート禁止パターン）
+   └ 循環参照検出
+
+3. TypeScript型チェック（pnpm typecheck）
+   └ tsc --noEmit
+
+4. ESLintチェック（pnpm lint）
+   └ eslint .
+
+5. テスト実行
+   ├ ユニットテスト + カバレッジ計測（pnpm test:coverage）
+   │  └ vitest run --coverage（v3.7.5〜統合）
+   │     ├ tests/consistency/, tests/regression/, src/features/**/*.test.ts を全実行
+   │     └ coverage/index.html, coverage-final.json, lcov.info を生成
+   └ 回帰テスト（pnpm test:regression）— 表示重複だが UI 価値あり
+
+6. プロダクションビルド（pnpm build）
+   ├ next build（型チェック + 静的解析 + バンドル生成）
+   └ Preflightチェック（pnpm preflight）— 環境変数等の最終確認
+```
+
+**実行時間**: 概ね 60〜90秒（ローカル M4 Mac 実測）
+
+**失敗時の挙動**: いずれかのステップで exit code !== 0 だと、`pnpm validate` 全体が失敗扱い。pre-commit フック（`.husky/pre-commit`）でも同じスクリプトが走るためコミットがブロックされる。
 
 ### 7.4 フィーチャー開発コマンド
 
@@ -2256,22 +2296,156 @@ vercel
 - `noUnusedLocals: true`
 - `noUnusedParameters: true`
 
-### 17.2 テストカバレッジ
+### 17.2 テストカバレッジ仕様（v3.7.5〜の完全版）
 
-**テンプレートデフォルト（v3.7.5〜）**: カバレッジ閾値による強制は行わず、計測のみ実施。理由は以下:
+#### 17.2.1 設計思想
 
-- 個人開発デフォルト（PR運用OFF）でレビュアー不在のため、強制力が機能しない
-- 旧 `global:` キー記法は vitest v3 系で実効していなかった（実装と仕様の乖離）
-- `pnpm validate` 実行時に coverage HTML が `coverage/index.html` に生成されるので必要時に閲覧可能
+テンプレートデフォルトでは **カバレッジ閾値（thresholds）による強制は行わず、計測のみ実施** する設計。これは PR運用OFF（個人開発デフォルト）と整合させた設計判断であり、過去の実装ミスを正直に解消した結果でもある。
 
-**チーム開発移行時の推奨値**: `vitest.config.ts` の `coverage.thresholds` に v3 系の正しいフラット記法で追加。`pnpm sc:enable-pr` 実行時にプロジェクト固有の値を設定する。
+| 観点               | 設計判断                                | 理由                                           |
+| ------------------ | --------------------------------------- | ---------------------------------------------- |
+| **強制力**         | なし（thresholds 削除）                 | レビュアー不在の個人開発で強制しても機能しない |
+| **計測**           | 毎回実施（v8 provider）                 | どこにテストがないか可視化する価値はある       |
+| **レポート**       | `coverage/index.html` 自動生成          | 必要時にローカル/CI から閲覧可能               |
+| **CI保持**         | `actions/upload-artifact@v4` で14日     | 過去の coverage を遡って確認可能               |
+| **強制が必要なら** | クローン後に追加（手順は §17.2.4 参照） | プロジェクト固有事情で強制したい場合のみ       |
+
+#### 17.2.2 計測フロー（再現手順）
+
+```bash
+# 方法1: pnpm validate 経由（v3.7.5〜推奨）
+# → 型/lint/境界/テスト合否/カバレッジ計測/ビルド を一発で完結
+pnpm validate
+
+# 方法2: 単独実行（カバレッジだけ見たい時）
+pnpm test:coverage
+
+# どちらの方法でも同じレポートが生成される:
+#   coverage/index.html         ← HTML レポート（メイン）
+#   coverage/coverage-final.json ← JSON 形式（プログラム処理用）
+#   coverage/lcov.info           ← LCOV 形式（外部ツール連携用）
+
+# レポート閲覧
+open coverage/index.html  # macOS
+xdg-open coverage/index.html  # Linux
+start coverage/index.html  # Windows
+```
+
+#### 17.2.3 v3.7.5 で削除された旧仕様（過去の経緯）
+
+旧仕様（v3.7.4 まで）は以下の構造で `vitest.config.ts` に存在していた:
 
 ```typescript
+// ❌ 旧仕様（vitest v3 系で実効していなかった）
 thresholds: {
-  branches: 70, functions: 70, lines: 70, statements: 70,
-  'src/features/**': { branches: 80, functions: 80, lines: 80, statements: 80 }
+  global: {  // ← この `global:` キーが v3 系では認識されない
+    branches: 90, functions: 90, lines: 90, statements: 90,
+  },
+  'src/features/**/': {
+    branches: 95, functions: 95, lines: 95, statements: 95,
+  },
 }
 ```
+
+**問題点（v3.7.5 で発覚）:**
+
+1. `global:` キーは vitest v1 系の記法で、v3 系では `thresholds` 直下にフラットに記述する必要がある
+2. `pnpm test:coverage` 実行時に閾値違反でも exit 0 を返していた（強制力ゼロ）
+3. `vitest.config.ts:17` のコメント「🔴 95%品質: テストカバレッジ強制」と実態が乖離
+4. CLAUDE.md / SPECIFICATION.md でも「90%強制」と記載され、AI ファースト原則違反
+5. テンプレートが標榜していた「97%品質モード」は実装上は機能していなかった
+
+**v3.7.5 での対処:**
+
+- `thresholds` セクション全削除
+- 「個人開発前提では強制不要」という設計判断に整合させる
+- 必要なプロジェクトには §17.2.4 の手順を提供
+
+#### 17.2.4 チーム開発移行時のカバレッジ強制設定（v3 系正しい記法）
+
+PR運用ON（チーム開発）に移行するプロジェクトで品質ゲートが必要な場合、`vitest.config.ts` に以下を追加する:
+
+```typescript
+// ✅ vitest v3 系の正しい記法
+coverage: {
+  provider: 'v8',
+  reporter: ['text', 'json', 'html'],
+  exclude: ['node_modules/', 'tests/', '*.config.*', '.next/', 'scripts/'],
+  // フラット記法でグローバル閾値を指定
+  thresholds: {
+    branches: 70,
+    functions: 70,
+    lines: 70,
+    statements: 70,
+    // glob パターン別の閾値（フィーチャーは厳格に）
+    'src/features/**': {
+      branches: 80,
+      functions: 80,
+      lines: 80,
+      statements: 80,
+    },
+  },
+}
+```
+
+**閾値の推奨設定（プロジェクトの成熟度別）:**
+
+| プロジェクト段階 | global | features | 理由                           |
+| ---------------- | ------ | -------- | ------------------------------ |
+| 初期実装中       | 50%    | 60%      | テストを書く文化を作る最低限   |
+| 成熟プロジェクト | 70%    | 80%      | 一般的な業界標準               |
+| 高品質要求       | 80%    | 90%      | 金融・医療等のコンプライアンス |
+| 最高品質         | 90%+   | 95%+     | ライブラリ・SDK等              |
+
+**注意事項:**
+
+- `vitest.config.ts` は設定ファイル保護対象（`scripts/protect-config.js`）。変更後は `node scripts/protect-config.js --update` でチェックサム更新が必要
+- 閾値を高く設定し過ぎると CI が常時失敗する。最初は低めに設定して段階的に引き上げる運用を推奨
+- `perFile: true` を追加すると「ファイル単位で閾値を満たさないとエラー」になる（より厳格）
+
+#### 17.2.5 CI でのカバレッジアーティファクト
+
+`.github/workflows/ci.yml` の `test` ジョブで `pnpm test:coverage` を実行し、`coverage/` 全体を `actions/upload-artifact@v4` でアップロード:
+
+```yaml
+- name: 単体テスト + カバレッジ計測
+  run: pnpm test:coverage
+
+- name: カバレッジレポートをアーティファクト化
+  if: always() # テスト失敗時もレポートを保持
+  uses: actions/upload-artifact@v4
+  with:
+    name: coverage-report
+    path: coverage/
+    retention-days: 14
+```
+
+**閲覧方法:**
+
+1. `https://github.com/<owner>/<repo>/actions` を開く
+2. 該当の CI 実行行をクリック
+3. ページ下部の "Artifacts" セクションから `coverage-report` をダウンロード
+4. ZIP 解凍 → `index.html` をブラウザで開く
+
+#### 17.2.6 `pnpm validate` への coverage 統合（v3.7.5〜）
+
+`scripts/validate-sc.js` の修正により、`pnpm validate` 一発で coverage 計測まで完結する:
+
+```javascript
+// scripts/validate-sc.js（v3.7.5〜）
+const testResult = runCommand(`${pmRun} test:coverage`, true, true)
+// ↑ 旧: test:unit を呼んでいた（カバレッジ計測なし）
+// 新: test:coverage を呼ぶ（計測 + HTML 生成）
+```
+
+**運用上の効果:**
+
+- コミット前に `pnpm validate` するだけで `coverage/index.html` が常に最新化
+- 「カバレッジ計測を忘れる」事態がなくなる
+- 実行時間の増加は誤差レベル（+2秒程度）
+- `test:regression` は別途呼ばれる（重複だが UI 表示で「回帰テスト合格」を別出力する価値あり）
+
+### 17.3 コード品質
 
 ### 17.3 コード品質
 

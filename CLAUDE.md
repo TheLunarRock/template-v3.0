@@ -388,7 +388,9 @@ push/PR → quality（型+境界+lint） ─┐
 
 ### カバレッジ閾値（thresholds）について
 
-テンプレートデフォルトでは **閾値強制を行わない**（v3.7.5〜）。理由は個人開発デフォルト（PR運用OFF）でレビュアー不在のため。**Claude Codeルール**: テンプレート段階で `vitest.config.ts` に `thresholds` を追加しない。チーム移行プロジェクトで必要なら、SPECIFICATION.md §17.2 の v3 系フラット記法で追加すること。
+テンプレートデフォルトでは **閾値強制を行わない**（v3.7.5〜）。理由は個人開発デフォルト（PR運用OFF）でレビュアー不在のため。**Claude Codeルール**: テンプレート段階で `vitest.config.ts` に `thresholds` を追加しない。チーム移行プロジェクトで必要なら、SPECIFICATION.md §17.2.4 の v3 系フラット記法で追加すること。
+
+詳細は [SPECIFICATION.md セクション17.2](./SPECIFICATION.md) を参照（設計思想・計測フロー・v3 正しい記法・成熟度別推奨値・CI連携・validate統合の完全仕様）。
 
 ### Node.js バージョン管理の単一の真実の源
 
