@@ -66,6 +66,7 @@ const docs = [
   'README.md',
   'PROJECT_INFO.md',
   'SUPERCLAUDE_FINAL.md',
+  'AGENTS.md',
 ]
 
 describe('整合性: ドキュメント内の pnpm コマンドが package.json scripts に実在する', () => {

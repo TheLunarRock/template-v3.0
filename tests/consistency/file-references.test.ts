@@ -46,7 +46,14 @@ const ALLOWED_MISSING = new Set<string>([
   '.claude/settings.local.json',
 ])
 
-const docs = ['CLAUDE.md', 'SPECIFICATION.md', 'SETUP_GUIDE.md', 'README.md', 'PROJECT_INFO.md']
+const docs = [
+  'CLAUDE.md',
+  'SPECIFICATION.md',
+  'SETUP_GUIDE.md',
+  'README.md',
+  'PROJECT_INFO.md',
+  'AGENTS.md',
+]
 
 describe('整合性: ドキュメント内のファイルパス参照が実在する', () => {
   describe.each(docs)('%s', (doc) => {
