@@ -361,7 +361,9 @@ id_ecdsa
           )
         }
 
-        // Secret Scanning + Push Protection + Dependabot有効化（publicのみ）
+        // Secret Scanning + Push Protection 有効化（publicのみ）
+        // Dependabot自動修正（dependabot_security_updates）は個人開発では過剰なため有効化しない
+        // 過去事例: 2026-04-24 に Dependabot自動PR連鎖で Vercel build minutes が爆発した
         if (!isPrivate) {
           try {
             execSync(
@@ -369,8 +371,7 @@ id_ecdsa
 {
   "security_and_analysis": {
     "secret_scanning": { "status": "enabled" },
-    "secret_scanning_push_protection": { "status": "enabled" },
-    "dependabot_security_updates": { "status": "enabled" }
+    "secret_scanning_push_protection": { "status": "enabled" }
   }
 }
 EOF`,
@@ -378,16 +379,16 @@ EOF`,
             )
             log.success('Secret Scanning を有効化しました')
             log.success('Push Protection を有効化しました')
-            log.success('Dependabot自動修正 を有効化しました')
           } catch {
             log.warning('セキュリティ設定の有効化に失敗しました（権限不足の可能性）')
           }
         }
 
-        // Dependabotアラート有効化（public/private共通で利用可能）
+        // Dependabotアラート有効化（public/private共通で利用可能・通知のみ）
+        // 自動PR作成は意図的に行わない（必要なら手動で対応）
         try {
           execSync(`gh api repos/${repoInfo}/vulnerability-alerts -X PUT`, { stdio: 'pipe' })
-          log.success('Dependabotアラート を有効化しました')
+          log.success('Dependabotアラート を有効化しました（通知のみ）')
         } catch {
           log.warning('Dependabotアラートの有効化に失敗しました')
         }
@@ -965,13 +966,13 @@ jobs:
     if (securityResult.globalGitignore) results.installed.push('グローバルgitignore')
     if (securityResult.githubSettings) {
       if (securityResult.isPrivateRepo) {
-        results.installed.push('Dependabotアラート')
+        results.installed.push('Dependabotアラート（通知のみ）')
         results.installed.push(
           'Secret Scanning / Push Protection: スキップ（privateリポジトリ - Enterprise必要）'
         )
       } else {
         results.installed.push('GitHub Secret Scanning / Push Protection')
-        results.installed.push('Dependabot自動修正')
+        results.installed.push('Dependabotアラート（通知のみ・自動PR作成なし）')
       }
       results.installed.push('ブランチ保護: PR運用OFF（チーム移行時は pnpm sc:enable-pr）')
     } else {

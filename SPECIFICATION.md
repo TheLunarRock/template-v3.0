@@ -1206,13 +1206,13 @@ chmod +x ~/.claude/slack-notify.sh
 
 セットアップスクリプト（`scripts/setup.js`）は、リポジトリのvisibilityを `gh repo view --json visibility` で事前判定し、GitHubプランの制限に応じて適用する機能を自動的に分岐する。
 
-| 機能                   | publicリポジトリ | privateリポジトリ（Free） | 必要プラン                 |
-| ---------------------- | ---------------- | ------------------------- | -------------------------- |
-| **Secret Scanning**    | ✅ 有効化        | ⏭️ スキップ（理由表示）   | GitHub Advanced Security   |
-| **Push Protection**    | ✅ 有効化        | ⏭️ スキップ（理由表示）   | GitHub Advanced Security   |
-| **Dependabot自動修正** | ✅ 有効化        | ⏭️ スキップ（理由表示）   | GitHub Advanced Security   |
-| **Dependabotアラート** | ✅ 有効化        | ✅ 有効化                 | Free（public/private共通） |
-| **ブランチ保護**       | ✅ 有効化        | ⏭️ スキップ（理由表示）   | GitHub Pro以上             |
+| 機能                   | publicリポジトリ                                | privateリポジトリ（Free） | 必要プラン                 |
+| ---------------------- | ----------------------------------------------- | ------------------------- | -------------------------- |
+| **Secret Scanning**    | ✅ 有効化                                       | ⏭️ スキップ（理由表示）   | GitHub Advanced Security   |
+| **Push Protection**    | ✅ 有効化                                       | ⏭️ スキップ（理由表示）   | GitHub Advanced Security   |
+| **Dependabot自動修正** | ❌ 無効化（個人開発では過剰・自動PR連鎖の主犯） | ❌ 無効化                 | -                          |
+| **Dependabotアラート** | ✅ 有効化（通知のみ）                           | ✅ 有効化（通知のみ）     | Free（public/private共通） |
+| **ブランチ保護**       | ✅ 有効化                                       | ⏭️ スキップ（理由表示）   | GitHub Pro以上             |
 
 #### 12.4.2 判定ロジック（setup.js内）
 
@@ -1568,12 +1568,13 @@ Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline'; 
 
 定期的な依存更新（Dependabot Version Updates相当）は**意図的に自動化していない**。理由は開発体験の保護であり、テンプレートの設計判断として明確化する。
 
-| 項目                                  | 採否               | 理由                                                             |
-| ------------------------------------- | ------------------ | ---------------------------------------------------------------- |
-| **dependabot.yml（version updates）** | 不採用             | 週次PR氾濫・breaking change によるCI失敗・開発フロー中断のリスク |
-| **Dependabot Security Updates**       | 採用（デフォルト） | 脆弱性検知時のみPR作成。受動的だが実害発生時のみ動く             |
-| **第9層 dependency-audit**            | 採用               | 週次cronで能動的に新規CVE検知。失敗時は人間が判断して対処        |
-| **手動 `pnpm update`**                | 推奨               | 月次〜四半期に1度、開発者が能動的に実行（後述）                  |
+| 項目                                  | 採否                   | 理由                                                                                                 |
+| ------------------------------------- | ---------------------- | ---------------------------------------------------------------------------------------------------- |
+| **dependabot.yml（version updates）** | 不採用                 | 週次PR氾濫・breaking change によるCI失敗・開発フロー中断のリスク                                     |
+| **Dependabot Security Updates**       | **不採用（v3.7.7〜）** | 自動PR作成→CI失敗→修正push連鎖でVercel build minutes爆発の事例（2026-04-24）。アラート通知のみで十分 |
+| **Dependabot Alerts**                 | 採用                   | 重大脆弱性の通知のみ。リソース消費ゼロ                                                               |
+| **第9層 dependency-audit**            | 採用                   | 週次cronで能動的に新規CVE検知。失敗時は人間が判断して対処                                            |
+| **手動 `pnpm update`**                | 推奨                   | 月次〜四半期に1度、開発者が能動的に実行（後述）                                                      |
 
 **手動更新の推奨フロー（月次〜四半期）:**
 

@@ -64,6 +64,16 @@
 - ブランチ保護なし
 - チーム移行時は `pnpm sc:enable-pr` で切替
 
+### 7.1. ブランチ運用ルール（PR運用OFF時)
+
+**feature branch をリモートに push しない**
+
+- ローカルブランチでの作業は可。merge後にローカルで削除
+- 実装後は main に直接 commit & push する
+- `git push origin feature/xxx` は禁止
+- 理由: 不要な Vercel preview deployment / GitHub Actions 二重実行を防ぐ
+- 過去事例: 2026-04-24 に silver-hp で7連投ビルドが発生
+
 ---
 
 ## 🟡 重要パターン
