@@ -726,14 +726,15 @@ pnpm validate:all
 
 ### 9.1 GitHub Actions（.github/workflows/ci.yml）
 
-push（main, develop）およびPR（main宛）で自動実行される3ジョブ構成のパイプライン。
+push（main）およびPR（main宛）で自動実行される3ジョブ構成のパイプライン（v3.7.8〜 develop branch のトリガーは削除）。
 
 ```yaml
 name: CI/CD Pipeline
 
+# 個人開発前提のため main push 時のみ実行（v3.7.8〜）
 on:
   push:
-    branches: [main, develop]
+    branches: [main]
   pull_request:
     branches: [main]
 
@@ -1149,8 +1150,8 @@ chmod +x ~/.claude/slack-notify.sh
 │ │ Push Protection       : 秘密情報を含むpushを    │ │
 │ │                         GitHub側でブロック       │ │
 │ │ Dependabotアラート    : 依存パッケージの         │ │
-│ │                         脆弱性を自動通知         │ │
-│ │ Dependabot自動修正    : 脆弱性修正PRを自動作成   │ │
+│ │                         脆弱性を自動通知（通知のみ）│ │
+│ │ (Dependabot自動修正は v3.7.7〜 意図的に無効化)   │ │
 │ │ ブランチ保護          : mainへのforce push/      │ │
 │ │                         削除をブロック           │ │
 │ └─────────────────────────────────────────────────┘ │
@@ -1747,13 +1748,16 @@ GitHub Actions上で能動的に脆弱性・シークレット・不正パター
 
 #### 12.14.1 実行トリガー
 
-| トリガー                 | 実行ジョブ | 目的                                              |
-| ------------------------ | ---------- | ------------------------------------------------- |
-| `push` to `main`         | 全ジョブ   | mainマージ時に最終確認                            |
-| `pull_request` to `main` | 全ジョブ   | PR時点で問題を検知し、マージ前にブロック          |
-| `schedule`（週次・月曜） | 全ジョブ   | コード未変更でも新規CVE・検出パターンの更新に追従 |
+| トリガー         | 実行ジョブ | 目的                   |
+| ---------------- | ---------- | ---------------------- |
+| `push` to `main` | 全ジョブ   | mainマージ時に最終確認 |
 
-**cron:** `0 0 * * 1`（毎週月曜 00:00 UTC = 09:00 JST）
+**v3.7.8〜 変更点:** 個人開発前提のため、以下を削除:
+
+- `pull_request` トリガー: PR運用OFFのため不要
+- `schedule`（週次cron）: Dependabot alerts で重大脆弱性は自動通知される
+
+旧設定（参考）: `cron: '0 0 * * 1'`（毎週月曜 00:00 UTC = 09:00 JST）
 
 #### 12.14.2 ジョブ構成
 
@@ -1856,7 +1860,7 @@ permissions:
 | -------------- | ---------------------- | ------------------------------------ |
 | **目的**       | 機能正常性の検証       | セキュリティ・脆弱性の検知           |
 | **ジョブ**     | quality / test / build | dependency-audit / gitleaks / codeql |
-| **トリガー**   | push + PR              | push + PR + 週次cron                 |
+| **トリガー**   | main push + PR         | main push のみ（v3.7.8〜）           |
 | **実行時間**   | 軽量（< 5分目安）      | 中量（CodeQLは5-10分）               |
 | **失敗の意味** | ビルド・テスト失敗     | セキュリティ上の問題                 |
 

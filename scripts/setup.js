@@ -723,9 +723,11 @@ global.localStorage = localStorageMock as any;
   if (!fs.existsSync(ciPath)) {
     const ciWorkflow = `name: CI/CD Pipeline
 
+# 個人開発前提のため main push 時のみ実行（v3.7.8〜）
+# develop branch は使わないため除外。PR運用ON時は pull_request を再追加
 on:
   push:
-    branches: [main, develop]
+    branches: [main]
   pull_request:
     branches: [main]
 
@@ -817,14 +819,11 @@ jobs:
   if (!fs.existsSync(securityPath)) {
     const securityWorkflow = `name: Security
 
+# 個人開発前提のため main push 時のみ実行（v3.7.8〜）
+# 週次cron は不要（Dependabot alerts で重大脆弱性は通知される）
 on:
   push:
     branches: [main]
-  pull_request:
-    branches: [main]
-  schedule:
-    # 毎週月曜 09:00 JST（00:00 UTC）に実行。新規CVE・脆弱性パターンを定期検知
-    - cron: '0 0 * * 1'
 
 permissions:
   contents: read

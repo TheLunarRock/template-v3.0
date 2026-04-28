@@ -44,6 +44,10 @@ describe('整合性: AGENTS.md と CLAUDE.md の always-on ルールが同期し
       '回帰テスト',
       'force-with-lease',
       'tests/consistency/',
+      // v3.7.7〜: ブランチ運用ルール（PR運用OFF時は feature branch をリモートpush禁止）
+      'feature branch をリモートに push しない',
+      // v3.7.7〜: 過去事例の参照（4/24 silver-hp Vercel build minutes 爆発）
+      'silver-hp',
     ] as const
 
     const missingInAgents = KEY_CONCEPTS.filter((c) => !agents.includes(c))

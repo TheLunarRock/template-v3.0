@@ -1,8 +1,10 @@
 name: CI/CD Pipeline
 
+# 個人開発前提のため main push 時のみ実行（v3.7.8〜）
+# develop branch は使わないため除外。PR運用ON時は pull_request を再追加
 on:
   push:
-    branches: [main, develop]
+    branches: [main]
   pull_request:
     branches: [main]
 
