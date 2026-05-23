@@ -1184,7 +1184,7 @@ chmod +x ~/.claude/slack-notify.sh
 | **ログ**          | `*.log`, `npm-debug.log*`, `yarn-debug.log*`, `pnpm-debug.log*`                           | ログ内秘密情報の保護        |
 | **OS生成**        | `.DS_Store`, `Thumbs.db`, `Desktop.ini`, `._*`, `$RECYCLE.BIN/`                           | ノイズ除去                  |
 | **IDE**           | `.vscode/`, `.idea/`, `*.swp`, `*.swo`, `*~`                                              | 個人設定の除外              |
-| **個人メモ**      | `note.txt`, `memo.txt`, `todo.md`, `scratch.*`                                            | うっかり共有防止            |
+| **個人メモ**      | `memo.txt`, `todo.md`, `scratch.*`（`note.txt` はテンプレ同梱の空メモ）                   | うっかり共有防止            |
 
 ### 12.3 gitleaks（シークレットスキャンツール）
 
