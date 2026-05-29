@@ -36,6 +36,7 @@
 - Supabase/GitHubトークンは **Owner権限禁止**(必要最小限のロール)
 - DB破壊系の警告 Hook と ask 設定を削除・無効化しない
 - `public` スキーマに新規テーブルを作成したら明示的に GRANT を付与する(2026-05-30 以降の Supabase は public テーブルをデフォルトで Data API 非公開化。migration に `grant ... on table public.<table> to authenticated, service_role` を含める。未認証公開が必要な場合のみ anon を明示追加し RLS を併用。既存テーブルの遡及対応は不要。**このルールは Supabase 固有で Neon 等の素の PostgreSQL には該当しない**(クライアント直叩き型のみ。Neon はアプリ層で認可))
+- Neon 利用時は学習データに頼らず現行仕様を都度確認する(Neon は破壊的変更が頻繁: Auth SDK 書き換え・Snapshot 課金・拡張/API 廃止等。Auth SDK / Management API / 拡張は実装前に Context7 か公式 changelog で現行仕様を確認。コスト系は使用前に料金影響を確認。個別 API 名は陳腐化するため先回り文書化せず実使用後にルール化＝YAGNI)
 
 ### 4. 設定ファイル保護
 
