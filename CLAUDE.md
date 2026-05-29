@@ -143,6 +143,7 @@ pnpm dev
 9. **外部API呼出しはリトライ上限 + exponential backoff を必須** — 無限リトライは課金爆発・レート制限違反・障害拡大の原因。最大試行回数（例: 5回）とバックオフ（例: 2^n秒）を必ず設定
 10. **Supabase/GitHubトークンはOwner権限禁止** — 必要最小限のロール（read-only / 特定リソースのwrite等）で発行。Owner権限はroot権限と同等のリスク
 11. **DB破壊系Hookと ask 設定を削除・無効化しない** — `.claude/hooks/db-destructive-warning.sh` および settings.json の Supabase MCP破壊系 ask 5種は、過去の本番DB削除事故の再発防止策。解除が必要な場合は`settings.local.json`で個別override（テンプレートのsettings.jsonは触らない）
+12. **`public` スキーマに新規テーブルを作成したら明示的に GRANT を付与する** — 2026-05-30 以降に作成された Supabase プロジェクトでは、`public` スキーマのテーブルがデフォルトで Data API（PostgREST / GraphQL / supabase-js）に公開されない。テーブル作成マイグレーションには `grant select, insert, update, delete on table public.<table> to authenticated, service_role;`（連番列・シーケンスを使う場合は `grant usage, select on all sequences in schema public to authenticated, service_role;`）を必ず含める。未認証公開が必要なテーブルのみ `anon` を明示追加し、必ず RLS（`enable row level security`）を併用する。既存テーブルは公開状態が維持されるため遡及対応は不要。詳細は [SPECIFICATION.md セクション12.15.9](./SPECIFICATION.md) を参照
 
 ## GitHub側セキュリティ設定のvisibility分岐
 
