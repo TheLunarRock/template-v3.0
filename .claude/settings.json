@@ -110,7 +110,13 @@
       "Bash(supabase db reset:*)",
       "Bash(supabase db push:*)",
       "Bash(supabase db drop:*)",
-      "Bash(supabase migration repair:*)"
+      "Bash(supabase migration repair:*)",
+      "Bash(git commit --no-verify:*)",
+      "Bash(git push --no-verify:*)",
+      "Bash(git push origin feature/*)",
+      "Bash(git push -u origin feature/*)",
+      "Bash(git push --set-upstream origin feature/*)",
+      "Bash(git push --force origin *)"
     ]
   },
   "hooks": {
@@ -121,6 +127,24 @@
           {
             "type": "command",
             "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/db-destructive-warning.sh\""
+          }
+        ]
+      },
+      {
+        "matcher": "Edit|Write|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/protect-config-edit.sh\""
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/git-push-guard.sh\""
           }
         ]
       }
