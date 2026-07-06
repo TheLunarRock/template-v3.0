@@ -43,7 +43,7 @@ describe('整合性: vercel.json が main 以外の deploy を停止する設定
   it('git.deploymentEnabled が "**": false と "main": true を持つ', () => {
     const raw = readFileSync(path.join(ROOT, 'vercel.json'), 'utf8')
     const config = JSON.parse(raw) as {
-      git?: { deploymentEnabled?: Record<string, boolean> | boolean }
+      git?: { deploymentEnabled?: Record<string, boolean> | boolean | null }
     }
 
     const enabled = config.git?.deploymentEnabled
