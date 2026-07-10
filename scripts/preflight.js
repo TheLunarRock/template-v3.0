@@ -12,12 +12,7 @@
 const { execSync } = require('child_process')
 const fs = require('fs')
 const path = require('path')
-const {
-  detectPackageManager,
-  getPackageManagerCommand,
-  SUPERCLAUDE_FLAGS,
-  MCP_CONFIG,
-} = require('./utils')
+const { getPackageManagerCommand, MCP_CONFIG } = require('./utils')
 
 // 色付きコンソール出力
 const colors = {
@@ -61,7 +56,6 @@ const getDirectorySize = (dir) => {
 // フラグ処理（SuperClaude統合）
 const args = process.argv.slice(2)
 const isSuperClaudeMode = args.some((arg) => arg.startsWith('--sc-'))
-const validateMode = args.includes('--sc-validate')
 
 // チェック結果
 const results = {
@@ -79,9 +73,7 @@ async function preflight() {
 
   if (isSuperClaudeMode) {
     console.log(`${colors.blue}🤖 SuperClaudeモード有効${colors.reset}`)
-    console.log(
-      `推奨MCP: ${MCP_CONFIG.priority.testing} (テスト用), ${MCP_CONFIG.priority.analysis} (分析用)\n`
-    )
+    console.log(`推奨MCP: ${MCP_CONFIG.priority.analysis} (分析用)\n`)
   }
 
   // 1. プロダクションビルド

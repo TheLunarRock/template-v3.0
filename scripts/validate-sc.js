@@ -11,12 +11,7 @@
 const { execSync } = require('child_process')
 const fs = require('fs')
 const path = require('path')
-const {
-  detectPackageManager,
-  getPackageManagerCommand,
-  SUPERCLAUDE_FLAGS,
-  MCP_CONFIG,
-} = require('./utils')
+const { detectPackageManager, getPackageManagerCommand } = require('./utils')
 
 // 色付きコンソール出力
 const colors = {
@@ -37,7 +32,6 @@ const log = {
   error: (msg) => console.log(`${colors.red}✗${colors.reset} ${msg}`),
   section: (msg) => console.log(`\n${colors.bold}${colors.blue}━━━ ${msg} ━━━${colors.reset}\n`),
   mcp: (msg) => console.log(`${colors.dim}[MCP]${colors.reset} ${msg}`),
-  progress: (msg) => process.stdout.write(`\r${colors.cyan}⏳${colors.reset} ${msg}`),
   clearLine: () => process.stdout.write('\r\x1b[K'),
 }
 
@@ -332,7 +326,9 @@ async function main() {
   const isDeployment = args.includes('--deploy')
   const isFull = args.includes('--full') || (!isQuick && !isDeployment)
   const pm = detectPackageManager()
-  const pmRun = getPackageManagerCommand(pm)
+  // getPackageManagerCommand はコマンド種別（'run' 等）を受け取る。
+  // PM名を渡すとフォールバックで "pnpm pnpm" のような二重語が生成されるため 'run' を渡す。
+  const pmRun = getPackageManagerCommand('run')
 
   console.log(`\n${colors.bold}🚀 SuperClaude v4.0.8 統合検証${colors.reset}`)
   console.log(`${colors.dim}Package Manager: ${pm}${colors.reset}`)
@@ -351,9 +347,12 @@ async function main() {
   }
 
   // 0. テンプレート機能チェック（クイックモード以外）
+  // checkTemplateFunctionality は副作用のない純粋な FS 走査のため 1 回だけ実行し、
+  // 詳細表示とサマリー判定（後述）で結果を共有する
+  let templateChecks = null
   if (!isQuick) {
     log.section('テンプレート機能チェック')
-    const templateChecks = checkTemplateFunctionality()
+    templateChecks = checkTemplateFunctionality()
 
     // 必須機能（エラーレベル）
     console.log(`${colors.bold}必須機能:${colors.reset}`)
@@ -513,9 +512,8 @@ async function main() {
 
   const checkItems = []
 
-  // テンプレート機能チェックは必須機能のエラー数で判定
+  // テンプレート機能チェックは必須機能のエラー数で判定（上で取得済みの結果を再利用）
   if (!isQuick) {
-    const templateChecks = checkTemplateFunctionality()
     const criticalErrors = templateChecks.critical.filter((c) => c.status === 'error').length
     checkItems.push({
       name: 'テンプレート機能',
