@@ -235,8 +235,20 @@ export class MemoryCache<T = unknown> implements IMemoryCache<T> {
    * 統計情報を取得
    */
   getStats(): CacheStats {
-    const entries = Array.from(this.entries.values())
     const total = this.stats.hits + this.stats.misses
+
+    // 単一走査で最古・最新を算出（巨大キャッシュでの Math.min(...spread) による
+    // RangeError を回避し、createdAt の map 走査を 2 回 → 1 回に削減）
+    let oldestEntry: number | undefined
+    let newestEntry: number | undefined
+    for (const entry of this.entries.values()) {
+      if (oldestEntry === undefined || entry.createdAt < oldestEntry) {
+        oldestEntry = entry.createdAt
+      }
+      if (newestEntry === undefined || entry.createdAt > newestEntry) {
+        newestEntry = entry.createdAt
+      }
+    }
 
     return {
       size: this.entries.size,
@@ -244,8 +256,8 @@ export class MemoryCache<T = unknown> implements IMemoryCache<T> {
       misses: this.stats.misses,
       hitRate: total > 0 ? (this.stats.hits / total) * 100 : 0,
       evictions: this.stats.evictions,
-      oldestEntry: entries.length > 0 ? Math.min(...entries.map((e) => e.createdAt)) : undefined,
-      newestEntry: entries.length > 0 ? Math.max(...entries.map((e) => e.createdAt)) : undefined,
+      oldestEntry,
+      newestEntry,
       estimatedSize: this.estimateMemorySize(),
     }
   }
@@ -348,20 +360,20 @@ export class MemoryCache<T = unknown> implements IMemoryCache<T> {
 
     switch (this.config.strategy) {
       case 'lru':
-        keyToEvict = this.findLRUKey()
+        keyToEvict = this.findMinKey((entry) => entry.lastAccessedAt)
         break
       case 'lfu':
-        keyToEvict = this.findLFUKey()
+        keyToEvict = this.findMinKey((entry) => entry.accessCount)
         break
       case 'fifo':
-        keyToEvict = this.findFIFOKey()
+        keyToEvict = this.findMinKey((entry) => entry.createdAt)
         break
       case 'ttl':
         // TTL戦略では期限切れのみ削除（cleanup()で処理）
         this.cleanup()
         // それでも容量オーバーなら最も古いものを削除
         if (this.entries.size >= this.config.maxSize) {
-          keyToEvict = this.findFIFOKey()
+          keyToEvict = this.findMinKey((entry) => entry.createdAt)
         }
         break
     }
@@ -384,54 +396,24 @@ export class MemoryCache<T = unknown> implements IMemoryCache<T> {
   }
 
   /**
-   * LRU（最も使用されていない）キーを検索
+   * セレクタが返す値が最小のエントリーのキーを検索
+   *
+   * LRU（lastAccessedAt）/ LFU（accessCount）/ FIFO（createdAt）で共通のロジック。
+   * 同値の場合は Map の挿入順で最初に見つかったキーを返す（各ストラテジーの挙動を保持）。
    */
-  private findLRUKey(): string | undefined {
-    let lruKey: string | undefined
-    let lruTime = Infinity
+  private findMinKey(selector: (entry: CacheEntry<T>) => number): string | undefined {
+    let minKey: string | undefined
+    let minValue = Infinity
 
     for (const [key, entry] of this.entries) {
-      if (entry.lastAccessedAt < lruTime) {
-        lruTime = entry.lastAccessedAt
-        lruKey = key
+      const value = selector(entry)
+      if (value < minValue) {
+        minValue = value
+        minKey = key
       }
     }
 
-    return lruKey
-  }
-
-  /**
-   * LFU（最も頻度が低い）キーを検索
-   */
-  private findLFUKey(): string | undefined {
-    let lfuKey: string | undefined
-    let lfuCount = Infinity
-
-    for (const [key, entry] of this.entries) {
-      if (entry.accessCount < lfuCount) {
-        lfuCount = entry.accessCount
-        lfuKey = key
-      }
-    }
-
-    return lfuKey
-  }
-
-  /**
-   * FIFO（最も古い）キーを検索
-   */
-  private findFIFOKey(): string | undefined {
-    let fifoKey: string | undefined
-    let fifoTime = Infinity
-
-    for (const [key, entry] of this.entries) {
-      if (entry.createdAt < fifoTime) {
-        fifoTime = entry.createdAt
-        fifoKey = key
-      }
-    }
-
-    return fifoKey
+    return minKey
   }
 
   /**

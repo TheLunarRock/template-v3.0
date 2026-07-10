@@ -14,23 +14,7 @@
 const fs = require('fs')
 const path = require('path')
 const { execSync } = require('child_process')
-
-const colors = {
-  reset: '\x1b[0m',
-  green: '\x1b[32m',
-  yellow: '\x1b[33m',
-  blue: '\x1b[34m',
-  red: '\x1b[31m',
-  bold: '\x1b[1m',
-}
-
-const log = {
-  info: (msg) => console.log(`${colors.blue}ℹ${colors.reset} ${msg}`),
-  success: (msg) => console.log(`${colors.green}✓${colors.reset} ${msg}`),
-  warning: (msg) => console.log(`${colors.yellow}⚠${colors.reset} ${msg}`),
-  error: (msg) => console.log(`${colors.red}✗${colors.reset} ${msg}`),
-  section: (msg) => console.log(`\n${colors.bold}${colors.blue}━━ ${msg} ━━${colors.reset}\n`),
-}
+const { log, updateClaudeMdFlag } = require('./pr-mode-utils')
 
 const CLAUDE_REVIEW_WORKFLOW = `name: Claude コードレビュー
 
@@ -69,35 +53,6 @@ jobs:
 
             建設的で役立つフィードバックをお願いします。
 `
-
-const updateClaudeMdFlag = (mode) => {
-  const claudeMdPath = path.join(process.cwd(), 'CLAUDE.md')
-  if (!fs.existsSync(claudeMdPath)) {
-    log.warning('CLAUDE.md が見つかりません。フラグ更新をスキップします')
-    return false
-  }
-
-  const content = fs.readFileSync(claudeMdPath, 'utf8')
-  const flagRegex = /(<!-- PR_MODE_FLAG_START -->[\s\S]*?<!-- PR_MODE_FLAG_END -->)/
-  const match = content.match(flagRegex)
-
-  if (!match) {
-    log.warning('CLAUDE.md に PR_MODE_FLAG マーカーが見つかりません')
-    return false
-  }
-
-  const newBlock = `<!-- PR_MODE_FLAG_START -->\n**PR運用モード**: ${mode}\n<!-- PR_MODE_FLAG_END -->`
-  const updated = content.replace(flagRegex, newBlock)
-
-  if (updated === content) {
-    log.info(`CLAUDE.md のフラグは既に ${mode} です`)
-    return true
-  }
-
-  fs.writeFileSync(claudeMdPath, updated)
-  log.success(`CLAUDE.md の PR運用モードを ${mode} に更新しました`)
-  return true
-}
 
 const writeReviewWorkflow = () => {
   const workflowDir = path.join(process.cwd(), '.github', 'workflows')

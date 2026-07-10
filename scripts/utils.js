@@ -88,17 +88,6 @@ function getPackageManagerCommand(command) {
 }
 
 /**
- * SuperClaude v4.0.8 統合フラグ
- */
-const SUPERCLAUDE_FLAGS = {
-  '--sc-analyze': 'SuperClaude分析モード（Sequential MCPを使用）',
-  '--sc-parallel': '並列実行モード（最大15並列）',
-  '--sc-validate': '境界違反の詳細チェック',
-  '--sc-mcp': 'MCP-First原則を適用',
-  '--sc-todo': 'TodoWriteパターンで進捗管理',
-}
-
-/**
  * SuperClaude MCP設定
  */
 const MCP_CONFIG = {
@@ -111,31 +100,8 @@ const MCP_CONFIG = {
   },
 }
 
-/**
- * 並列実行可能なタスクを識別
- */
-function identifyParallelTasks(tasks) {
-  const parallelGroups = []
-  const dependencies = new Map()
-
-  tasks.forEach((task) => {
-    if (!task.dependencies || task.dependencies.length === 0) {
-      // 依存関係がないタスクは並列実行可能
-      if (!parallelGroups[0]) parallelGroups[0] = []
-      parallelGroups[0].push(task)
-    } else {
-      // 依存関係を考慮してグループ化
-      dependencies.set(task.id, task.dependencies)
-    }
-  })
-
-  return parallelGroups
-}
-
 module.exports = {
   detectPackageManager,
   getPackageManagerCommand,
-  SUPERCLAUDE_FLAGS,
   MCP_CONFIG,
-  identifyParallelTasks,
 }

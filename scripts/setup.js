@@ -15,13 +15,6 @@ const path = require('path')
 const { execSync } = require('child_process')
 const readline = require('readline')
 const os = require('os')
-const {
-  detectPackageManager,
-  getPackageManagerCommand,
-  SUPERCLAUDE_FLAGS,
-  MCP_CONFIG,
-  identifyParallelTasks,
-} = require('./utils')
 
 // 色付きコンソール出力
 const colors = {
@@ -532,26 +525,6 @@ ${webhookUrl ? '' : '# '}fi
 
   return { skipped: false, scriptPath, settingsPath }
 }
-
-// コマンド実行
-const runCommand = (command, silent = false) => {
-  try {
-    if (!silent) log.info(`実行中: ${command}`)
-    const output = execSync(command, {
-      stdio: silent ? 'pipe' : 'inherit',
-      encoding: 'utf8',
-    })
-    return { success: true, output }
-  } catch (error) {
-    return { success: false, error, output: error.stdout }
-  }
-}
-
-// フラグ処理（SuperClaude統合）
-const args = process.argv.slice(2)
-const isFullSetup = args.includes('--full') || !args.includes('--quick')
-const isQuickSetup = args.includes('--quick')
-const isSuperClaudeMode = args.some((arg) => arg.startsWith('--sc-'))
 
 // 結果追跡
 const results = {

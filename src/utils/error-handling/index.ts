@@ -239,16 +239,20 @@ export function aggregateErrors(errors: StructuredError[]): StructuredError {
   const mostSevereLevel =
     levelOrder.find((level) => errors.some((e) => e.level === level)) ?? 'error'
 
-  // カテゴリをカウント
-  const categories = errors.map((e) => e.category)
-  const mostCommonCategory =
-    categories.reduce(
-      (acc, cat) => {
-        const count = categories.filter((c) => c === cat).length
-        return count > (acc.count ?? 0) ? { category: cat, count } : acc
-      },
-      {} as { category?: ErrorCategory; count?: number }
-    ).category ?? 'unknown'
+  // カテゴリをカウント（Map で 1 パス集計し O(n²) → O(n) に）
+  // 同数の場合は最初に出現したカテゴリが優先される（従来のタイブレークを保持）
+  const categoryCounts = new Map<ErrorCategory, number>()
+  for (const { category } of errors) {
+    categoryCounts.set(category, (categoryCounts.get(category) ?? 0) + 1)
+  }
+  let mostCommonCategory: ErrorCategory | 'unknown' = 'unknown'
+  let highestCount = 0
+  for (const [category, count] of categoryCounts) {
+    if (count > highestCount) {
+      highestCount = count
+      mostCommonCategory = category
+    }
+  }
 
   return {
     code: 'ERR_MULTIPLE',

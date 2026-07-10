@@ -5,7 +5,7 @@
  * 必要になった時点で next-intl 等の i18n ライブラリを追加して拡張する
  */
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 
 export type Locale = 'ja' | 'en'
 
@@ -39,27 +39,34 @@ export function useI18n() {
     }
   }, [])
 
-  const setLocale = (newLocale: Locale) => {
+  const setLocale = useCallback((newLocale: Locale) => {
     if (config.locales.includes(newLocale)) {
       setLocaleState(newLocale)
       localStorage.setItem('locale', newLocale)
       // 将来的にはここでルーティングも更新
     }
-  }
+  }, [])
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const t = (key: string, _namespace = 'common'): string => {
-    // 簡易的な翻訳関数（必要時に翻訳ファイルから動的に読み込む実装に拡張）
-    // _namespace は将来的に使用
-    return key
-  }
+  const t = useCallback(
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    (key: string, _namespace = 'common'): string => {
+      // 簡易的な翻訳関数（必要時に翻訳ファイルから動的に読み込む実装に拡張）
+      // _namespace は将来的に使用
+      return key
+    },
+    []
+  )
 
-  return {
-    locale,
-    locales: config.locales,
-    setLocale,
-    t,
-  }
+  // 返却オブジェクトを安定化し、消費側の不要な再レンダー/再実行を防ぐ
+  return useMemo(
+    () => ({
+      locale,
+      locales: config.locales,
+      setLocale,
+      t,
+    }),
+    [locale, setLocale, t]
+  )
 }
 
 /**
