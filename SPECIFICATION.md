@@ -536,13 +536,13 @@ interface StructuredError {
 
 ### 7.1 開発コマンド
 
-| コマンド         | 説明                   |
-| ---------------- | ---------------------- |
-| `pnpm dev`       | 開発サーバー起動       |
-| `pnpm build`     | プロダクションビルド   |
-| `pnpm start`     | プロダクションサーバー |
-| `pnpm lint`      | ESLintチェック         |
-| `pnpm typecheck` | 型チェック             |
+| コマンド         | 説明                                                                      |
+| ---------------- | ------------------------------------------------------------------------- |
+| `pnpm dev`       | 開発サーバー起動（AI は実行禁止。人間のみ `ALLOW_DEV_SERVER=1 pnpm dev`） |
+| `pnpm build`     | プロダクションビルド                                                      |
+| `pnpm start`     | プロダクションサーバー                                                    |
+| `pnpm lint`      | ESLintチェック                                                            |
+| `pnpm typecheck` | 型チェック                                                                |
 
 ### 7.2 テストコマンド
 
@@ -1475,8 +1475,8 @@ Content-Security-Policy（CSP）はテンプレートに **含めている**（v
 #### 12.9.5 動作確認方法
 
 ```bash
-# 開発モード（'unsafe-eval' を含む）
-pnpm dev
+# 開発モード（'unsafe-eval' を含む）※人間が実行する
+ALLOW_DEV_SERVER=1 pnpm dev
 curl -sI http://localhost:3000 | grep -E "^(Content-Security|X-Frame|X-Content|Referrer|X-DNS|Strict|Permissions)"
 
 # 本番モード（'unsafe-eval' を含まない）
@@ -2415,12 +2415,12 @@ claude
 #    → Claude Code が CLAUDE.md / SPECIFICATION.md を参照し
 #      フィーチャー境界を遵守して実装
 
-# 5. 動作確認（必要なときだけ・必須ではない）
-pnpm dev
+# 5. 動作確認（必要なときだけ・必須ではない / 人間が実行）
+ALLOW_DEV_SERVER=1 pnpm dev
 # ブラウザで http://localhost:3000 を開く
 ```
 
-> **重要**: `pnpm dev` はセットアップの必須ステップではない。pre-commit フックで typecheck/lint/test/整合性チェックが自動実行されるため、コミット時点で品質が保証される。`pnpm dev` は実装の動作確認が必要になったときに起動する。
+> **重要**: `pnpm dev` はセットアップの必須ステップではない。pre-commit フックで typecheck/lint/test/整合性チェックが自動実行されるため、コミット時点で品質が保証される。`pnpm dev` は実装の動作確認が必要になったときに **人間が** 起動する。**AI エージェントは開発サーバーを起動しない**（動作確認は `pnpm build`）。詳細は §15.2.1 を参照。
 
 ### 14.2 `pnpm setup:sc` の Pre-check 機能（前提ツール自動検出）
 
@@ -2573,13 +2573,13 @@ nano .env.local
 
 本テンプレートのデプロイ運用は以下の **5 つの絶対原則** で構成される：
 
-| #   | 原則                                          | 実装手段                                                             |
-| --- | --------------------------------------------- | -------------------------------------------------------------------- |
-| 1   | **Vercel は main branch のみ自動デプロイ**    | `vercel.json` の `deploymentEnabled`                                 |
-| 2   | **feature branch は Vercel に出さない**       | branch を remote に push しない運用＋vercel.json 二重防御            |
-| 3   | **ローカル開発は `pnpm dev` のみ**            | branch 開発時の動作確認は localhost:3000                             |
-| 4   | **Vercel チーム認証 = アカウント email 統合** | commit author email は Vercel アカウントの verified email と一致必須 |
-| 5   | **コスト暴走は多層で物理的に防ぐ**            | GitHub Actions $0 budget × Vercel Spend Cap × 構造的予防             |
+| #   | 原則                                          | 実装手段                                                                                  |
+| --- | --------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| 1   | **Vercel は main branch のみ自動デプロイ**    | `vercel.json` の `deploymentEnabled`                                                      |
+| 2   | **feature branch は Vercel に出さない**       | branch を remote に push しない運用＋vercel.json 二重防御                                 |
+| 3   | **AI の動作確認は `pnpm build`**              | 開発サーバーは AI 実行禁止。ブラウザ確認は人間が `ALLOW_DEV_SERVER=1 pnpm dev`（§15.2.1） |
+| 4   | **Vercel チーム認証 = アカウント email 統合** | commit author email は Vercel アカウントの verified email と一致必須                      |
+| 5   | **コスト暴走は多層で物理的に防ぐ**            | GitHub Actions $0 budget × Vercel Spend Cap × 構造的予防                                  |
 
 ### 15.2 開発フロー（再現可能レベル）
 
@@ -2592,11 +2592,13 @@ git checkout -b feature/foo
 # 2. 実装
 # ファイル編集...
 
-# 3. ローカルテスト
-pnpm dev
+# 3. ローカル検証（AI エージェントはここまで）
+pnpm build          # ビルド・型エラーを検出（AI の標準動作確認）
+pnpm validate       # lint + typecheck + test + 境界チェック
+
+# 3b. ブラウザ確認が必要なときだけ（人間が実行）
+ALLOW_DEV_SERVER=1 pnpm dev
 # → http://localhost:3000 で動作確認
-# → ホットリロードで反復開発
-# → 必要に応じて pnpm test, pnpm typecheck
 
 # 4. ローカルでmain にマージ
 git add -A
@@ -2621,6 +2623,60 @@ git push origin main
 | ブランチ remote 不在     | Vercel preview deploy が走らない（build minutes 消費ゼロ） |
 | GitHub Actions 単一 push | CI 1回のみ（feature push 毎の重複実行なし）                |
 | 単純さ                   | PR レビュー不要・branch 保護不要・自分で merge する        |
+
+### 15.2.1 開発サーバー起動禁止仕様（AI エージェント）
+
+**AI エージェント（Claude Code / Cursor / Codex / Aider 等）は開発サーバーを起動しない。動作確認は `pnpm build` で行う。**
+
+#### 背景
+
+開発サーバーは常駐プロセスであり、AI エージェントが起動するとターミナルが占有され、エージェントの作業がそこで停止する。実際に毎回この停止が発生していたため、プロンプト指示ではなく機械的な強制として実装した。
+
+#### 三層の強制
+
+| 層    | 実装                                | 対象               | 動作                                  |
+| ----- | ----------------------------------- | ------------------ | ------------------------------------- |
+| 第1層 | `scripts/dev-guard.js`              | 全ツール（非依存） | 起動条件を判定し exit 1 で拒否        |
+| 第2層 | `.claude/hooks/dev-server-guard.sh` | Claude Code        | PreToolUse(Bash) で exit 2 ブロック   |
+| 第3層 | `.cursor/rules/no-dev-server.mdc`   | Cursor             | alwaysApply: true の always-on ルール |
+
+#### 第1層: scripts/dev-guard.js の判定ロジック
+
+`package.json` の `dev` / `dev:safe` が開発サーバー起動の前段でこのガードを実行する。
+
+| #   | 条件                                                                                                                                    | 結果              |
+| --- | --------------------------------------------------------------------------------------------------------------------------------------- | ----------------- |
+| 1   | `ALLOW_DEV_SERVER=1`                                                                                                                    | 起動許可 (exit 0) |
+| 2   | 自動化環境の環境変数を検出（`CLAUDECODE` / `CLAUDE_CODE` / `CURSOR_AGENT` / `AIDER_MODEL` / `CODEX_SANDBOX` / `GITHUB_ACTIONS` / `CI`） | 拒否 (exit 1)     |
+| 3   | 非対話実行（stdin が TTY でない）                                                                                                       | 拒否 (exit 1)     |
+| 4   | 対話ターミナル → 10秒タイムアウト付き確認プロンプト                                                                                     | 承認時のみ許可    |
+
+Cursor 固有の環境変数（`CURSOR_TRACE_ID` 等）は判定に使わない。人間が Cursor の統合ターミナルで手打ちする場合も同じ変数を持つため、誤検知で人間の作業を止めてしまうからである。Cursor Agent の実行は条件3（非対話）または条件4（タイムアウト）で捕捉する。
+
+拒否時は必ず即座に終了し、代替手段（`pnpm build`）を案内する。ハングしないため、エージェントが誤って実行しても開発は停止しない。
+
+#### 第2層: PreToolUse Hook のパターン
+
+| 判定     | 対象                                                                       |
+| -------- | -------------------------------------------------------------------------- |
+| ブロック | `pnpm/npm/yarn/bun` の `dev` `dev:safe`、`next` / `vercel` の dev 直接起動 |
+| 通過     | `pnpm dev:supabase-check`（常駐しない検査スクリプト）、`pnpm build` 等     |
+
+heredoc 本文とクォート文字列は判定前に除去する。ドキュメントやメッセージにコマンド名が文字列として登場しただけでブロックする誤検知を防ぐため（本フック導入時に実際に発生した）。
+
+#### Cursor 側 denylist を採用しない理由
+
+Cursor の command denylist は v1.3 で公式に非推奨化されている。バイパス経路が複数報告されており、エディタ側の設定では確実に止められない。そのため「起動される側」（`package.json` の `dev` スクリプト）で止める設計とした。
+
+#### 人間の運用
+
+ブラウザでの表示確認が必要な場合は人間が明示的に起動する：
+
+```bash
+ALLOW_DEV_SERVER=1 pnpm dev
+```
+
+AI エージェントがこの環境変数を自分で付与してガードを回避することは禁止（CLAUDE.md / AGENTS.md の always-on ルール）。
 
 ### 15.3 vercel.json 仕様（branch deploy 防御）
 

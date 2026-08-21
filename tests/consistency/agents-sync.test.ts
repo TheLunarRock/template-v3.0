@@ -48,6 +48,8 @@ describe('整合性: AGENTS.md と CLAUDE.md の always-on ルールが同期し
       'feature branch をリモートに push しない',
       // v3.7.7〜: 過去事例の参照（4/24 silver-hp Vercel build minutes 爆発）
       'silver-hp',
+      // v3.8.1〜: 開発サーバー起動禁止（AI は pnpm build で動作確認する）
+      '開発サーバーを起動しない',
     ] as const
 
     const missingInAgents = KEY_CONCEPTS.filter((c) => !agents.includes(c))

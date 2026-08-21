@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "node scripts/dev-guard.js && next dev",
     "build": "next build",
     "build:analyze": "ANALYZE=true next build",
     "start": "next start",
@@ -30,7 +30,7 @@
     "validate:all": "pnpm validate",
     "test:real-connection": "node scripts/test-real-connection.js",
     "dev:supabase-check": "node scripts/dev-supabase-check.js",
-    "dev:safe": "pnpm check:boundaries && next dev",
+    "dev:safe": "pnpm check:boundaries && node scripts/dev-guard.js && next dev",
     "build:safe": "pnpm check:boundaries && next build",
     "fix:boundaries": "node scripts/check-boundaries.js --fix",
     "preflight": "node scripts/preflight.js",

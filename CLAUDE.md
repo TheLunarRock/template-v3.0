@@ -77,11 +77,11 @@ pnpm setup:sc
 # 3. Claude Code 起動
 claude
 
-# 4. 自然言語で機能実装を依頼（pnpm dev は不要）
+# 4. 自然言語で機能実装を依頼（AI は開発サーバーを起動せず pnpm build で確認）
 # 例: 「ユーザー認証機能を追加して」
 
-# 5. 動作確認が必要なときだけ
-pnpm dev
+# 5. ブラウザで表示を確認したいときだけ（人間が実行）
+ALLOW_DEV_SERVER=1 pnpm dev
 ```
 
 ### Pre-check が検出する前提ツール
@@ -1308,6 +1308,32 @@ pnpm sc:disable-pr  # ON → OFF: ブランチ保護解除 + workflow削除 + �
 
 **ツール側の整合:** `pnpm sc:start` 等が呼ぶ `scripts/git-safety-check.js` も本フラグを参照する（`getPrMode()`）。OFF では main を保護ブランチ扱いせず（main 直作業を許可）、ON でのみ main/master/develop/production を保護して feature ブランチを促す。再現仕様は [SPECIFICATION.md §24.3.5](./SPECIFICATION.md)、回帰テストは `tests/regression/2026-06-22-001-sc-start-main-block-pr-mode.test.ts`。
 
+### 🔴 開発サーバー起動禁止ルール（最優先・絶対遵守）
+
+**AI エージェント（Claude Code / Cursor / Codex / Aider 等）は開発サーバーを起動しない。動作確認は `pnpm build` で行う。**
+
+| 区分          | コマンド                                                                                                           |
+| ------------- | ------------------------------------------------------------------------------------------------------------------ |
+| ❌ 実行禁止   | `pnpm dev` / `pnpm run dev` / `pnpm dev:safe` / `npm run dev` / `yarn dev` / `bun dev` / `next dev` / `vercel dev` |
+| ✅ 動作確認   | `pnpm build`（ビルド・型エラー検出） / `pnpm typecheck` / `pnpm validate` / `pnpm test`                            |
+| 🙋 人間が起動 | `ALLOW_DEV_SERVER=1 pnpm dev`                                                                                      |
+
+**理由:** 開発サーバーは常駐プロセスのためターミナルを占有し、エージェントの作業がそこで停止する。毎回これで開発が止まる実害があったため明示ルール化した。
+
+**ブラウザ確認が必要なとき:** 自分で起動せず、ユーザーに「`ALLOW_DEV_SERVER=1 pnpm dev` を実行してください」と依頼する。
+
+**機械的強制（プロンプト依存にしない）:**
+
+| 層    | 実装                                | 動作                                                                                                  |
+| ----- | ----------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| 第1層 | `scripts/dev-guard.js`              | `dev` スクリプト実行時に自動化環境・非対話実行を検出し exit 1 で拒否（ツール非依存・Cursor にも効く） |
+| 第2層 | `.claude/hooks/dev-server-guard.sh` | Claude Code の Bash 実行を **exit 2 でブロック**                                                      |
+| 第3層 | `.cursor/rules/no-dev-server.mdc`   | Cursor の always-on ルールとして常時適用                                                              |
+
+**Cursor 側 denylist を当てにしない理由:** Cursor の command denylist は v1.3 で公式に非推奨化された（バイパス経路が複数報告されたため）。エディタ設定では確実に止められないので、起動される側（`package.json` の `dev` スクリプト）で止める設計にしている。
+
+**絶対禁止:** 上記ガードの削除・改変、`ALLOW_DEV_SERVER=1` の自己付与、起動コマンドの直接実行によるガード回避。ガードに阻まれたら `pnpm build` に切り替えること。
+
 ### 🔴 ブランチ運用ルール（最優先・絶対遵守）
 
 **PR運用モード OFF（個人開発）の時、Claude Code は以下を厳守する:**
@@ -1317,7 +1343,7 @@ pnpm sc:disable-pr  # ON → OFF: ブランチ保護解除 + workflow削除 + �
    - ローカルブランチでの作業は可。merge後にローカルで削除
    - `git push origin feature/xxx` は **絶対禁止**
    - 「念のため」「実験用」のブランチを勝手に作ってリモートpushしない
-3. **テストは `pnpm dev` でローカル動作確認**してから main にコミット
+3. **動作確認は `pnpm build` で行う**（AI は開発サーバーを起動しない）→ 通ってから main にコミット
 
 **理由（過去の実害事例）:**
 不要なリモートブランチ push は以下を引き起こす:
@@ -1339,11 +1365,11 @@ pnpm sc:disable-pr  # ON → OFF: ブランチ保護解除 + workflow削除 + �
 
 ### 🚀 Vercel デプロイ運用ルール（v3.7.9 恒久化）
 
-**標準フローは branch dev → pnpm dev → main merge → push → Vercel 自動 deploy。**
+**標準フローは branch dev → pnpm build → main merge → push → Vercel 自動 deploy。**
 
 ```
 1. git checkout -b feature/foo  # local branch
-2. 実装＋pnpm dev で localhost:3000 にて動作確認
+2. 実装＋pnpm build で動作確認（AI は開発サーバーを起動しない）
 3. git checkout main && git merge feature/foo && git branch -d feature/foo
 4. git push origin main          # 唯一のリモート操作
 5. Vercel が main を ~50秒で自動 production deploy

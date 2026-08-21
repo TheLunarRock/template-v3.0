@@ -76,6 +76,18 @@
 - 理由: 不要な Vercel preview deployment / GitHub Actions 二重実行を防ぐ
 - 過去事例: 2026-04-24 に silver-hp で7連投ビルドが発生
 
+### 8. 開発サーバー起動禁止（Cursor / Codex / Aider / Claude Code 共通）
+
+**AI エージェントは開発サーバーを起動しない。動作確認は `pnpm build` で行う。**
+
+- 実行禁止: `pnpm dev` / `pnpm run dev` / `pnpm dev:safe` / `npm run dev` / `yarn dev` / `bun dev` / `next dev` / `vercel dev`
+- 代わりに使う: `pnpm build`（ビルド・型エラー検出） / `pnpm typecheck` / `pnpm validate` / `pnpm test`
+- 理由: 常駐プロセスがターミナルを占有し、エージェントの作業がそこで停止するため
+- ブラウザ確認が必要なときは自分で起動せず、ユーザーに `ALLOW_DEV_SERVER=1 pnpm dev` の実行を依頼する
+- 機械的強制: `scripts/dev-guard.js`（自動化環境を検出して起動拒否・ツール非依存）と `.claude/hooks/dev-server-guard.sh`（Claude Code の Bash を exit 2 でブロック）の二層。Cursor 向けには `.cursor/rules/no-dev-server.mdc` が always-on で適用される
+- Cursor の command denylist は v1.3 で公式に非推奨化されている（バイパス経路が複数報告されたため）。エディタ設定に頼らず、起動される側で止める設計
+- ガードの削除・改変、`ALLOW_DEV_SERVER=1` の自己付与による回避は禁止
+
 ---
 
 ## 🟡 重要パターン

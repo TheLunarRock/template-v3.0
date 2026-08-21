@@ -1,0 +1,49 @@
+---
+description: 開発サーバーを起動せず pnpm build で動作確認する（always-on）
+alwaysApply: true
+---
+
+# 🔴 開発サーバー起動禁止（絶対遵守）
+
+## ルール
+
+**AI エージェントは開発サーバーを起動しない。動作確認は `pnpm build` で行う。**
+
+実行禁止コマンド:
+
+```
+pnpm dev / pnpm run dev / pnpm dev:safe
+npm run dev / yarn dev / bun dev
+next dev / vercel dev
+```
+
+## 理由
+
+これらは常駐プロセスであり、起動するとターミナルが占有されてエージェントの作業が
+そこで停止する。毎回これで開発が止まっていたため、明示的に禁止する。
+
+## 代わりに使うコマンド
+
+| 目的                      | コマンド         |
+| ------------------------- | ---------------- |
+| ビルド・型エラーの検出    | `pnpm build`     |
+| 型チェックのみ（高速）    | `pnpm typecheck` |
+| lint + 型 + テスト + 境界 | `pnpm validate`  |
+| ユニット / 回帰テスト     | `pnpm test`      |
+
+## ブラウザでの確認が必要な場合
+
+自分で起動せず、ユーザーに依頼する:
+
+> 「ブラウザでの表示確認が必要です。`ALLOW_DEV_SERVER=1 pnpm dev` を実行してください」
+
+## 補足: このルールは機械的に強制される
+
+プロンプトだけに依存していない。以下の二層で止まる。
+
+1. `scripts/dev-guard.js` — dev スクリプト実行時に自動化環境・非対話実行を検出して
+   起動を拒否する（ツール非依存・Cursor にも適用される）
+2. `.claude/hooks/dev-server-guard.sh` — Claude Code の Bash 実行を exit 2 でブロック
+
+回避行為（ガードの削除・改変、`ALLOW_DEV_SERVER=1` の自己付与、起動コマンドの
+直接実行など）は禁止。ガードに阻まれたら `pnpm build` に切り替えること。
