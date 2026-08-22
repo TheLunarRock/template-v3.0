@@ -50,6 +50,9 @@ describe('整合性: AGENTS.md と CLAUDE.md の always-on ルールが同期し
       'silver-hp',
       // v3.8.1〜: 開発サーバー起動禁止（AI は pnpm build で動作確認する）
       '開発サーバーを起動しない',
+      // v3.8.2〜: 長時間ブロック操作の禁止（ブラウザ自動操作・常駐・追従）
+      'ブラウザ自動操作',
+      '戻ってこない操作',
     ] as const
 
     const missingInAgents = KEY_CONCEPTS.filter((c) => !agents.includes(c))

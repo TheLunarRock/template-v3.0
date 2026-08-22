@@ -98,7 +98,10 @@
       "Read(**/*.key)",
       "Read(**/*credentials*)",
       "Read(~/.ssh/*)",
-      "Read(~/.aws/*)"
+      "Read(~/.aws/*)",
+      "mcp__claude-in-chrome",
+      "mcp__playwright",
+      "mcp__puppeteer"
     ],
     "ask": [
       "mcp__supabase__execute_sql",
@@ -149,6 +152,19 @@
           {
             "type": "command",
             "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/dev-server-guard.sh\""
+          },
+          {
+            "type": "command",
+            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/blocking-op-guard.sh\""
+          }
+        ]
+      },
+      {
+        "matcher": "mcp__(claude-in-chrome|playwright|puppeteer)__.*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/blocking-op-guard.sh\""
           }
         ]
       }

@@ -1,0 +1,69 @@
+---
+description: 長時間ブロックする操作（ブラウザ自動操作・常駐・追従）を実行しない（always-on）
+alwaysApply: true
+---
+
+# 🔴 長時間ブロック操作の禁止（絶対遵守）
+
+## ルール
+
+**AI エージェントは「戻ってこない操作」を実行しない。確認は品質ゲートまでとし、実画面は人間が見る。**
+
+### A. ブラウザ自動操作を使わない
+
+```
+claude-in-chrome / Playwright / Puppeteer などの MCP・CLI
+npx playwright / lighthouse / chromedriver
+```
+
+1 操作ごとに拡張・外部プロセスとの往復が発生し、遅く不安定。繰り返すと作業が
+長時間停止したように見える（実際に 13 回連続の往復で停止した事例がある）。
+本番URLを自分で開いて測定することも含めて禁止。
+
+### B. 常駐プロセスを起動しない
+
+```
+pnpm dev（→ .cursor/rules/no-dev-server.mdc）/ pnpm start / next start
+pnpm test:unit:watch / test:unit:ui / test:coverage:ui / sc:debug / fix:bug
+vitest（run なし）/ jest / 任意の --watch
+serve / http-server / ngrok / supabase start / docker compose up（-d なし）
+```
+
+### C. ログ追従・長時間待機をしない
+
+```
+tail -f / docker logs -f / kubectl logs -f
+gh run watch / vercel logs --follow
+sleep 60 以上
+```
+
+## 代わりに使うコマンド
+
+| 目的                      | コマンド                    |
+| ------------------------- | --------------------------- |
+| ビルド・型エラーの検出    | `pnpm build`                |
+| 型チェックのみ（高速）    | `pnpm typecheck`            |
+| lint + 型 + テスト + 境界 | `pnpm validate`             |
+| テスト（単発実行）        | `pnpm test`                 |
+| ログ確認                  | `tail -n 200 <file>`        |
+| CI 状態確認               | `gh run list` / `gh run view` |
+
+## 実画面の確認が必要な場合
+
+自分で確認せず、**確認してほしい点を箇条書きで報告して人間に渡す**:
+
+> 実装は完了し `pnpm validate` は通っています。以下をブラウザでご確認ください。
+>
+> - ヘッダーのメニューがモバイル幅で折り返されるか
+> - 送信後にトーストが表示されるか
+>
+> ローカルで見る場合: `ALLOW_DEV_SERVER=1 pnpm dev`
+
+## 補足: このルールは機械的に強制される
+
+プロンプトだけに依存していない。Claude Code 側では
+`.claude/settings.json` の deny（ブラウザ自動操作 MCP）と
+`.claude/hooks/blocking-op-guard.sh`（exit 2 でブロック）が動作する。
+
+ガードの削除・改変による回避は禁止。阻まれたら品質ゲートに切り替え、
+実画面の確認は人間に依頼すること。

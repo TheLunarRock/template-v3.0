@@ -2573,13 +2573,13 @@ nano .env.local
 
 本テンプレートのデプロイ運用は以下の **5 つの絶対原則** で構成される：
 
-| #   | 原則                                          | 実装手段                                                                                  |
-| --- | --------------------------------------------- | ----------------------------------------------------------------------------------------- |
-| 1   | **Vercel は main branch のみ自動デプロイ**    | `vercel.json` の `deploymentEnabled`                                                      |
-| 2   | **feature branch は Vercel に出さない**       | branch を remote に push しない運用＋vercel.json 二重防御                                 |
-| 3   | **AI の動作確認は `pnpm build`**              | 開発サーバーは AI 実行禁止。ブラウザ確認は人間が `ALLOW_DEV_SERVER=1 pnpm dev`（§15.2.1） |
-| 4   | **Vercel チーム認証 = アカウント email 統合** | commit author email は Vercel アカウントの verified email と一致必須                      |
-| 5   | **コスト暴走は多層で物理的に防ぐ**            | GitHub Actions $0 budget × Vercel Spend Cap × 構造的予防                                  |
+| #   | 原則                                          | 実装手段                                                                                                                           |
+| --- | --------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | **Vercel は main branch のみ自動デプロイ**    | `vercel.json` の `deploymentEnabled`                                                                                               |
+| 2   | **feature branch は Vercel に出さない**       | branch を remote に push しない運用＋vercel.json 二重防御                                                                          |
+| 3   | **AI の動作確認は `pnpm build`**              | 開発サーバー（§15.2.1）とブラウザ自動操作・常駐・追従（§15.2.2）は AI 実行禁止。実画面の確認は人間が `ALLOW_DEV_SERVER=1 pnpm dev` |
+| 4   | **Vercel チーム認証 = アカウント email 統合** | commit author email は Vercel アカウントの verified email と一致必須                                                               |
+| 5   | **コスト暴走は多層で物理的に防ぐ**            | GitHub Actions $0 budget × Vercel Spend Cap × 構造的予防                                                                           |
 
 ### 15.2 開発フロー（再現可能レベル）
 
@@ -2677,6 +2677,85 @@ ALLOW_DEV_SERVER=1 pnpm dev
 ```
 
 AI エージェントがこの環境変数を自分で付与してガードを回避することは禁止（CLAUDE.md / AGENTS.md の always-on ルール）。
+
+### 15.2.2 長時間ブロック操作の禁止仕様（AI エージェント）
+
+**AI エージェントは「戻ってこない操作」を実行しない。確認は品質ゲートまでとし、実画面は人間が見る。**
+
+#### 背景
+
+§15.2.1 で `pnpm dev` を禁止した結果、エージェントは代わりにブラウザ自動操作（claude-in-chrome MCP）で実機確認を始めた。1 操作ごとに Chrome 拡張との往復が発生するため遅く不安定で、13 回連続で呼び出された結果、作業が停止したように見える事象が起きた。
+
+原因は禁止対象の設計にある。問題は「サーバーの起動」ではなく **終了条件が自分の手を離れている操作** であり、`pnpm dev` はその一例にすぎなかった。そこで禁止対象を以下 3 カテゴリに一般化した。
+
+| カテゴリ                | 何が起きるか                                   | 代表例                                                                        |
+| ----------------------- | ---------------------------------------------- | ----------------------------------------------------------------------------- |
+| A. ブラウザ自動操作     | 1 操作ごとに外部往復。遅く不安定で回数がかさむ | claude-in-chrome / Playwright / Puppeteer、`lighthouse`、本番URLの自力測定    |
+| B. 常駐プロセス         | フォアグラウンドに居座りターミナルを占有する   | `pnpm start`、`--watch`、`vitest`（`run` なし）、`serve`、`docker compose up` |
+| C. ログ追従・長時間待機 | 終了条件が外部にあり戻ってこない               | `tail -f`、`gh run watch`、`vercel logs --follow`、`sleep 60` 以上            |
+
+#### 確認範囲の線引き
+
+| 担当 | 範囲                                                                                     |
+| ---- | ---------------------------------------------------------------------------------------- |
+| AI   | 品質ゲート（`pnpm build` / `pnpm typecheck` / `pnpm lint` / `pnpm test` / 境界チェック） |
+| 人間 | 実画面・ブラウザでの見た目・体感速度                                                     |
+
+AI は実画面を自分で見ない代わりに、**確認してほしい点を箇条書きにして報告する**。ローカル確認が必要な場合の案内は `ALLOW_DEV_SERVER=1 pnpm dev`（§15.2.1）。
+
+#### 三層の強制
+
+| 層    | 実装                                       | 対象        | 動作                                      |
+| ----- | ------------------------------------------ | ----------- | ----------------------------------------- |
+| 第1層 | `.claude/settings.json` の `deny`          | Claude Code | ブラウザ自動操作 MCP をサーバー単位で拒否 |
+| 第2層 | `.claude/hooks/blocking-op-guard.sh`       | Claude Code | PreToolUse(MCP / Bash) で exit 2 ブロック |
+| 第3層 | `.cursor/rules/no-blocking-operations.mdc` | Cursor      | alwaysApply: true の always-on ルール     |
+
+deny だけで足りないのは、`settings.local.json` で override された環境や、MCP 以外（Bash の `npx playwright` 等）の経路が残るためである。フックは MCP 呼び出しと Bash コマンドの両方を同一スクリプトで判定する。
+
+#### 第1層: deny の対象
+
+```json
+"deny": ["mcp__claude-in-chrome", "mcp__playwright", "mcp__puppeteer"]
+```
+
+MCP の deny はサーバー単位で指定する（`mcp__server` 形式）。ツール単位のワイルドカードは使えない。恒久的に許可したい場合はテンプレートの `settings.json` を緩めず、`.claude/settings.local.json` で個別に override する。
+
+#### 第2層: blocking-op-guard.sh の判定ロジック
+
+| 入力                                                               | 判定                                                          |
+| ------------------------------------------------------------------ | ------------------------------------------------------------- |
+| `tool_name` が `mcp__(claude-in-chrome\|playwright\|puppeteer)__*` | BROWSER としてブロック                                        |
+| `tool_input.command`                                               | 単純コマンドに分割し、先頭トークンを A/B/C の各パターンと照合 |
+
+コマンド判定の前処理は以下の順で行う。
+
+1. heredoc 本文とクォート文字列を除去する（文字列としての言及を誤検知しないため）
+2. `;` `&&` `||` `|` `&` 改行 で単純コマンドに分割する
+3. 先頭の環境変数代入（`FOO=bar`）とラッパー（`sudo` / `time` / `nohup` / `exec` 等）を剥がす
+4. `npx` / `bunx` とその直後のオプションを剥がす
+5. パッケージマネージャ（`pnpm` / `npm` / `yarn` / `bun`）と `run` / `exec` / `dlx` を剥がす
+6. 残った先頭トークンを実行対象コマンドとして判定する
+
+この設計により `pnpm add -D @playwright/test`（インストール）や `grep -rn "tail -f" docs/`（言及）はブロックされない。
+
+ブロック時のメッセージはカテゴリごとに代替手段を提示する。エージェントは止まらずに次の手（`pnpm build` / `tail -n 200` / `gh run view` 等）へ進めるため、ガード自体が新たな停止要因にならない。
+
+| カテゴリ | 提示する代替手段                                                                          |
+| -------- | ----------------------------------------------------------------------------------------- |
+| BROWSER  | 品質ゲートまでで止め、確認点を箇条書きにして人間へ渡す                                    |
+| RESIDENT | `pnpm build` / `pnpm test`（単発実行）/ `pnpm validate`                                   |
+| FOLLOW   | `tail -n 200`、`gh run list` / `gh run view`、`vercel logs`（follow なし）、`-d` 付き起動 |
+
+#### 非対象
+
+- `pnpm dev` 系の起動: §15.2.1 の `dev-server-guard.sh` が担当する（メッセージを分けるため二重に判定しない）
+- `docker compose up -d` など、明示的にデタッチされた起動
+- `sleep` 60 秒未満の短い待機
+
+#### 検証
+
+`tests/unit/blocking-op-guard.test.ts` が、ブロック対象・通過対象・誤検知パターンを網羅して検証する。
 
 ### 15.3 vercel.json 仕様（branch deploy 防御）
 

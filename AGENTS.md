@@ -88,6 +88,19 @@
 - Cursor の command denylist は v1.3 で公式に非推奨化されている（バイパス経路が複数報告されたため）。エディタ設定に頼らず、起動される側で止める設計
 - ガードの削除・改変、`ALLOW_DEV_SERVER=1` の自己付与による回避は禁止
 
+### 9. 長時間ブロック操作の禁止（Cursor / Codex / Aider / Claude Code 共通）
+
+**AI エージェントは「戻ってこない操作」を実行しない。確認は品質ゲートまでとし、実画面は人間が見る。**
+
+- **A. ブラウザ自動操作を使わない**: claude-in-chrome / Playwright / Puppeteer の MCP・CLI、`npx playwright`、`lighthouse`、`chromedriver`。本番URLを自分で開いて測定することも含む
+- **B. 常駐プロセスを起動しない**: `pnpm start` / `next start`、`test:unit:watch` / `test:unit:ui` / `test:coverage:ui` / `sc:debug` / `fix:bug`、`--watch` 全般、`vitest`（`run` なし）、`serve` / `http-server` / `ngrok` / `supabase start` / `docker compose up`（`-d` なし）
+- **C. ログ追従・長時間待機をしない**: `tail -f`、`docker logs -f`、`kubectl logs -f`、`gh run watch`、`vercel logs --follow`、`sleep 60` 以上
+- 代わりに使う: `pnpm build` / `pnpm typecheck` / `pnpm validate` / `pnpm test`（単発実行）、`tail -n 200`、`gh run list` / `gh run view`、`docker compose up -d`
+- 理由: 終了条件が自分の手を離れている操作は戻ってこず、作業が長時間停止する。実例として dev サーバー禁止後にブラウザ自動操作へ流れ、拡張との往復が 13 回続いて停止した
+- 実画面の確認が必要なときは自分で確認せず、**確認してほしい点を箇条書きにして報告する**（ローカル確認の案内は `ALLOW_DEV_SERVER=1 pnpm dev`）
+- 機械的強制: `.claude/settings.json` の deny（ブラウザ自動操作 MCP をサーバー単位で拒否）と `.claude/hooks/blocking-op-guard.sh`（MCP・Bash 双方を exit 2 でブロック）。Cursor 向けには `.cursor/rules/no-blocking-operations.mdc` が always-on で適用される
+- ガードの削除・改変、deny の緩和、別名コマンドでの迂回は禁止。必要な場合は自己判断せずユーザーに承認を求める
+
 ---
 
 ## 🟡 重要パターン
