@@ -12,7 +12,7 @@ Claude Code に書かせる個人開発向け Next.js テンプレート。フ�
 - **9層セキュリティ防御**（gitleaks pre-commit / GitHub Secret Scanning + Push Protection / セキュリティヘッダー7種 / CodeQL / pnpm audit / Claude Code denyルール / DB破壊系 ask + Hook 二重防御 等）
 - **PR運用モード切替**（個人開発OFF ⇄ チーム開発ON を `pnpm sc:enable-pr` / `sc:disable-pr` で可逆切替）
 - **ドキュメント整合性テスト**（57テスト・Vitest）
-- **Claude Code 通知システム**（macOS sound + 通知センター + Slack）
+- **Claude Code 通知システム**（作業完了・確認待ちを macOS 通知＋サウンド＋クリップボード連携で通知。Slack は任意。クローン時点で有効）
 
 詳細は [CLAUDE.md](./CLAUDE.md) と [SPECIFICATION.md](./SPECIFICATION.md) を参照。
 

@@ -405,125 +405,68 @@ EOF`,
 }
 
 // Claude Code通知設定
+//
+// 通知の実体はテンプレート同梱の .claude/hooks/notify.sh（Stop / Notification フック）が担う。
+// クローンした時点で macOS 通知・サウンド・クリップボード連携は動作するため、
+// ここで行うのは以下 2 点のみ。~/.claude/settings.json は書き換えない。
+//   1. Slack Webhook URL の保存（任意・git 管理外の ~/.claude/notify-webhook.txt）
+//   2. グローバル hooks が残っている場合の重複案内
 const setupClaudeNotifications = async () => {
   const homeDir = os.homedir()
   const claudeDir = path.join(homeDir, '.claude')
   const settingsPath = path.join(claudeDir, 'settings.json')
-  const scriptPath = path.join(claudeDir, 'slack-notify.sh')
+  const webhookPath = path.join(claudeDir, 'notify-webhook.txt')
 
-  // .claudeディレクトリが存在するか確認
   if (!fs.existsSync(claudeDir)) {
     fs.mkdirSync(claudeDir, { recursive: true })
   }
 
-  // 既存のsettings.jsonを読み込み
-  let settings = {}
+  // グローバル hooks が残っていると同じイベントで 2 回通知される。
+  // フックはユーザー設定とプロジェクト設定でマージされ、コマンド文字列が
+  // 異なるものは別ハンドラとして両方実行されるため。
+  let globalSettings = {}
   if (fs.existsSync(settingsPath)) {
     try {
-      settings = JSON.parse(fs.readFileSync(settingsPath, 'utf8'))
+      globalSettings = JSON.parse(fs.readFileSync(settingsPath, 'utf8'))
     } catch {
-      settings = {}
+      globalSettings = {}
     }
   }
+  const globalHooks = globalSettings.hooks || {}
+  const duplicated = ['Stop', 'Notification'].filter(
+    (event) => Array.isArray(globalHooks[event]) && globalHooks[event].length > 0
+  )
+  if (duplicated.length > 0) {
+    log.warning(`~/.claude/settings.json に ${duplicated.join(' / ')} フックが残っています`)
+    log.info('テンプレート同梱の通知と重複し、同じイベントで 2 回通知されます')
+    log.info('グローバル側スクリプトの冒頭に次の1行を入れると重複を防げます:')
+    log.info('  [ -x "$PWD/.claude/hooks/notify.sh" ] && exit 0')
+    log.info('詳細な移行手順は SPECIFICATION.md §11.8 を参照してください')
+  }
 
-  // hooksが既に設定されているか確認
-  if (settings.hooks && settings.hooks.Stop) {
-    log.info('Claude Code通知は既に設定されています')
+  if (fs.existsSync(webhookPath)) {
+    log.info('Slack Webhook は設定済みです')
     return { skipped: true, reason: 'already_configured' }
   }
 
-  // 通知スクリプトが既に存在するか確認
-  if (fs.existsSync(scriptPath)) {
-    // スクリプトは存在するがhooksがない場合、hooksだけ追加
-    log.info('通知スクリプトが見つかりました。hooks設定を追加します...')
-  } else {
-    // ユーザーに通知設定を行うか確認
-    console.log('')
-    log.info('Claude Code通知機能をセットアップできます')
-    log.info('タスク完了時や承認待ち時にSlack/macOS通知を受け取れます')
-    console.log('')
+  console.log('')
+  log.info('macOS 通知はテンプレート同梱の .claude/hooks/notify.sh で既に有効です')
+  log.info('Slack にも通知したい場合のみ Webhook URL を登録します')
+  log.info('取得方法: https://api.slack.com/apps → Create New App → Incoming Webhooks')
+  console.log('')
 
-    const setupNotify = await askQuestion('通知を設定しますか？ (y/N): ')
-    if (setupNotify.toLowerCase() !== 'y' && setupNotify.toLowerCase() !== 'yes') {
-      log.info('通知設定をスキップしました')
-      return { skipped: true, reason: 'user_declined' }
-    }
-
-    // Slack Webhook URLを取得
-    console.log('')
-    log.info('Slack Incoming Webhook URLを入力してください')
-    log.info('（Slackを使用しない場合は空欄でEnter）')
-    log.info('取得方法: https://api.slack.com/apps → Create New App → Incoming Webhooks')
-    console.log('')
-
-    const webhookUrl = await askQuestion('Webhook URL: ')
-
-    // 通知スクリプトを作成
-    const scriptContent = `#!/bin/bash
-# Claude Code Notification Script
-# Sends notification when Claude Code needs attention
-
-${webhookUrl ? `WEBHOOK_URL="${webhookUrl}"` : '# WEBHOOK_URL="your-slack-webhook-url-here"'}
-
-# Get current directory name as project identifier
-PROJECT_NAME=$(basename "$(pwd)")
-
-# Create message
-MESSAGE="Claude Code is waiting in *\${PROJECT_NAME}*"
-
-# 1. Play sound (macOS)
-if [[ "$OSTYPE" == "darwin"* ]]; then
-  afplay /System/Library/Sounds/Glass.aiff &
-fi
-
-# 2. macOS notification
-if [[ "$OSTYPE" == "darwin"* ]]; then
-  osascript -e "display notification \\"$MESSAGE\\" with title \\"Claude Code\\" sound name \\"Glass\\""
-fi
-
-# 3. Send to Slack (if webhook URL is configured)
-${webhookUrl ? '' : '# '}if [ -n "$WEBHOOK_URL" ]; then
-${webhookUrl ? '' : '# '}  curl -s -X POST "$WEBHOOK_URL" \\
-${webhookUrl ? '' : '# '}    -H "Content-Type: application/json" \\
-${webhookUrl ? '' : '# '}    -d "{\\"text\\": \\"$MESSAGE\\"}" > /dev/null 2>&1
-${webhookUrl ? '' : '# '}fi
-`
-    fs.writeFileSync(scriptPath, scriptContent)
-    fs.chmodSync(scriptPath, '755')
-    log.success(`通知スクリプトを作成しました: ${scriptPath}`)
+  const webhookUrl = (await askQuestion('Slack Webhook URL（不要なら空欄で Enter）: ')).trim()
+  if (!webhookUrl) {
+    log.info('Slack 通知はスキップしました（macOS 通知のみ有効）')
+    return { skipped: true, reason: 'user_declined' }
   }
 
-  // hooks設定を追加
-  settings.hooks = {
-    Stop: [
-      {
-        matcher: '',
-        hooks: [
-          {
-            type: 'command',
-            command: scriptPath,
-          },
-        ],
-      },
-    ],
-    Notification: [
-      {
-        matcher: 'permission_prompt|idle_prompt',
-        hooks: [
-          {
-            type: 'command',
-            command: scriptPath,
-          },
-        ],
-      },
-    ],
-  }
+  // 秘密情報のため所有者のみ読み書き可にする
+  fs.writeFileSync(webhookPath, webhookUrl + '\n', { mode: 0o600 })
+  fs.chmodSync(webhookPath, 0o600)
+  log.success(`Slack Webhook を保存しました: ${webhookPath}`)
 
-  // settings.jsonを保存
-  fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2))
-  log.success(`Claude Code設定を更新しました: ${settingsPath}`)
-
-  return { skipped: false, scriptPath, settingsPath }
+  return { skipped: false, webhookPath }
 }
 
 // 結果追跡
@@ -914,13 +857,13 @@ jobs:
     const notifyResult = await setupClaudeNotifications()
     if (notifyResult.skipped) {
       if (notifyResult.reason === 'already_configured') {
-        log.success('Claude Code通知は設定済みです')
+        log.success('Slack 通知は設定済みです（macOS 通知は同梱フックで常時有効）')
       } else {
-        log.info('通知設定はスキップされました')
+        log.info('Slack 通知は未設定です（macOS 通知は同梱フックで有効）')
       }
     } else {
-      results.created.push('~/.claude/slack-notify.sh')
-      results.installed.push('Claude Code通知hooks')
+      results.created.push('~/.claude/notify-webhook.txt')
+      results.installed.push('Claude Code通知（Slack連携）')
     }
   } catch (error) {
     log.warning('通知設定中にエラーが発生しました: ' + error.message)
@@ -1015,7 +958,7 @@ ${colors.blue}📦 インストール済み機能:${colors.reset}
   ✓ GitHub Actions CI/CD
   ✓ 境界違反自動検出
   ✓ Claude Code専用ドキュメント領域
-  ✓ Claude Code通知（Slack/macOS）
+  ✓ Claude Code通知（macOS標準搭載 / Slack任意）
   ✓ セキュリティ6層防御（gitleaks/GitHub保護）
 
 📋 作成されたファイル・ディレクトリ:

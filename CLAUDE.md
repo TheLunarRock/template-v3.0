@@ -310,68 +310,62 @@ cp .claude/settings.json .claude/settings.local.json
 
 # ═══════════════════════════════════════════════════
 
-## 自動セットアップ
+## テンプレート同梱（セットアップ不要）
 
-```bash
-# テンプレートクローン後に実行
-pnpm setup:sc
+通知は `.claude/hooks/notify.sh` として同梱されており、**クローンした時点で macOS 通知が動作する**。`pnpm setup:sc` の実行は Slack 連携を使う場合のみ必要。
 
-# 対話式で通知設定
-# 1. 「通知を設定しますか？ (y/N):」→ y
-# 2. 「Webhook URL:」→ Slack Webhook URLを入力（空欄可）
-```
+| 項目               | 内容                                                      |
+| ------------------ | --------------------------------------------------------- |
+| **通知スクリプト** | `.claude/hooks/notify.sh`（git 管理・秘密情報なし）       |
+| **登録先**         | `.claude/settings.json` の `Stop` / `Notification` フック |
+| **前提**           | macOS（通知・音）。Slack は任意                           |
 
-## 通知タイミング
+## 発火タイミングと通知内容
 
-| フック                                 | 発火条件       | 用途                 |
-| -------------------------------------- | -------------- | -------------------- |
-| **Stop**                               | タスク完了時   | 作業終了の通知       |
-| **Notification** (`permission_prompt`) | 承認待ち時     | ツール使用許可の通知 |
-| **Notification** (`idle_prompt`)       | 60秒アイドル時 | 応答待ちの通知       |
+| イベント                             | 通知内容                                           | 音    |
+| ------------------------------------ | -------------------------------------------------- | ----- |
+| **Stop**                             | 作業が終わりました。報告はクリップボードにあります | Glass |
+| **Notification** `permission_prompt` | 確認待ちで止まっています（ツール使用の承認）       | Ping  |
+| **Notification** `idle_prompt`       | 応答がないまま止まっています                       | Ping  |
+| **Notification** `elicitation_*`     | 入力／URL の入力を求めて止まっています             | Ping  |
+| **Notification** `agent_needs_input` | サブエージェントが入力を待っています               | Ping  |
 
-## 通知方法（3重通知）
+**クリップボード連携:** `Stop` フックのペイロードに含まれる `last_assistant_message`（その turn の最終回答）を `pbcopy` でクリップボードへ入れる。通知に気付いた時点で報告本文がそのまま貼り付けられる。
 
-1. **macOSサウンド** - Glass.aiff（即時）
-2. **macOS通知センター** - プロジェクト名表示
-3. **Slack** - Webhook経由（設定時のみ）
+**「長時間止まっている」の検知範囲:** Claude Code に「同じ作業でループしている」ことを直接知らせるイベントは存在しない。60秒無応答で発火する `idle_prompt` と、承認待ちの `permission_prompt` がその代替になる。
 
-## 設定ファイル
+## Slack 連携（任意）
 
-| ファイル          | 場所         | 用途                |
-| ----------------- | ------------ | ------------------- |
-| `settings.json`   | `~/.claude/` | グローバルhooks設定 |
-| `slack-notify.sh` | `~/.claude/` | 通知スクリプト      |
+Webhook URL は git 管理下に置かず、以下の順で解決する。
 
-## プロジェクト固有設定の注意
+1. 環境変数 `CLAUDE_NOTIFY_WEBHOOK`
+2. `~/.claude/notify-webhook.txt`（`pnpm setup:sc` が `chmod 600` で作成）
 
-**重要**: プロジェクトに`.claude/settings.local.json`がある場合、hooksも含める必要があります。
+どちらも無ければ Slack 送信はスキップし、macOS 通知のみ行う。
 
-```json
-{
-  "hooks": {
-    "Stop": [
-      { "matcher": "", "hooks": [{ "type": "command", "command": "~/.claude/slack-notify.sh" }] }
-    ],
-    "Notification": [
-      {
-        "matcher": "permission_prompt|idle_prompt",
-        "hooks": [{ "type": "command", "command": "~/.claude/slack-notify.sh" }]
-      }
-    ]
-  },
-  "permissions": {
-    /* 既存設定 */
-  }
-}
-```
+## 制御用の環境変数
+
+| 変数                       | 効果                                             |
+| -------------------------- | ------------------------------------------------ |
+| `CLAUDE_NOTIFY_DISABLED=1` | 通知を完全に無効化する                           |
+| `CLAUDE_NOTIFY_DRY_RUN=1`  | 副作用を起こさず判定結果のみ出力する（テスト用） |
+
+CI 環境（`CI` 変数あり）では通知しない。
+
+## Claude Code への指示
+
+1. **通知フックを無効化・削除しない** — 作業が止まったことに人間が気付けなくなる
+2. **通知フックは exit 0 を守る** — ガード系フックと違い、通知が作業をブロックしてはいけない
+3. **Webhook URL をコードやドキュメントに書かない** — 上記2経路（環境変数・git 管理外ファイル）のみ
 
 ## トラブルシューティング
 
-| 問題                      | 解決策                                           |
-| ------------------------- | ------------------------------------------------ |
-| 通知が来ない              | プロジェクトの`settings.local.json`にhooksを追加 |
-| Slackのみ来ない           | Webhook URLを確認・再設定                        |
-| Cursor/VSCodeで動作しない | 既知のバグ、Stopフックのみ動作（修正待ち）       |
+| 問題                   | 原因                                                        | 解決策                                                               |
+| ---------------------- | ----------------------------------------------------------- | -------------------------------------------------------------------- |
+| 通知が2回来る          | `~/.claude/settings.json` に旧グローバル hooks が残っている | グローバル側スクリプトに譲渡ガードを入れる（SPECIFICATION.md §11.8） |
+| 通知が来ない           | ターミナル／エディタに通知権限がない                        | システム設定 → 通知 で該当アプリを許可                               |
+| 音は鳴るが通知が出ない | 同上（音は `afplay` で別経路のため鳴る）                    | 同上                                                                 |
+| macOS 以外で動かない   | 通知センター・`afplay`・`pbcopy` は macOS 前提              | Slack 連携のみ利用（macOS 依存部分は自動でスキップされる）           |
 
 詳細は [SPECIFICATION.md](./SPECIFICATION.md) のセクション11を参照。
 
