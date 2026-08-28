@@ -386,6 +386,15 @@ EOF`,
           log.warning('Dependabotアラートの有効化に失敗しました')
         }
 
+        // 自動PR作成は明示的に無効化する（GitHub のデフォルトで有効になるため、
+        // 「有効化しない」だけでは止まらない。2026-08-29 に11リポジトリで実害を確認）
+        try {
+          execSync(`gh api repos/${repoInfo}/automated-security-fixes -X DELETE`, { stdio: 'pipe' })
+          log.success('Dependabot自動PR を無効化しました（アラートは維持）')
+        } catch {
+          log.warning('Dependabot自動PRの無効化に失敗しました（権限不足の可能性）')
+        }
+
         // ブランチ保護はデフォルトでは適用しない（個人開発前提）
         // チーム開発に移行する際は `pnpm sc:enable-pr` を実行
         log.info('ブランチ保護: PR運用OFF（デフォルト）。チーム移行時は pnpm sc:enable-pr を実行')
