@@ -1408,7 +1408,7 @@ pnpm sc:disable-pr  # ON → OFF: ブランチ保護解除 + workflow削除 + �
 2. **`vercel.json` の `deploymentEnabled` を勝手に変えない** — `"**": false, "main": true` は branch deploy 防御の要
 3. **コミット author email は Vercel アカウントの verified email と一致必須** — 不一致時の症状: deploy が `Error` で `readyStateReason: no git user associated`。対処は [SPECIFICATION.md §15.4](./SPECIFICATION.md) の 8 ステップ手順
 4. **デプロイ失敗の真因特定は `readyStateReason`** — UI の "Blocked" / "Error" 表示はカテゴリが緩く症状≠原因。CLI/API で `readyStateReason` を取得しないと誤診断する（実例: 2026-04-30 に Spend Cap と誤診し対処時間を浪費）
-5. **コスト保護を解除しない** — GitHub Actions $0 budget × 4 カテゴリ、Vercel Spend Cap $30、Dependabot auto-PR OFF は維持
+5. **コスト保護を解除しない** — GitHub Actions budget（Actions **$15** / その他 **$0**、いずれも Stop usage: Yes。Copilot のみ停止不可のため `AI credits budget` $0 で代替）、Vercel Spend Cap $30、Dependabot auto-PR OFF は維持。**Actions を $0 に戻さないこと** — $0 予算は常に100%到達扱いとなり、無料枠を1分も使えないまま private リポジトリの全 workflow がブロックされる（2026-06-27〜08-29 に約2か月間の実害あり）。詳細は SPECIFICATION.md セクション15.5.1
 
 **詳細仕様: [SPECIFICATION.md §15「デプロイ」](./SPECIFICATION.md)（9 サブセクション・再現可能レベル）**
 
