@@ -61,7 +61,7 @@ echo ""
 echo "  以下を全リポジトリに適用します:"
 echo "    1. Secret Scanning（秘密情報の自動検出・通知）"
 echo "    2. Dependabotアラート（脆弱性の自動検出・通知）"
-echo "    3. Dependabot自動修正（修正PRの自動作成）"
+echo "    3. Dependabot自動PRの無効化（アラートは維持・Actions分数の保護）"
 echo ""
 echo -e "  ${GREEN}これらはパッシブな監視機能です。既存コードは変更されません。${NC}"
 echo ""
@@ -77,13 +77,12 @@ if [[ "$phase1_answer" =~ ^[Yy] ]]; then
   while IFS=$'\t' read -r name visibility branch; do
     printf "  %-35s [%s] " "$name" "$visibility"
 
-    # Secret Scanning + Dependabot自動修正
+    # Secret Scanning
     if gh api "repos/$OWNER/$name" -X PATCH --input - --silent <<EOF 2>/dev/null
 {
   "security_and_analysis": {
     "secret_scanning": { "status": "enabled" },
-    "secret_scanning_push_protection": { "status": "disabled" },
-    "dependabot_security_updates": { "status": "enabled" }
+    "secret_scanning_push_protection": { "status": "disabled" }
   }
 }
 EOF
@@ -91,7 +90,12 @@ EOF
       : # success
     fi
 
-    # Dependabotアラート
+    # Dependabot自動PRは明示的に無効化する（GitHub のデフォルトで有効になるため、
+    # 「有効化しない」だけでは止まらない。2026-08 は自動PRが無料枠 2,000分/月のうち
+    # 約1,600分を消費し、private リポジトリの CI が無料枠枯渇で全停止した）
+    gh api "repos/$OWNER/$name/automated-security-fixes" -X DELETE --silent 2>/dev/null || true
+
+    # Dependabotアラート（通知のみ・自動PRとは独立して維持する）
     if gh api "repos/$OWNER/$name/vulnerability-alerts" -X PUT --silent 2>/dev/null; then
       echo -e "${GREEN}✅${NC}"
       p1_success=$((p1_success + 1))
@@ -220,7 +224,7 @@ echo ""
 echo "  適用された設定:"
 echo "    ✅ Secret Scanning（秘密情報検出）"
 echo "    ✅ Dependabotアラート（脆弱性検出）"
-echo "    ✅ Dependabot自動修正（修正PR作成）"
+echo "    ✅ Dependabot自動PR無効化（Actions分数の保護）"
 [[ "${phase2_answer:-n}" =~ ^[Yy] ]] && echo "    ✅ Push Protection（秘密pushブロック）"
 [[ "${phase3_answer:-3}" != "3" ]] && echo "    ✅ ブランチ保護（force push/削除禁止）"
 echo ""
