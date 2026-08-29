@@ -471,6 +471,15 @@ file1 = read(); file2 = read(); file3 = read();
 
 → [`docs/SUPERCLAUDE_REFERENCE.md`](./docs/SUPERCLAUDE_REFERENCE.md) に移動（常時読み込み対象外）: 活用方針の本文と MCP 初回セットアップ手順（`claude mcp add`）
 
+必須MCP4種の登録コマンド（別PCでのクローン時に初回のみ実行。前提の `uv` インストール等は上記参照）:
+
+```bash
+claude mcp add serena -- uvx --from git+https://github.com/oraios/serena serena start-mcp-server
+claude mcp add context7 -- npx -y @upstash/context7-mcp@latest
+claude mcp add sequential-thinking -- npx -y @modelcontextprotocol/server-sequential-thinking
+claude mcp add morphllm-fast-apply -- npx @morph-llm/morph-fast-apply /home/
+```
+
 ### 🎯 利用可能なMCPサーバー（ティア別）
 
 本テンプレートは以下3ティアでMCPを整理する。ティアは「プロンプトで代替不可能か」を基準に分類。
@@ -1187,7 +1196,7 @@ pnpm sc:disable-pr  # ON → OFF: ブランチ保護解除 + workflow削除 + �
 
 # ═══════════════════════════════════════════════════
 
-ドキュメントと実装の乖離は AI の信頼性を破壊するため、`tests/consistency/` 配下の **11ファイル**で自動検証する（ファイル数と一覧は `consistency-inventory.test.ts` が CLAUDE.md・SPECIFICATION.md の記載と一致することを保証するため、新規テスト追加時の更新漏れは自動でブロックされる）。pre-commit と CI で自動実行される。
+ドキュメントと実装の乖離は AI の信頼性を破壊するため、`tests/consistency/` 配下の **12ファイル**で自動検証する（ファイル数と一覧は `consistency-inventory.test.ts` が CLAUDE.md・SPECIFICATION.md の記載と一致することを保証するため、新規テスト追加時の更新漏れは自動でブロックされる）。pre-commit と CI で自動実行される。
 
 ## 整合性が保証される対象
 
@@ -1203,6 +1212,7 @@ pnpm sc:disable-pr  # ON → OFF: ブランチ保護解除 + workflow削除 + �
 | **AGENTS.md同期**      | `agents-sync.test.ts`           | AGENTS.md と CLAUDE.md の always-on ルール抜粋が同期している                     |
 | **Vercel設定**         | `vercel-config.test.ts`         | `vercel.json` の deploymentEnabled とブランチ運用記述（main直push）が整合        |
 | **Claudeワークフロー** | `claude-workflow-guard.test.ts` | `claude.yml` の OWNER 起動ゲート・`@v1` 参照・廃止入力不使用・`concurrency` 定義 |
+| **依存バージョン**     | `dependency-versions.test.ts`   | SPECIFICATION.md §2 の依存バージョン表と `package.json` が一致                   |
 | **テスト目録**         | `consistency-inventory.test.ts` | tests/consistency のファイル数・一覧が CLAUDE.md / SPECIFICATION.md の記載と一致 |
 
 ## Claude Code への絶対指示

@@ -6,6 +6,13 @@
  * 前提とする。リストが CLAUDE.md / SETUP_GUIDE.md / setup.js で
  * ズレると、新規セットアップ時に AI が誤った MCP セットを推奨する。
  *
+ * 検証方法（2026-08-30 に厳密化）: 以前は `content.includes('serena')` という
+ * 部分一致だったため、`mcp__serena__write_memory` のような別文脈の文字列に
+ * 引っかかって通ってしまい、逆に「ティア別」表の `**Context7**` は先頭大文字で
+ * 一致しなかった。つまり「登録手順が書かれているか」を何も保証していなかった。
+ * 現在は登録コマンド `claude mcp add <名前>` からサーバー名を抽出し、
+ * 完全一致で検証する。
+ *
  * @category 整合性
  * @priority 🟢 recommended
  */
@@ -33,15 +40,26 @@ const filesToCheck = [
   'scripts/setup.js',
 ] as const
 
+/**
+ * `claude mcp add <名前>` の形で登録されているサーバー名を抽出する。
+ * 部分一致ではなく登録コマンドの形で見るため、`mcp__serena__...` のような
+ * 別文脈の出現には反応しない。
+ */
+const registeredMcps = (content: string): string[] =>
+  [...content.matchAll(/claude mcp add ([A-Za-z0-9_.-]+)/g)].map((m) => m[1])
+
 describe('整合性: 必須 MCP サーバーが全ドキュメント・スクリプトに記載されている', () => {
   describe.each(REQUIRED_MCPS)('MCP: %s', (mcp) => {
-    it.each(filesToCheck)('%s に記載されている', (file) => {
+    it.each(filesToCheck)('%s に登録手順がある', (file) => {
       const content = readFileSync(path.join(ROOT, file), 'utf8')
+      const registered = registeredMcps(content)
       expect(
-        content.includes(mcp),
-        `\n${file} に MCP サーバー "${mcp}" の記載がありません。\n` +
-          `修正方法: claude mcp add ${mcp} ... のセットアップ手順を追加してください。`
-      ).toBe(true)
+        registered,
+        `\n${file} に MCP サーバー "${mcp}" の登録手順がありません。\n` +
+          `  検出できた登録コマンド: ${registered.length > 0 ? registered.join(', ') : '（なし）'}\n` +
+          `修正方法: 「claude mcp add ${mcp} ...」の行を追加してください。\n` +
+          `（部分一致ではなく登録コマンドの形で検証しています。名前の言及だけでは通りません）`
+      ).toContain(mcp)
     })
   })
 

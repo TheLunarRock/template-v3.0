@@ -18,25 +18,25 @@
 
 | パッケージ | バージョン | 用途                              |
 | ---------- | ---------- | --------------------------------- |
-| Next.js    | ^15.3.3    | Reactフレームワーク（App Router） |
-| React      | ^19.1.0    | UIライブラリ                      |
-| React DOM  | ^19.1.0    | DOMレンダリング                   |
-| TypeScript | ^5.8.3     | 型安全な開発                      |
+| Next.js    | ^15.5.24   | Reactフレームワーク（App Router） |
+| React      | ^19.2.8    | UIライブラリ                      |
+| React DOM  | ^19.2.8    | DOMレンダリング                   |
+| TypeScript | ^5.9.3     | 型安全な開発                      |
 
 ### 2.2 スタイリング
 
 | パッケージ   | バージョン | 用途                           |
 | ------------ | ---------- | ------------------------------ |
-| Tailwind CSS | ^3.4.17    | ユーティリティファーストCSS    |
-| PostCSS      | ^8.5.3     | CSSプロセッサ                  |
-| Autoprefixer | ^10.4.21   | ベンダープレフィックス自動付与 |
+| Tailwind CSS | ^3.4.19    | ユーティリティファーストCSS    |
+| PostCSS      | ^8.5.26    | CSSプロセッサ                  |
+| Autoprefixer | ^10.5.4    | ベンダープレフィックス自動付与 |
 
 ### 2.3 状態管理・データ
 
 | パッケージ            | バージョン | 用途                 |
 | --------------------- | ---------- | -------------------- |
-| Zustand               | ^5.0.5     | 軽量状態管理         |
-| @supabase/supabase-js | ^2.49.4    | Supabaseクライアント |
+| Zustand               | ^5.0.15    | 軽量状態管理         |
+| @supabase/supabase-js | ^2.112.4   | Supabaseクライアント |
 
 ### 2.4 国際化
 
@@ -53,8 +53,8 @@
 
 | パッケージ             | バージョン | 用途                         |
 | ---------------------- | ---------- | ---------------------------- |
-| Vitest                 | ^3.1.4     | ユニットテストフレームワーク |
-| @testing-library/react | ^16.3.0    | Reactコンポーネントテスト    |
+| Vitest                 | ^3.2.7     | ユニットテストフレームワーク |
+| @testing-library/react | ^16.3.2    | Reactコンポーネントテスト    |
 
 > **設計判断（2026-03-13）**: E2Eテスト（Playwright）はテンプレートから完全に削除済み。
 > テンプレートからクローンしたリポジトリでGitHub Actions CI上でPlaywrightが自動実行され、
@@ -65,10 +65,10 @@
 
 | パッケージ  | バージョン | 用途                   |
 | ----------- | ---------- | ---------------------- |
-| ESLint      | ^9.28.0    | コード品質チェック     |
-| Prettier    | ^3.5.3     | コードフォーマット     |
+| ESLint      | ^9.39.5    | コード品質チェック     |
+| Prettier    | ^3.9.6     | コードフォーマット     |
 | Husky       | ^9.1.7     | Git hooks管理          |
-| lint-staged | ^16.1.0    | ステージファイルのlint |
+| lint-staged | ^16.4.0    | ステージファイルのlint |
 
 ## 3. ディレクトリ構造
 
@@ -4090,9 +4090,9 @@ AI ファースト開発において、ドキュメントは **AI への命令�
 | **テスト基盤**       | Vitest（既存テストインフラを流用）                                                                                                                              |
 | **実行タイミング**   | pre-commitフック + CIの`test`ジョブ（自動）                                                                                                                     |
 | **失敗時の挙動**     | コミット・PRがブロックされる                                                                                                                                    |
-| **テストファイル数** | 11ファイル（ファイル数と一覧は `consistency-inventory.test.ts` が CLAUDE.md / SPECIFICATION.md の記載と自動照合。ケース数は随時増えるため固定値を持たない方針） |
+| **テストファイル数** | 12ファイル（ファイル数と一覧は `consistency-inventory.test.ts` が CLAUDE.md / SPECIFICATION.md の記載と自動照合。ケース数は随時増えるため固定値を持たない方針） |
 
-### 23.3 整合性テストファイル一覧（11ファイル）
+### 23.3 整合性テストファイル一覧（12ファイル）
 
 #### 🔴 Phase 1: 致命的問題の防止
 
@@ -4103,6 +4103,7 @@ AI ファースト開発において、ドキュメントは **AI への命令�
 | `file-references.test.ts`       | ドキュメント内のファイルパス参照（`scripts/...`等）が実在                            |
 | `vercel-config.test.ts`         | `vercel.json` の deploymentEnabled とブランチ運用記述（main直push）が整合            |
 | `claude-workflow-guard.test.ts` | `claude.yml` の OWNER 起動ゲート・`@v1` 参照・v1廃止入力の不使用・`concurrency` 定義 |
+| `dependency-versions.test.ts`   | SPECIFICATION.md §2 の依存バージョン表と `package.json` の厳密一致                   |
 
 #### 🟡 Phase 2: 構造的整合性
 
@@ -4120,21 +4121,22 @@ AI ファースト開発において、ドキュメントは **AI への命令�
 | `agents-sync.test.ts`           | AGENTS.md と CLAUDE.md の always-on ルール抜粋が同期している（相互参照とキー概念の存在を検証）                             |
 | `consistency-inventory.test.ts` | `tests/consistency` のファイル数・一覧が CLAUDE.md / SPECIFICATION.md の記載と一致（目録の自己検証）                       |
 
-### 23.4 検証する整合性問題の11類型
+### 23.4 検証する整合性問題の12類型
 
-| #   | 類型                                     | 検出ファイル                                   |
-| --- | ---------------------------------------- | ---------------------------------------------- |
-| 1   | コード内テンプレート vs 実ファイル       | `setup-templates.test.ts`                      |
-| 2   | コード内テンプレート完全欠落             | `setup-templates.test.ts`                      |
-| 3   | 数値の不整合（層の数等）                 | `layer-count.test.ts`                          |
-| 4   | 存在しないファイル/関数の参照            | `file-references.test.ts`                      |
-| 5   | 存在しないコマンドの参照                 | `command-references.test.ts`                   |
-| 6   | バージョン番号の乖離                     | `version-numbers.test.ts`                      |
-| 7   | 設定ファイル間の不整合                   | `version-numbers.test.ts`                      |
-| 8   | 重複情報源の不整合                       | `mcp-list.test.ts` / `protected-files.test.ts` |
-| 9   | デプロイ設定の不整合                     | `vercel-config.test.ts`                        |
-| 10  | テスト目録の不整合（ファイル数・一覧）   | `consistency-inventory.test.ts`                |
-| 11  | ワークフロー設定の陳腐化・起動ゲート欠落 | `claude-workflow-guard.test.ts`                |
+| #   | 類型                                           | 検出ファイル                                   |
+| --- | ---------------------------------------------- | ---------------------------------------------- |
+| 1   | コード内テンプレート vs 実ファイル             | `setup-templates.test.ts`                      |
+| 2   | コード内テンプレート完全欠落                   | `setup-templates.test.ts`                      |
+| 3   | 数値の不整合（層の数等）                       | `layer-count.test.ts`                          |
+| 4   | 存在しないファイル/関数の参照                  | `file-references.test.ts`                      |
+| 5   | 存在しないコマンドの参照                       | `command-references.test.ts`                   |
+| 6   | バージョン番号の乖離                           | `version-numbers.test.ts`                      |
+| 7   | 設定ファイル間の不整合                         | `version-numbers.test.ts`                      |
+| 8   | 重複情報源の不整合                             | `mcp-list.test.ts` / `protected-files.test.ts` |
+| 9   | デプロイ設定の不整合                           | `vercel-config.test.ts`                        |
+| 10  | テスト目録の不整合（ファイル数・一覧）         | `consistency-inventory.test.ts`                |
+| 11  | ワークフロー設定の陳腐化・起動ゲート欠落       | `claude-workflow-guard.test.ts`                |
+| 12  | 依存バージョンの陳腐化（docs vs package.json） | `dependency-versions.test.ts`                  |
 
 ### 23.5 失敗時のメッセージ設計
 

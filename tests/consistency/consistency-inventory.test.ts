@@ -26,15 +26,36 @@ const testFiles = readdirSync(CONSISTENCY_DIR)
 const claudeMd = readFileSync(path.join(ROOT, 'CLAUDE.md'), 'utf8')
 const spec = readFileSync(path.join(ROOT, 'SPECIFICATION.md'), 'utf8')
 
+/**
+ * 「`tests/consistency/` 配下の **Nファイル**」表記を持つファイル。
+ * README.md は 2026-08-30 に追加（それまで「57テスト」という
+ * 誰も見張っていない総数が書かれ、実測 90 件と乖離していた）。
+ */
+const readme = readFileSync(path.join(ROOT, 'README.md'), 'utf8')
+const COUNT_SOURCES = [
+  ['CLAUDE.md', claudeMd],
+  ['README.md', readme],
+] as const
+const COUNT_PATTERN = /配下の\s*\*\*(\d+)\s*ファイル/
+
 describe('整合性: テスト目録の自己検証（consistency-inventory）', () => {
-  it('CLAUDE.md の記載ファイル数が tests/consistency の実数と一致する', () => {
-    const m = /配下の\s*\*\*(\d+)\s*ファイル/.exec(claudeMd)
-    expect(
-      m,
-      'CLAUDE.md に「`tests/consistency/` 配下の **Nファイル**」表記が見つからない'
-    ).not.toBeNull()
-    expect(Number(m?.[1])).toBe(testFiles.length)
-  })
+  it.each(COUNT_SOURCES)(
+    '%s の記載ファイル数が tests/consistency の実数と一致する',
+    (file, content) => {
+      const m = COUNT_PATTERN.exec(content)
+      expect(
+        m,
+        `${file} に「\`tests/consistency/\` 配下の **Nファイル**」表記が見つからない`
+      ).not.toBeNull()
+      expect(
+        Number(m?.[1]),
+        `\n${file} の記載ファイル数が実数と一致しません。\n` +
+          `  ${file}: ${m?.[1]} ファイル\n` +
+          `  実数:  ${testFiles.length} ファイル\n` +
+          `修正方法: ${file} の「配下の **Nファイル**」を ${testFiles.length} に更新してください。`
+      ).toBe(testFiles.length)
+    }
+  )
 
   it('全テストファイルが CLAUDE.md の整合性表に記載されている', () => {
     const missing = testFiles.filter((f) => !claudeMd.includes(f))
