@@ -29,6 +29,7 @@ const PATH_PREFIXES = [
   '.husky',
   '.claude',
   'superclaude',
+  'docs',
 ] as const
 
 /**
@@ -53,6 +54,8 @@ const docs = [
   'README.md',
   'PROJECT_INFO.md',
   'AGENTS.md',
+  // CLAUDE.md から分離した参照資料。常時読み込み対象外でもパス参照の実在は保証する。
+  'docs/SUPERCLAUDE_REFERENCE.md',
 ]
 
 describe('整合性: ドキュメント内のファイルパス参照が実在する', () => {

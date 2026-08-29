@@ -67,6 +67,8 @@ const docs = [
   'PROJECT_INFO.md',
   'SUPERCLAUDE_FINAL.md',
   'AGENTS.md',
+  // pnpm sc:* カタログの移動先。CLAUDE.md から分離しても検査対象から外さない。
+  'docs/SUPERCLAUDE_REFERENCE.md',
 ]
 
 describe('整合性: ドキュメント内の pnpm コマンドが package.json scripts に実在する', () => {

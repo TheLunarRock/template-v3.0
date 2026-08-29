@@ -27,6 +27,9 @@ const filesToCheck = [
   'CLAUDE.md',
   'SETUP_GUIDE.md',
   'SPECIFICATION.md',
+  // MCP 初回セットアップ手順（claude mcp add）の移動先。
+  // CLAUDE.md から分離した際に検査が素通りしないよう対象に加える。
+  'docs/SUPERCLAUDE_REFERENCE.md',
   'scripts/setup.js',
 ] as const
 

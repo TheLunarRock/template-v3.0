@@ -105,6 +105,8 @@ template-v3.0/
 │   └── utils/                # ユーティリティ
 │       ├── cache/            # キャッシュ機能
 │       └── error-handling/   # エラーハンドリング
+├── docs/                      # 補助ドキュメント（常時読み込み対象外）
+│   └── SUPERCLAUDE_REFERENCE.md  # CLAUDE.md から分離した参照資料
 ├── superclaude/               # SuperClaudeコンテキストファイル
 │   ├── FLAGS.md              # 行動フラグ定義
 │   ├── PRINCIPLES.md         # 設計原則
@@ -673,7 +675,7 @@ interface StructuredError {
 
 #### 🛡️ 整合性テストによる保証
 
-`tests/consistency/command-references.test.ts` が `SETUP_GUIDE.md` / `SPECIFICATION.md` / `CLAUDE.md` / `README.md` / `PROJECT_INFO.md` / `SUPERCLAUDE_FINAL.md` 内のバッククォート付き pnpm 呼び出し参照をスキャンし、`package.json` の `scripts` に実在することを pre-commit フック・CI で自動検証する。ドキュメントに架空コマンドを書くとコミットがブロックされる。
+`tests/consistency/command-references.test.ts` が `SETUP_GUIDE.md` / `SPECIFICATION.md` / `CLAUDE.md` / `README.md` / `PROJECT_INFO.md` / `SUPERCLAUDE_FINAL.md` / `AGENTS.md` / `docs/SUPERCLAUDE_REFERENCE.md` 内のバッククォート付き pnpm 呼び出し参照をスキャンし、`package.json` の `scripts` に実在することを pre-commit フック・CI で自動検証する。ドキュメントに架空コマンドを書くとコミットがブロックされる。
 
 ## 8. 開発ワークフロー
 
@@ -4115,12 +4117,12 @@ AI ファースト開発において、ドキュメントは **AI への命令�
 
 #### 🟢 Phase 3: 品質向上
 
-| ファイル                        | 検証内容                                                                                             |
-| ------------------------------- | ---------------------------------------------------------------------------------------------------- |
-| `protected-files.test.ts`       | `protect-config.js` の PROTECTED_FILES が CLAUDE.md の保護対象表と一致                               |
-| `mcp-list.test.ts`              | 必須MCPサーバー4種が CLAUDE.md / SETUP_GUIDE.md / setup.js すべてに記載                              |
-| `agents-sync.test.ts`           | AGENTS.md と CLAUDE.md の always-on ルール抜粋が同期している（相互参照とキー概念の存在を検証）       |
-| `consistency-inventory.test.ts` | `tests/consistency` のファイル数・一覧が CLAUDE.md / SPECIFICATION.md の記載と一致（目録の自己検証） |
+| ファイル                        | 検証内容                                                                                                                   |
+| ------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| `protected-files.test.ts`       | `protect-config.js` の PROTECTED_FILES が CLAUDE.md の保護対象表と一致                                                     |
+| `mcp-list.test.ts`              | 必須MCPサーバー4種が CLAUDE.md / SETUP_GUIDE.md / SPECIFICATION.md / docs/SUPERCLAUDE_REFERENCE.md / setup.js すべてに記載 |
+| `agents-sync.test.ts`           | AGENTS.md と CLAUDE.md の always-on ルール抜粋が同期している（相互参照とキー概念の存在を検証）                             |
+| `consistency-inventory.test.ts` | `tests/consistency` のファイル数・一覧が CLAUDE.md / SPECIFICATION.md の記載と一致（目録の自己検証）                       |
 
 ### 23.4 検証する整合性問題の11類型
 
@@ -4181,13 +4183,13 @@ PRマージ可能
 
 ### 23.7 メンテナンス方針
 
-| 操作                           | 必要な対応                                                             |
-| ------------------------------ | ---------------------------------------------------------------------- |
-| 新しい設定ファイル保護対象     | `protect-config.js` PROTECTED_FILES + CLAUDE.md 保護表を **両方** 更新 |
-| 新しいMCPサーバー追加          | テスト `REQUIRED_MCPS` + CLAUDE.md + SETUP_GUIDE.md + setup.js を更新  |
-| 防御層の追加（10層化等）       | CLAUDE.md / SPECIFICATION.md の「N層防御」記述を **すべて同時に** 更新 |
-| ドキュメント内の新コマンド     | `package.json` scripts への追加が必須                                  |
-| ドキュメント内の新ファイル参照 | 該当ファイルの実在が必須                                               |
+| 操作                           | 必要な対応                                                                                            |
+| ------------------------------ | ----------------------------------------------------------------------------------------------------- |
+| 新しい設定ファイル保護対象     | `protect-config.js` PROTECTED_FILES + CLAUDE.md 保護表を **両方** 更新                                |
+| 新しいMCPサーバー追加          | テスト `REQUIRED_MCPS` + CLAUDE.md + SETUP_GUIDE.md + docs/SUPERCLAUDE_REFERENCE.md + setup.js を更新 |
+| 防御層の追加（10層化等）       | CLAUDE.md / SPECIFICATION.md の「N層防御」記述を **すべて同時に** 更新                                |
+| ドキュメント内の新コマンド     | `package.json` scripts への追加が必須                                                                 |
+| ドキュメント内の新ファイル参照 | 該当ファイルの実在が必須                                                                              |
 
 これらを守らないと、整合性テストが pre-commit でブロックする。
 
