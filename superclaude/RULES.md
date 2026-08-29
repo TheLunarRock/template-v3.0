@@ -249,9 +249,7 @@ Task type → Best tool:
 ├─ Multi-file edits → MultiEdit > individual Edits
 ├─ Complex analysis → Task agent > native reasoning
 ├─ Code search → Grep > bash grep
-├─ UI components → Magic MCP > manual coding
-├─ Documentation → Context7 MCP > web search
-└─ Browser testing → Playwright MCP > unit tests
+└─ Documentation → Context7 MCP > web search
 ```
 
 ### Priority-Based Quick Actions

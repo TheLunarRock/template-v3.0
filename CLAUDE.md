@@ -471,15 +471,6 @@ file1 = read(); file2 = read(); file3 = read();
 
 → [`docs/SUPERCLAUDE_REFERENCE.md`](./docs/SUPERCLAUDE_REFERENCE.md) に移動（常時読み込み対象外）: 活用方針の本文と MCP 初回セットアップ手順（`claude mcp add`）
 
-必須MCP4種の登録コマンド（別PCでのクローン時に初回のみ実行。前提の `uv` インストール等は上記参照）:
-
-```bash
-claude mcp add serena -- uvx --from git+https://github.com/oraios/serena serena start-mcp-server
-claude mcp add context7 -- npx -y @upstash/context7-mcp@latest
-claude mcp add sequential-thinking -- npx -y @modelcontextprotocol/server-sequential-thinking
-claude mcp add morphllm-fast-apply -- npx @morph-llm/morph-fast-apply /home/
-```
-
 ### 🎯 利用可能なMCPサーバー（ティア別）
 
 本テンプレートは以下3ティアでMCPを整理する。ティアは「プロンプトで代替不可能か」を基準に分類。

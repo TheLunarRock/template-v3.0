@@ -30,12 +30,18 @@ const ROOT = path.resolve(__dirname, '../..')
  */
 const REQUIRED_MCPS = ['serena', 'context7', 'sequential-thinking', 'morphllm-fast-apply'] as const
 
+/**
+ * セットアップ手順の正本を持つファイル。
+ *
+ * CLAUDE.md は意図的に含めない: 常時読み込みされるため
+ * 「ルールは CLAUDE.md、セットアップ手順と経緯は参照先」という方針を採っており、
+ * CLAUDE.md は `claude mcp add` の手順を持たない（移動先へのリンクのみ）。
+ * 対象を減らしているのではなく、正本の所在に検査対象を合わせている。
+ */
 const filesToCheck = [
-  'CLAUDE.md',
   'SETUP_GUIDE.md',
   'SPECIFICATION.md',
   // MCP 初回セットアップ手順（claude mcp add）の移動先。
-  // CLAUDE.md から分離した際に検査が素通りしないよう対象に加える。
   'docs/SUPERCLAUDE_REFERENCE.md',
   'scripts/setup.js',
 ] as const

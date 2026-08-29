@@ -38,6 +38,18 @@ const COUNT_SOURCES = [
 ] as const
 const COUNT_PATTERN = /配下の\s*\*\*(\d+)\s*ファイル/
 
+/**
+ * SPECIFICATION.md 側の件数表記。§23.2 は「ファイル数と一覧は
+ * consistency-inventory.test.ts が CLAUDE.md / SPECIFICATION.md の記載と自動照合」
+ * と書いているのに、実際には SPECIFICATION.md の数値を見ていなかった
+ * （仕様書の記述が実態と食い違っていた）。2026-08-30 に監視対象へ追加。
+ */
+const SPEC_COUNT_PATTERNS = [
+  ['§23.2 テストファイル数', /\*\*テストファイル数\*\*\s*\|\s*(\d+)\s*ファイル/],
+  ['§23.3 見出し', /整合性テストファイル一覧（(\d+)ファイル）/],
+  ['§23.4 見出し', /検証する整合性問題の(\d+)類型/],
+] as const
+
 describe('整合性: テスト目録の自己検証（consistency-inventory）', () => {
   it.each(COUNT_SOURCES)(
     '%s の記載ファイル数が tests/consistency の実数と一致する',
@@ -66,4 +78,24 @@ describe('整合性: テスト目録の自己検証（consistency-inventory）',
     const missing = testFiles.filter((f) => !spec.includes(f))
     expect(missing, `SPECIFICATION.md に未記載: ${missing.join(', ')}`).toEqual([])
   })
+
+  it.each(SPEC_COUNT_PATTERNS)(
+    'SPECIFICATION.md %s の件数が tests/consistency の実数と一致する',
+    (label, pattern) => {
+      const m = pattern.exec(spec)
+      expect(
+        m,
+        `\nSPECIFICATION.md の ${label} に件数表記が見つかりません。\n` +
+          `  探しているパターン: ${String(pattern)}\n` +
+          `修正方法: 見出し・表の文言を戻すか、本テストのパターンを実際の表記に合わせてください。`
+      ).not.toBeNull()
+      expect(
+        Number(m?.[1]),
+        `\nSPECIFICATION.md の ${label} が実数と一致しません。\n` +
+          `  SPECIFICATION.md: ${m?.[1]}\n` +
+          `  実数:             ${testFiles.length}\n` +
+          `修正方法: SPECIFICATION.md の ${label} を ${testFiles.length} に更新してください。`
+      ).toBe(testFiles.length)
+    }
+  )
 })

@@ -3471,12 +3471,10 @@ SuperClaudeテンプレートはClaude CodeのMCPサーバーを活用して開�
 
 #### 20.3.2 任意MCPサーバー（用途に応じて追加）
 
-| MCPサーバー    | 用途                         | 設定コマンド                                                             | 備考                                  |
-| -------------- | ---------------------------- | ------------------------------------------------------------------------ | ------------------------------------- |
-| **Supabase**   | DB管理・認証・Edge Functions | `claude mcp add supabase -- npx -y @supabase/mcp-server-supabase@latest` | 環境変数`SUPABASE_ACCESS_TOKEN`が必要 |
-| **Stitch**     | UIデザイン・プロトタイピング | `claude mcp add stitch -- npx @_davideast/stitch-mcp proxy`              | Google認証が必要                      |
-| **Magic**      | 21st.devコンポーネント生成   | `claude mcp add magic -- npx -y @21st-dev/magic@latest`                  | APIキーが必要な場合あり               |
-| **Playwright** | ブラウザ自動化・E2Eテスト    | `claude mcp add playwright -- npx @playwright/mcp@latest`                | テスト用途のみ                        |
+| MCPサーバー  | 用途                         | 設定コマンド                                                             | 備考                                  |
+| ------------ | ---------------------------- | ------------------------------------------------------------------------ | ------------------------------------- |
+| **Supabase** | DB管理・認証・Edge Functions | `claude mcp add supabase -- npx -y @supabase/mcp-server-supabase@latest` | 環境変数`SUPABASE_ACCESS_TOKEN`が必要 |
+| **Stitch**   | UIデザイン・プロトタイピング | `claude mcp add stitch -- npx @_davideast/stitch-mcp proxy`              | Google認証が必要                      |
 
 ### 20.4 セットアップ手順
 
