@@ -795,6 +795,12 @@ jobs:
 
   codeql:
     name: 静的解析（CodeQL SAST）
+    # public リポジトリのみ実行する。
+    # private の Code scanning は GitHub Advanced Security（有料）が必須で、無料プランでは
+    # "Code scanning is not enabled for this repository." で必ず失敗する。
+    # 解析自体は完走するため 1 回あたり約 228 秒（private 実測）を無為に消費し、
+    # 2026-08 は private の実走 86 回 ≒ 326 分（無料枠 2,000 分の 16%）を削っていた。
+    if: github.event.repository.visibility == 'public'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

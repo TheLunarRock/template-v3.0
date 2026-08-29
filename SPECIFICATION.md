@@ -1884,18 +1884,34 @@ permissions:
 
 **分離理由:** CIとセキュリティは関心事が異なり、実行タイミング（週次schedule）・失敗時の対処法・担当権限も異なる。混在させると責任範囲が曖昧化するため、独立ワークフローとして運用する。
 
+**CodeQL ジョブは public リポジトリでのみ実行する（v3.8.1〜）:**
+private リポジトリの Code scanning は GitHub Advanced Security（有料）が前提で、無料プランでは
+結果をアップロードできず `Code scanning is not enabled for this repository.` で必ず失敗する。
+解析自体は完走するため、価値ゼロのまま 1 回あたり約 228 秒（private 実測）を消費し、毎 push で
+赤い × を出し続けていた。2026-08 の実測では private の Security 実走 86 回 ≒ 326 分/月
+（無料枠 2,000 分の 16%）を占め、8 月下旬の無料枠枯渇による CI 全停止の一因となっていた。
+
+```yaml
+codeql:
+  if: github.event.repository.visibility == 'public'
+```
+
+`dependency-audit`（`pnpm audit`）と `gitleaks` は visibility に依存せず動作するため、
+private でもセキュリティ検証は継続する。
+
 #### 12.14.9 設計判断
 
-| 項目                                       | 判断   | 理由                                                                  |
-| ------------------------------------------ | ------ | --------------------------------------------------------------------- |
-| **専用ワークフローとして分離**             | 採用   | `ci.yml`の軽量性維持・関心の分離・schedule実行の独立性                |
-| **`pnpm audit --prod --audit-level=high`** | 採用   | 本番依存のみ厳格。脆弱性は 12.10 の `pnpm.overrides` で能動対処済み   |
-| **CodeQL `security-and-quality` クエリ**   | 採用   | セキュリティ+コード品質を同時検知。`security-extended` は誤検知が多い |
-| **gitleaks二重防御**                       | 採用   | `--no-verify` バイパス対策。pre-commit単独では不十分                  |
-| **週次schedule**                           | 採用   | コード未変更でも新規CVE・検出パターン更新に追従                       |
-| **SBOM生成**                               | 不採用 | テンプレートでは配布形態が不確定。各プロジェクトで必要に応じて追加    |
-| **ライセンス監査**                         | 不採用 | 商用/OSS方針がプロジェクトごとに異なる。テンプレートに入れると過剰    |
-| **CSP nonce化**                            | 不採用 | Next.jsのSSR/SSG構成依存。各プロジェクトで実装                        |
+| 項目                                       | 判断   | 理由                                                                           |
+| ------------------------------------------ | ------ | ------------------------------------------------------------------------------ |
+| **専用ワークフローとして分離**             | 採用   | `ci.yml`の軽量性維持・関心の分離・schedule実行の独立性                         |
+| **`pnpm audit --prod --audit-level=high`** | 採用   | 本番依存のみ厳格。脆弱性は 12.10 の `pnpm.overrides` で能動対処済み            |
+| **CodeQL `security-and-quality` クエリ**   | 採用   | セキュリティ+コード品質を同時検知。`security-extended` は誤検知が多い          |
+| **CodeQL は public リポジトリ限定**        | 採用   | private の Code scanning は GitHub Advanced Security（有料）必須で必ず失敗する |
+| **gitleaks二重防御**                       | 採用   | `--no-verify` バイパス対策。pre-commit単独では不十分                           |
+| **週次schedule**                           | 採用   | コード未変更でも新規CVE・検出パターン更新に追従                                |
+| **SBOM生成**                               | 不採用 | テンプレートでは配布形態が不確定。各プロジェクトで必要に応じて追加             |
+| **ライセンス監査**                         | 不採用 | 商用/OSS方針がプロジェクトごとに異なる。テンプレートに入れると過剰             |
+| **CSP nonce化**                            | 不採用 | Next.jsのSSR/SSG構成依存。各プロジェクトで実装                                 |
 
 #### 12.14.10 ローカル検証方法
 
