@@ -7,7 +7,7 @@ Claude Code に書かせる個人開発向け Next.js テンプレート。フ�
 
 ## 同梱内容
 
-- **SuperClaude コンテキストファイル**（`superclaude/` に14ファイル同梱・MCPは別途登録）
+- **SuperClaude コンテキストファイル**（`superclaude/` に12ファイル同梱・MCPは別途登録）
 - **フィーチャーベース開発**（境界違反検出スクリプト + Git Hook + 中間保護層パターン）
 - **9層セキュリティ防御**（gitleaks pre-commit / GitHub Secret Scanning + Push Protection / セキュリティヘッダー7種 / CodeQL / pnpm audit / Claude Code denyルール / DB破壊系 ask + Hook 二重防御 等）
 - **PR運用モード切替**（個人開発OFF ⇄ チーム開発ON を `pnpm sc:enable-pr` / `sc:disable-pr` で可逆切替）

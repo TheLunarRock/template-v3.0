@@ -13,6 +13,9 @@ MCP 初回セットアップ手順・通知の詳細・CI 構成・過去の設�
 | Chrome 146 + GitHub Desktop 問題                                                 | CLAUDE.md「⚠️ 既知の問題」                                 |
 | バージョン情報・主要エージェント・`pnpm sc:*` カタログ・行動モード               | CLAUDE.md「🚀 SuperClaude v4 Production Edition の新機能」 |
 | MCP サーバー活用方針・初回セットアップ（`claude mcp add`）                       | CLAUDE.md「⚡ MCP活用ルール」                              |
+| MCP 併用パターン・宣言例・活用のコツ                                             | CLAUDE.md「⚡ MCP活用ルール」                              |
+| settings.local.json の allow/ask 設計                                            | CLAUDE.md「🔐 セキュリティ多層防御」                       |
+| SuperClaude 統合（MCP適用ガイド・フラグトリガー）・`sc:` 実装フロー              | CLAUDE.md「🔴 Feature-Based Development Rules」            |
 
 # ═══════════════════════════════════════════════════
 
@@ -219,3 +222,191 @@ claude mcp list
 ```
 
 詳細は [SPECIFICATION.md](./SPECIFICATION.md) のセクション20を参照。
+
+### 💡 MCPサーバー併用パターン（SuperClaude最大活用）
+
+```bash
+# パターン1: 分析→実装（最頻出）
+mcp__sequential-thinking → mcp__morphllm-fast-apply
+"複雑な問題を分析してから効率的に実装"
+
+# パターン2: 検索→編集（リファクタリング）
+mcp__serena__find_symbol → mcp__morphllm-fast-apply__tiny_edit_file
+"シンボル検索して正確な場所を特定してから編集"
+
+# パターン3: ドキュメント→実装（新機能）
+mcp__context7__get-library-docs → mcp__serena__write_memory
+"公式パターンを確認して記憶に保存してから実装"
+
+# パターン4: DB設計→実装（Supabase）
+mcp__supabase__list_tables → mcp__supabase__apply_migration
+"既存テーブル確認してからマイグレーション適用"
+
+# パターン5: デザイン→実装（Stitch→コード）
+mcp__stitch__get_screen → mcp__morphllm-fast-apply__write_file
+"Stitchデザインのカラー・タイポグラフィ仕様を取得してコード実装"
+```
+
+### 💬 MCP使用の明示的宣言（複雑タスク時は推奨）
+
+```bash
+# 複雑タスクでは使用ツールを宣言すると効果的
+"🎯 このタスクで使用するMCP:"
+"1. Serenaでシンボル検索と依存関係分析"
+"2. Sequential-thinkingで実装戦略を構造化"
+"3. Morphllm-fast-applyで効率的な一括編集"
+
+# 実例
+"認証機能の実装:"
+"→ Context7でNext-Auth公式パターン確認"
+"→ Serenaで既存認証コード検索"
+"→ Sequential-thinkingで設計分析"
+"→ Morphllm-fast-applyで実装"
+"→ Supabaseで認証DB設定"
+```
+
+### 🚀 SuperClaudeの価値を最大化する使い方
+
+1. **ネイティブツールは一次選択、MCPは拡張能力**: Read/Edit/Grep/Glob は日常的に最初の選択肢
+2. **並列実行を活用**: 独立した操作は並列実行で時間短縮
+3. **記憶を活用**: Serena のメモリ機能でセッション間の知識を蓄積
+4. **公式パターン厳守が必要な場面**: Context7 でハルシネーション防止
+5. **構造化思考が有益な場面**: Sequential-thinking を適用（Opus 4.7 のネイティブ推論で十分な場面も多い）
+
+# ═══════════════════════════════════════════════════
+
+# 🤖 全自動開発設定・SuperClaude統合・実装フロー
+
+# ═══════════════════════════════════════════════════
+
+## 全自動開発設定（settings.local.json）
+
+`pnpm setup:sc`で自動生成される許可設定により、開発中の確認プロンプトはほぼゼロ。
+
+| 区分      | 対象                                       | 備考                                                                                                                                                                                   |
+| --------- | ------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **allow** | `Edit`, `Write`, `Bash`, 全MCP, `Skill` 等 | 開発操作は全て自動実行                                                                                                                                                                 |
+| **ask**   | Supabase MCP の DB破壊系5種                | execute_sql / apply_migration / delete_branch / reset_branch / merge_branch — 実行前に承認プロンプト＋警告Hook表示                                                                     |
+| **ask**   | git の事故防止系                           | `git commit/push --no-verify`・feature branch のリモート push・素の `git push --force origin *` — 実行前に承認プロンプト＋警告Hook表示（feature push は過去の課金実害 silver-hp 対策） |
+| **deny**  | なし（settings.json側で保護）              | 上記のdenyルールが最優先で適用                                                                                                                                                         |
+
+**二重防御:** DB破壊系MCP操作は以下2段階で守られる。
+
+1. **第1段: 警告Hook** — `PreToolUse`フックで `.claude/hooks/db-destructive-warning.sh` が実行され、過去事故の説明+4項目チェックリスト+実行内容プレビューを表示
+2. **第2段: ask承認プロンプト** — Claude Code標準の承認UIで最終確認
+
+```
+対象Hook対応ツール（本番DB削除事故の再発防止）:
+  - mcp__supabase__execute_sql       : 生SQL実行
+  - mcp__supabase__apply_migration   : DROP TABLE 等のDDLマイグレーション
+  - mcp__supabase__delete_branch     : Supabaseブランチ削除
+  - mcp__supabase__reset_branch      : ブランチデータリセット
+  - mcp__supabase__merge_branch      : 本番へのスキーマ変更マージ
+```
+
+**重要:** 上記5操作以外のSupabase MCP（`list_tables`, `get_logs` 等の読取系）は自動実行される。書込・削除系のみ人間の確認が入る設計。
+
+**Bash経由の単層防御:** Bash の Supabase CLI（`supabase db reset/push/drop`, `supabase migration repair`, `psql`）は ask のみ発火し Hook警告は表示されない（PreToolUse Hook の matcher が MCP 限定のため）。承認プロンプトで意図確認は行われる。
+
+**設計思想と限界:** この防御は「完璧防御」ではなく「うっかりミス防止」に最適化されている。Hook は exit 0 固定（情報提供のみ・ブロックしない）、ask は「always allow」でバイパス可能。意図的な誤操作・外部経路は防げない。完璧防御を求める場合は運用層（PITR・トークン最小権限・dev/prod 物理分離）で補完する。詳細は [SPECIFICATION.md セクション12.15.8](./SPECIFICATION.md) 参照。
+
+詳細は [SPECIFICATION.md](./SPECIFICATION.md) のセクション12.12 / 12.15 を参照。
+
+## 🤖 SuperClaude統合
+
+### 🟡 MCPサーバー適用ガイド
+
+**以下の状況では MCP サーバーの適用が効果的です（ティア別の参考表）**
+
+| 状況             | 推奨MCPサーバー                         | 具体的な使用例                                |
+| ---------------- | --------------------------------------- | --------------------------------------------- |
+| **コード探索**   | Serena → `mcp__serena__find_symbol`     | シンボル検索、依存関係分析（必須ティア）      |
+| **DB操作**       | Supabase → `mcp__supabase`              | テーブル作成、マイグレーション（必須ティア）  |
+| **ドキュメント** | Context7 → `mcp__context7`              | ライブラリAPI厳守が必要な場面                 |
+| **大量ファイル** | Morphllm → `mcp__morphllm-fast-apply`   | 10ファイル超の一括パターン編集時のみ          |
+| **複雑な分析**   | Sequential → `mcp__sequential-thinking` | Opus 4.7 ネイティブ推論で不足する多段階設計時 |
+
+### 自動フラグトリガー
+
+| 状況               | フラグ                                         | 効果                                               |
+| ------------------ | ---------------------------------------------- | -------------------------------------------------- |
+| 新フィーチャー作成 | `--task-manage --validate --delegate --serena` | タスク管理＋境界検証＋並列実行＋セマンティック検索 |
+| 複雑な依存関係     | `--sequential --think-hard`                    | Sequential MCPで深い分析＋循環参照検出             |
+| UI開発             | `--frontend-architect --validate`              | frontend-architectエージェント＋境界チェック       |
+| リファクタリング   | `--morph --validate --safe-mode`               | Morphllm MCPでパターン適用＋安全実行               |
+| バグ修正           | `--think --sequential --validate`              | Sequential MCPで原因分析＋影響範囲確認             |
+| テスト作成         | `--delegate`                                   | Vitest単体テスト＋並列実行                         |
+
+### MCPサーバー活用（実際に利用可能なMCP）
+
+| サーバー                | 主要用途                             | 自動トリガーキーワード                           | 状態        |
+| ----------------------- | ------------------------------------ | ------------------------------------------------ | ----------- |
+| **Serena**              | セマンティック検索・プロジェクト記憶 | find, search, symbol, class, function, メモリ    | ✅ 利用可能 |
+| **Morphllm-fast-apply** | 高速ファイル操作・一括編集           | edit, modify, create, write, ディレクトリ        | ✅ 利用可能 |
+| **Sequential-thinking** | 構造化分析・問題解決                 | why, debug, analyze, design, 原因, なぜ          | ✅ 利用可能 |
+| **Context7**            | 公式ドキュメント参照                 | React, Next.js, Vue, library, 公式, docs         | ✅ 利用可能 |
+| **Supabase**            | DB管理・認証・Edge Functions         | database, table, migration, auth, Supabase       | ✅ 利用可能 |
+| **Stitch**              | UIデザイン・プロトタイピング         | UIデザイン, プロトタイプ, スクリーン, バリアント | ✅ 利用可能 |
+| **IDE**                 | VS Code連携・診断情報                | diagnostic, execute, VS Code                     | ✅ 利用可能 |
+
+**注**: Magic MCPは設定済みですが、Claude Codeのツールとして利用不可（2025-09-02時点）。UI開発にはStitch MCPまたはfrontend-architectエージェントを使用してください。
+
+## 📋 実装フロー（/sc:コマンド完全自動化）
+
+### 🔴 必須実行タイミング（例外なし）
+
+```typescript
+// Claude Codeが自動判断して実行
+const EXECUTION_FLOW = {
+  '1. セッション開始時': '必ず pnpm sc:start',
+  '2. タスク分析時': 'タスク種別判断 → 適切な/sc:コマンド',
+  '3. 実装前': 'pnpm sc:boundaries で現状確認',
+  '4. 実装中': 'pnpm sc:analyze で依存関係チェック',
+  '5. 実装後': 'pnpm sc:validate で包括的検証',
+  '6. エラー時': 'pnpm sc:analyze → sc:refactor',
+}
+```
+
+### 1. セッション開始（必須自動実行）
+
+```bash
+pnpm sc:start            # git status + 境界チェック
+mcp__serena__activate_project  # プロジェクト記憶読み込み
+TodoWrite([...])         # タスク分解（2ステップ以上）
+```
+
+### 2. タスク種別による自動コマンド選択
+
+```bash
+# 新機能開発 → 自動実行
+pnpm sc:feature [name]   # フィーチャー作成ウィザード
+pnpm sc:boundaries       # 境界チェック
+
+# バグ修正 → 自動実行
+pnpm sc:analyze          # 原因分析
+pnpm sc:refactor         # 修正実行
+
+# リリース前 → 自動実行
+pnpm sc:validate         # 全検証
+pnpm sc:business-panel   # ビジネス影響分析
+```
+
+### 3. 実装中の自動実行
+
+```bash
+# 並列実行（自動最適化）
+--delegate auto --concurrency 15
+--morph --validate       # パターン適用+検証
+
+# 30分ごと（自動）
+pnpm sc:boundaries       # 定期境界チェック
+mcp__serena__write_memory  # チェックポイント保存
+```
+
+### 4. 完了時の自動実行
+
+```bash
+pnpm sc:validate         # 包括的検証
+pnpm sc:test            # テスト実行
+pnpm sc:business-panel  # 価値確認
+```

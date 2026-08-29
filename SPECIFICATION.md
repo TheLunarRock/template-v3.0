@@ -111,7 +111,7 @@ template-v3.0/
 │   ├── FLAGS.md              # 行動フラグ定義
 │   ├── PRINCIPLES.md         # 設計原則
 │   ├── RULES.md              # 行動ルール
-│   ├── MCP_*.md              # MCP選択ガイダンス（6ファイル）
+│   ├── MCP_*.md              # MCP選択ガイダンス（4ファイル）
 │   └── MODE_*.md             # 行動モード定義（5ファイル）
 ├── tests/
 │   ├── regression/           # 回帰テスト
@@ -3639,14 +3639,12 @@ SuperClaudeのコンテキストファイル群をテンプレートに同梱し
 ### 21.3 ファイル構成
 
 ```
-superclaude/                     # 14ファイル（約43KB）
+superclaude/                     # 12ファイル（約40KB）
 ├── FLAGS.md                     # 行動フラグ定義（--brainstorm, --think等）
 ├── PRINCIPLES.md                # SOLID, DRY, KISS等の設計原則
 ├── RULES.md                     # 詳細な行動ルール（最大14KB・最重要）
 ├── MCP_Context7.md              # Context7 MCP選択ガイダンス
-├── MCP_Magic.md                 # Magic MCP選択ガイダンス
 ├── MCP_Morphllm.md              # Morphllm MCP選択ガイダンス
-├── MCP_Playwright.md            # Playwright MCP選択ガイダンス
 ├── MCP_Sequential.md            # Sequential MCP選択ガイダンス
 ├── MCP_Serena.md                # Serena MCP選択ガイダンス
 ├── MODE_Brainstorming.md        # ブレインストーミングモード
@@ -3655,6 +3653,8 @@ superclaude/                     # 14ファイル（約43KB）
 ├── MODE_Task_Management.md      # タスク管理モード
 └── MODE_Token_Efficiency.md     # トークン効率モード
 ```
+
+**Magic / Playwright のガイダンスは同梱しない**（v3.8.3〜）: ブラウザ自動操作は `.claude/settings.json` の deny・`.claude/hooks/blocking-op-guard.sh`・CLAUDE.md のルールで禁止しており、Magic MCP は Claude Code のツールとして利用できないため、禁止・非対応のツールを推奨するガイダンスを毎セッション読み込む状態を解消した。
 
 ### 21.4 各ファイルの役割詳細
 
@@ -3666,14 +3666,12 @@ superclaude/                     # 14ファイル（約43KB）
 | `PRINCIPLES.md` | 2.6KB  | SOLID原則、DRY/KISS/YAGNI、システム思考、データ駆動意思決定、リスク管理、品質4象限（機能・構造・性能・セキュリティ）の定義                                                        |
 | `RULES.md`      | 14.4KB | 優先度別（🔴CRITICAL/🟡IMPORTANT/🟢RECOMMENDED）の行動ルール。ワークフロー、計画効率、実装完全性、スコープ規律、コード整理、失敗調査、Git運用、ツール最適化、安全性ルール等を網羅 |
 
-#### MCP選択ガイダンス（6ファイル）
+#### MCP選択ガイダンス（4ファイル）
 
 | ファイル            | 対象MCP             | トリガーキーワード                           | 他MCPとの併用パターン                              |
 | ------------------- | ------------------- | -------------------------------------------- | -------------------------------------------------- |
 | `MCP_Context7.md`   | Context7            | import, require, React, Next.js等            | Sequential→分析後にContext7→パターン確認           |
-| `MCP_Magic.md`      | Magic (21st.dev)    | button, form, modal, /ui, /21                | Context7→フレームワーク統合、Sequential→要件分析   |
 | `MCP_Morphllm.md`   | Morphllm            | 複数ファイル編集、一括置換、スタイル強制     | Serena→セマンティック分析後にMorphllm→一括編集     |
-| `MCP_Playwright.md` | Playwright          | E2Eテスト、ブラウザテスト、アクセシビリティ  | Sequential→テスト戦略→Playwright→実行              |
 | `MCP_Sequential.md` | Sequential-thinking | デバッグ、設計、根本原因分析                 | Context7→公式パターン参照、Serena→プロジェクト記憶 |
 | `MCP_Serena.md`     | Serena              | シンボル操作、プロジェクトメモリ、大規模解析 | Morphllm→編集実行、Sequential→アーキテクチャ分析   |
 
@@ -3700,9 +3698,7 @@ Claude Code の `@` 参照構文により自動読み込み。パスはCLAUDE.md
 @superclaude/PRINCIPLES.md
 @superclaude/RULES.md
 @superclaude/MCP_Context7.md
-@superclaude/MCP_Magic.md
 @superclaude/MCP_Morphllm.md
-@superclaude/MCP_Playwright.md
 @superclaude/MCP_Sequential.md
 @superclaude/MCP_Serena.md
 @superclaude/MODE_Brainstorming.md
@@ -3743,7 +3739,7 @@ Claude Code の `@` 参照構文により自動読み込み。パスはCLAUDE.md
 
 4. claude                                # Claude Code起動
                                          # → CLAUDE.md読み込み
-                                         # → @superclaude/*.md 14ファイル自動展開
+                                         # → @superclaude/*.md 12ファイル自動展開
                                          # → SuperClaude全機能が動作
 ```
 
