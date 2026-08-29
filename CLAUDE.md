@@ -1472,7 +1472,7 @@ pnpm sc:disable-pr  # ON → OFF: ブランチ保護解除 + workflow削除 + �
 
 # ═══════════════════════════════════════════════════
 
-ドキュメントと実装の乖離は AI の信頼性を破壊するため、`tests/consistency/` 配下の **10ファイル**で自動検証する（ファイル数と一覧は `consistency-inventory.test.ts` が CLAUDE.md・SPECIFICATION.md の記載と一致することを保証するため、新規テスト追加時の更新漏れは自動でブロックされる）。pre-commit と CI で自動実行される。
+ドキュメントと実装の乖離は AI の信頼性を破壊するため、`tests/consistency/` 配下の **11ファイル**で自動検証する（ファイル数と一覧は `consistency-inventory.test.ts` が CLAUDE.md・SPECIFICATION.md の記載と一致することを保証するため、新規テスト追加時の更新漏れは自動でブロックされる）。pre-commit と CI で自動実行される。
 
 ## 整合性が保証される対象
 
@@ -1487,6 +1487,7 @@ pnpm sc:disable-pr  # ON → OFF: ブランチ保護解除 + workflow削除 + �
 | **MCPサーバーリスト**  | `mcp-list.test.ts`              | 必須MCP4種が全ドキュメント・スクリプトに記載                                     |
 | **AGENTS.md同期**      | `agents-sync.test.ts`           | AGENTS.md と CLAUDE.md の always-on ルール抜粋が同期している                     |
 | **Vercel設定**         | `vercel-config.test.ts`         | `vercel.json` の deploymentEnabled とブランチ運用記述（main直push）が整合        |
+| **Claudeワークフロー** | `claude-workflow-guard.test.ts` | `claude.yml` の OWNER 起動ゲート・`@v1` 参照・廃止入力不使用・`concurrency` 定義 |
 | **テスト目録**         | `consistency-inventory.test.ts` | tests/consistency のファイル数・一覧が CLAUDE.md / SPECIFICATION.md の記載と一致 |
 
 ## Claude Code への絶対指示

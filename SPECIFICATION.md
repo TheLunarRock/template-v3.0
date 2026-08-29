@@ -4092,18 +4092,19 @@ AI ファースト開発において、ドキュメントは **AI への命令�
 | **テスト基盤**       | Vitest（既存テストインフラを流用）                                                                                                                              |
 | **実行タイミング**   | pre-commitフック + CIの`test`ジョブ（自動）                                                                                                                     |
 | **失敗時の挙動**     | コミット・PRがブロックされる                                                                                                                                    |
-| **テストファイル数** | 10ファイル（ファイル数と一覧は `consistency-inventory.test.ts` が CLAUDE.md / SPECIFICATION.md の記載と自動照合。ケース数は随時増えるため固定値を持たない方針） |
+| **テストファイル数** | 11ファイル（ファイル数と一覧は `consistency-inventory.test.ts` が CLAUDE.md / SPECIFICATION.md の記載と自動照合。ケース数は随時増えるため固定値を持たない方針） |
 
-### 23.3 整合性テストファイル一覧（10ファイル）
+### 23.3 整合性テストファイル一覧（11ファイル）
 
 #### 🔴 Phase 1: 致命的問題の防止
 
-| ファイル                     | 検証内容                                                                           |
-| ---------------------------- | ---------------------------------------------------------------------------------- |
-| `setup-templates.test.ts`    | `setup.js` 内の `ci.yml` / `security.yml` テンプレート文字列が実ファイルと完全一致 |
-| `command-references.test.ts` | ドキュメント内の pnpm コマンド参照が `package.json` scripts に実在                 |
-| `file-references.test.ts`    | ドキュメント内のファイルパス参照（`scripts/...`等）が実在                          |
-| `vercel-config.test.ts`      | `vercel.json` の deploymentEnabled とブランチ運用記述（main直push）が整合          |
+| ファイル                        | 検証内容                                                                             |
+| ------------------------------- | ------------------------------------------------------------------------------------ |
+| `setup-templates.test.ts`       | `setup.js` 内の `ci.yml` / `security.yml` テンプレート文字列が実ファイルと完全一致   |
+| `command-references.test.ts`    | ドキュメント内の pnpm コマンド参照が `package.json` scripts に実在                   |
+| `file-references.test.ts`       | ドキュメント内のファイルパス参照（`scripts/...`等）が実在                            |
+| `vercel-config.test.ts`         | `vercel.json` の deploymentEnabled とブランチ運用記述（main直push）が整合            |
+| `claude-workflow-guard.test.ts` | `claude.yml` の OWNER 起動ゲート・`@v1` 参照・v1廃止入力の不使用・`concurrency` 定義 |
 
 #### 🟡 Phase 2: 構造的整合性
 
@@ -4121,20 +4122,21 @@ AI ファースト開発において、ドキュメントは **AI への命令�
 | `agents-sync.test.ts`           | AGENTS.md と CLAUDE.md の always-on ルール抜粋が同期している（相互参照とキー概念の存在を検証）       |
 | `consistency-inventory.test.ts` | `tests/consistency` のファイル数・一覧が CLAUDE.md / SPECIFICATION.md の記載と一致（目録の自己検証） |
 
-### 23.4 検証する整合性問題の10類型
+### 23.4 検証する整合性問題の11類型
 
-| #   | 類型                                   | 検出ファイル                                   |
-| --- | -------------------------------------- | ---------------------------------------------- |
-| 1   | コード内テンプレート vs 実ファイル     | `setup-templates.test.ts`                      |
-| 2   | コード内テンプレート完全欠落           | `setup-templates.test.ts`                      |
-| 3   | 数値の不整合（層の数等）               | `layer-count.test.ts`                          |
-| 4   | 存在しないファイル/関数の参照          | `file-references.test.ts`                      |
-| 5   | 存在しないコマンドの参照               | `command-references.test.ts`                   |
-| 6   | バージョン番号の乖離                   | `version-numbers.test.ts`                      |
-| 7   | 設定ファイル間の不整合                 | `version-numbers.test.ts`                      |
-| 8   | 重複情報源の不整合                     | `mcp-list.test.ts` / `protected-files.test.ts` |
-| 9   | デプロイ設定の不整合                   | `vercel-config.test.ts`                        |
-| 10  | テスト目録の不整合（ファイル数・一覧） | `consistency-inventory.test.ts`                |
+| #   | 類型                                     | 検出ファイル                                   |
+| --- | ---------------------------------------- | ---------------------------------------------- |
+| 1   | コード内テンプレート vs 実ファイル       | `setup-templates.test.ts`                      |
+| 2   | コード内テンプレート完全欠落             | `setup-templates.test.ts`                      |
+| 3   | 数値の不整合（層の数等）                 | `layer-count.test.ts`                          |
+| 4   | 存在しないファイル/関数の参照            | `file-references.test.ts`                      |
+| 5   | 存在しないコマンドの参照                 | `command-references.test.ts`                   |
+| 6   | バージョン番号の乖離                     | `version-numbers.test.ts`                      |
+| 7   | 設定ファイル間の不整合                   | `version-numbers.test.ts`                      |
+| 8   | 重複情報源の不整合                       | `mcp-list.test.ts` / `protected-files.test.ts` |
+| 9   | デプロイ設定の不整合                     | `vercel-config.test.ts`                        |
+| 10  | テスト目録の不整合（ファイル数・一覧）   | `consistency-inventory.test.ts`                |
+| 11  | ワークフロー設定の陳腐化・起動ゲート欠落 | `claude-workflow-guard.test.ts`                |
 
 ### 23.5 失敗時のメッセージ設計
 

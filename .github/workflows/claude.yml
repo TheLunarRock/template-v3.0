@@ -8,10 +8,34 @@ on:
   pull_request_review_comment:
     types: [created]
 
+# 既定は最小権限。必要な権限はジョブ側で明示する
+permissions:
+  contents: read
+
+# 同一 issue / PR への @claude 連投で runner が多重起動しないようにする。
+# 後から来た指示が先の指示を上書きする運用のため、古い実行はキャンセルする
+# （過去に Actions 分数を大量消費した経緯があるため、キューイングではなく打ち切り）
+concurrency:
+  group: claude-${{ github.event.issue.number || github.event.pull_request.number }}
+  cancel-in-progress: true
+
 jobs:
   claude:
-    # @claudeが含まれている場合のみ実行
-    if: contains(github.event.comment.body || github.event.issue.body || '', '@claude')
+    # リポジトリ OWNER の @claude メンションのみ実行する。
+    # action 側の権限チェックは runner 起動後に走るため、その手前のジョブ条件で落として
+    # 他人の issue / コメントで Actions 分数を消費しないようにする。
+    # イベントごとに参照先が異なる（issues → issue、コメント系 → comment）ので必ず分岐する。
+    # `comment || issue` の || 連結だと「他人のコメント + issue 作成者が OWNER」で通る穴が残る。
+    if: |
+      (
+        github.event_name == 'issues' &&
+        github.event.issue.author_association == 'OWNER' &&
+        contains(github.event.issue.body, '@claude')
+      ) || (
+        github.event_name != 'issues' &&
+        github.event.comment.author_association == 'OWNER' &&
+        contains(github.event.comment.body, '@claude')
+      )
     runs-on: ubuntu-latest
 
     permissions:
@@ -26,9 +50,11 @@ jobs:
           fetch-depth: 0
 
       - name: Claude Code
-        uses: anthropics/claude-code-action@beta
+        uses: anthropics/claude-code-action@v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          allowed_tools: 'Bash,Write,Edit,MultiEdit,Read,Glob,Grep'
-          model: "claude-opus-4-1-20250805"
+          # v1 で allowed_tools / model / direct_prompt / mode は廃止され claude_args に統合された。
+          # --model は指定しない（モデル名の固定は陳腐化するため action の既定に任せる）。
+          claude_args: |
+            --allowedTools Bash,Write,Edit,MultiEdit,Read,Glob,Grep
