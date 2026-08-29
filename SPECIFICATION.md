@@ -2392,7 +2392,7 @@ Neon は変化が速く、破壊的変更・デフォルト変更が定期的に
 そこで本テンプレートは Neon 固有の具体仕様を記述せず、代わりに以下の**陳腐化しないメタルール**だけを定める。
 
 - **学習データに頼らない:** Neon の Auth SDK / Management API / 利用可能な Postgres 拡張は破壊的変更が多い。実装前に必ず Context7 または公式 changelog で**現行仕様を確認**してから書く。AI の既存知識（学習時点のAPI）をそのまま使わない。
-- **コスト系は使用前に料金影響を確認:** Snapshot 課金のように「黙っていても課金が増える（fail-open）」変更がある。本テンプレートのコスト保護思想（Vercel Spend Cap・GitHub 予算設定・Dependabot 自動PR OFF）と同じく、Neon の機能を使う前に料金体系を確認する。
+- **コスト系は使用前に料金影響を確認:** Snapshot 課金のように「黙っていても課金が増える（fail-open）」変更がある。本テンプレートのコスト保護思想（Vercel Spend Cap・GitHub Actions $0 budget・Dependabot 自動PR OFF）と同じく、Neon の機能を使う前に料金体系を確認する。
 - **個別仕様のルール化は実使用後:** Neon を実際に使い始めて「繰り返し間違える点」が判明したら、そのとき初めて具体ルールを足す（YAGNI）。本テンプレートは現状 Neon を依存に含まないため、先回り実装はしない。
 
 ## 13. 前提条件
@@ -2601,7 +2601,7 @@ nano .env.local
 | 2   | **feature branch は Vercel に出さない**       | branch を remote に push しない運用＋vercel.json 二重防御                                                                          |
 | 3   | **AI の動作確認は `pnpm build`**              | 開発サーバー（§15.2.1）とブラウザ自動操作・常駐・追従（§15.2.2）は AI 実行禁止。実画面の確認は人間が `ALLOW_DEV_SERVER=1 pnpm dev` |
 | 4   | **Vercel チーム認証 = アカウント email 統合** | commit author email は Vercel アカウントの verified email と一致必須                                                               |
-| 5   | **コスト暴走は多層で物理的に防ぐ**            | GitHub 予算設定（§15.5.1）× Vercel Spend Cap × 構造的予防                                                                          |
+| 5   | **コスト暴走は多層で物理的に防ぐ**            | GitHub Actions $0 budget × Vercel Spend Cap × 構造的予防                                                                           |
 
 ### 15.2 開発フロー（再現可能レベル）
 
@@ -2875,40 +2875,58 @@ Step 8: Vercel 再 deploy 実行
 
 ### 15.5 コスト保護の多層構造（再現可能レベル）
 
-#### 15.5.1 GitHub 予算設定（最優先の防御）
+#### 15.5.1 GitHub 予算設定（最優先・最強の防御）
 
 **設定場所:** `https://github.com/settings/billing/spending_limit`
 
-| カテゴリ   | Budget  | Stop usage | 効果                                                     |
-| ---------- | ------- | ---------- | -------------------------------------------------------- |
-| Actions    | **$15** | Yes        | 無料枠 2,000 min/month 相当を使い切った時点で停止        |
-| Codespaces | **$0**  | Yes        | 初日からブロック（使用しないため意図的）                 |
-| Packages   | **$0**  | Yes        | 同左                                                     |
-| Git LFS    | **$0**  | Yes        | 同左                                                     |
-| Sandbox    | **$0**  | Yes        | 同左                                                     |
-| Spark      | **$0**  | Yes        | 同左                                                     |
-| Copilot    | **$0**  | **不可**   | license-based のため停止不可。$0 なので即時アラートのみ  |
-| AI credits | **$0**  | Yes        | AI クレジットを消費する全 SKU を一括遮断（Copilot 含む） |
+**全カテゴリ $0 + Stop usage: Yes:**
 
-**$0 の落とし穴（2026-08-29 判明）:** 予算 $0 は「無料枠を超えたら止まる」ではなく
-「初日から止まる」。進捗が `$0 spent / $0 budget` = 常に100%と判定され、無料枠の残量に
-関わらず Stop usage が発火し続けるため。実際に 2026-06-27〜2026-08-29 の約2か月間、
-全 private リポジトリの push トリガー workflow が起動を拒否され続けた。
+| カテゴリ   | Budget | Stop usage | 効果                                                     |
+| ---------- | ------ | ---------- | -------------------------------------------------------- |
+| Actions    | **$0** | Yes        | 無料枠を使い切った時点で停止（課金は発生しない）         |
+| Codespaces | **$0** | Yes        | 同左                                                     |
+| Packages   | **$0** | Yes        | 同左                                                     |
+| Git LFS    | **$0** | Yes        | 同左                                                     |
+| Sandbox    | **$0** | Yes        | 同左                                                     |
+| Spark      | **$0** | Yes        | 同左                                                     |
+| Copilot    | **$0** | **不可**   | license-based のため停止不可。$0 なので即時アラートのみ  |
+| AI credits | **$0** | Yes        | AI クレジットを消費する全 SKU を一括遮断（Copilot 含む） |
 
-**予算額の決め方:** 予算カウンタは無料枠割引を適用する**前**の総額で進む
-（Linux ランナー $0.008/分）。$1 では約125分/月しか使えないため、無料枠 2,000分を
-活かすには **$15〜16** を設定する。included discount が全額相殺するため実請求は $0。
+**この設定の意味:** 「無料枠（Actions: private 合計 2,000 min/month）を超えても課金は絶対に
+発生しない、その代わり超過後はその月は使えなくなる」という最強の防御。予算カウンタが進むのは
+無料枠を使い切った**後**の従量課金分だけであり、$0 は「初日からブロック」ではない。
 
-**前提条件:** 予算額を $0 から変更するには支払い方法の登録が必須。未登録の場合は
-`Please add a payment method to use budgets.` で拒否される。
+**public リポジトリは対象外:** public リポジトリの Actions 実行は無料枠を消費しないため、
+private 側が停止していても影響を受けない。
 
-**注意:** 支払い方法を登録すると、予算が未設定かつ課金が有効な製品は unlimited に
-なる。逆に課金自体が無効な製品（Models 等）はリスクがないため、予算作成のために
-`Enable paid usage` を押してはならない。
+**停止したときに疑うべきは予算額ではなく消費元（2026-08 実測）:** 2026-08-21〜08-29 に
+private リポジトリの workflow が起動を拒否され続けた。原因は $0 設定そのものではなく、
+その月の無料枠 2,000 分を使い切っていたこと。約 1,600 分を Dependabot Updates が消費していた
+（§15.5.3）。同じ $0 設定のまま 6〜7 月は CI が正常稼働しており（`fukui-system` の
+2026-06-03〜08-03 の失敗実行 100 件に予算ブロックはゼロ、`panel-app` は 7 月に成功）、
+8 月下旬だけ発生している。
+
+したがって**対処は予算額の引き上げではなく、無料枠を食っている実行の削減**である。
+予算を $0 から上げるには支払い方法の登録が必要になり、登録すると予算未設定かつ課金が
+有効な製品が unlimited になるため、コスト保護としてはむしろ後退する。
 
 **診断の目印:** private リポジトリのジョブが 3〜5 秒で failure し、実行ログではなく
 アノテーションに `The job was not started because recent account payments have failed
-or your spending limit needs to be increased` が出る場合はこの設定を疑う。
+or your spending limit needs to be increased` が出る場合はこの状態。
+その月の無料枠が尽きているので、消費元を特定して減らす（Dependabot 自動 PR・cron・
+不要な workflow）。翌月 1 日に無料枠がリセットされて自動復旧する。
+
+**消費元の調べ方:**
+
+```bash
+# 予算ブロックされた実行の抽出（3〜5秒で failure = 起動拒否）
+gh api "repos/<owner>/<repo>/actions/runs?per_page=100&status=failure" \
+  --jq '.workflow_runs[] | "\(.created_at[0:10])|\((.updated_at|fromdate)-(.created_at|fromdate))"' \
+  | awk -F'|' '$2+0 < 15 {print $1}' | sort | uniq -c
+
+# 定期実行（cron）の消費確認
+gh api "repos/<owner>/<repo>/actions/runs?per_page=100&event=schedule" --jq '.workflow_runs | length'
+```
 
 #### 15.5.2 Vercel Spend Cap
 
@@ -3005,16 +3023,16 @@ vercel inspect <deployment-url> --logs
 
 ### 15.9 設計判断
 
-| 項目                                                    | 判断 | 理由                                                                   |
-| ------------------------------------------------------- | ---- | ---------------------------------------------------------------------- |
-| **vercel.json で全 branch 停止**                        | 採用 | branch push 運用ミスへの構造的防御                                     |
-| **`deploymentEnabled` 内に main を例外指定**            | 採用 | `"**": false` 単独では main も止まる                                   |
-| **branch を remote push しない運用**                    | 採用 | preview deploy 暴走の根本対策                                          |
-| **Vercel メール複数登録（チームメンバー追加ではなく）** | 採用 | 1 アカウント集約・Owner 権限分散回避                                   |
-| **GitHub 予算設定（Actions $15 / 他 $0 + Stop usage）** | 採用 | 課金リスクの物理的ゼロ化。$0 は初日ブロックのため Actions のみ枠を残す |
-| **Vercel Spend Cap = Pauses projects**                  | 採用 | 暴走時の自動停止                                                       |
-| **Dependabot auto-PR 無効化＋手動 audit**               | 採用 | 自動化のメリットより Build minutes 保護優先                            |
-| **真因確認は `readyStateReason` 一択**                  | 採用 | UI 表示は誤誘導のリスクあり、API は嘘をつかない                        |
+| 項目                                                    | 判断 | 理由                                                       |
+| ------------------------------------------------------- | ---- | ---------------------------------------------------------- |
+| **vercel.json で全 branch 停止**                        | 採用 | branch push 運用ミスへの構造的防御                         |
+| **`deploymentEnabled` 内に main を例外指定**            | 採用 | `"**": false` 単独では main も止まる                       |
+| **branch を remote push しない運用**                    | 採用 | preview deploy 暴走の根本対策                              |
+| **Vercel メール複数登録（チームメンバー追加ではなく）** | 採用 | 1 アカウント集約・Owner 権限分散回避                       |
+| **GitHub 予算設定 全カテゴリ $0 + Stop usage**          | 採用 | 課金リスクの物理的ゼロ化。停止時は予算を上げず消費元を削る |
+| **Vercel Spend Cap = Pauses projects**                  | 採用 | 暴走時の自動停止                                           |
+| **Dependabot auto-PR 無効化＋手動 audit**               | 採用 | 自動化のメリットより Build minutes 保護優先                |
+| **真因確認は `readyStateReason` 一択**                  | 採用 | UI 表示は誤誘導のリスクあり、API は嘘をつかない            |
 
 ## 16. パフォーマンス指標
 
