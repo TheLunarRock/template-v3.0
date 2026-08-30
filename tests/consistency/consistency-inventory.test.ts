@@ -47,8 +47,16 @@ const COUNT_PATTERN = /配下の\s*\*\*(\d+)\s*ファイル/
 const SPEC_COUNT_PATTERNS = [
   ['§23.2 テストファイル数', /\*\*テストファイル数\*\*\s*\|\s*(\d+)\s*ファイル/],
   ['§23.3 見出し', /整合性テストファイル一覧（(\d+)ファイル）/],
-  ['§23.4 見出し', /検証する整合性問題の(\d+)類型/],
 ] as const
+
+/**
+ * §23.4「検証する整合性問題のN類型」は**ファイル数とは独立した数**。
+ * 1ファイルが複数類型を担うこともあれば（setup-templates は #1・#2）、
+ * 1類型を複数ファイルで担うこともある（#8 は mcp-list と protected-files）。
+ * したがって実ファイル数ではなく、類型表の行数と突き合わせる。
+ */
+const TYPE_SECTION_PATTERN = /### 23\.4 検証する整合性問題の(\d+)類型\n([\s\S]*?)\n### /
+const TYPE_ROW_PATTERN = /^\|\s*\d+\s*\|/gm
 
 describe('整合性: テスト目録の自己検証（consistency-inventory）', () => {
   it.each(COUNT_SOURCES)(
@@ -98,4 +106,25 @@ describe('整合性: テスト目録の自己検証（consistency-inventory）',
       ).toBe(testFiles.length)
     }
   )
+
+  it('SPECIFICATION.md §23.4 の見出しの類型数が類型表の行数と一致する', () => {
+    const m = TYPE_SECTION_PATTERN.exec(spec)
+    expect(
+      m,
+      `\nSPECIFICATION.md に §23.4「検証する整合性問題のN類型」セクションが見つかりません。\n` +
+        `修正方法: 見出しを戻すか、本テストの TYPE_SECTION_PATTERN を実際の表記に合わせてください。`
+    ).not.toBeNull()
+
+    const declared = Number(m?.[1])
+    const rows = (m?.[2] ?? '').match(TYPE_ROW_PATTERN) ?? []
+
+    expect(
+      rows.length,
+      `\nSPECIFICATION.md §23.4 の見出しの類型数が、類型表の行数と一致しません。\n` +
+        `  見出し: ${declared} 類型\n` +
+        `  表の行数: ${rows.length} 行\n` +
+        `修正方法: 類型を追加/削除したら見出しの数値も合わせてください。\n` +
+        `（類型数は tests/consistency のファイル数とは独立した数です。1ファイルが複数類型を担うことがあります）`
+    ).toBe(declared)
+  })
 })
