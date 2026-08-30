@@ -83,6 +83,28 @@ if (error) {
 const data = await checkSupabaseResponse(supabase.from('users').select())
 ```
 
+**⚠️ `checkSupabaseResponse` が throw する例外について（v3.8.4 で変更）**
+
+`checkSupabaseResponse` は `Error` 派生の `StructuredErrorException` を throw します。構造化情報は `.structured` に入ります。
+
+```typescript
+import { checkSupabaseResponse, StructuredErrorException } from '@/utils/error-handling'
+
+try {
+  const data = await checkSupabaseResponse(supabase.from('users').select())
+} catch (e) {
+  if (e instanceof StructuredErrorException) {
+    console.log(e.structured.code) // 'ERR_DUPLICATE' など
+    console.log(e.structured.userMessage) // ユーザー向けメッセージ
+    console.log(e.message) // = e.structured.message（サニタイズ済み）
+  }
+}
+```
+
+以前は `StructuredError`（プレーンオブジェクト）をそのまま throw していたため、`e instanceof Error` が false になり stack も付きませんでした。**旧挙動に依存して `catch (e)` の `e` を直接 `StructuredError` として扱っているコードは `e.structured` に変更が必要です。**
+
+なお `error` が無く `data` が `null` の場合は、従来どおり通常の `Error`（`No data returned from Supabase`）が throw されます。
+
 ### エラーの集約
 
 ```typescript

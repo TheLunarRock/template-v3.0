@@ -46,6 +46,9 @@ export {
   sanitizeErrorMessage,
 } from './user-friendly'
 
+// 構造化エラーの例外クラス
+export { StructuredErrorException } from './exception'
+
 // Supabase機能のエクスポート
 export {
   checkSupabaseResponse,

@@ -5,8 +5,14 @@
  * 構造化されたエラー形式に変換します。
  */
 
+import { StructuredErrorException } from './exception'
 import type { ErrorCategory, StructuredError } from './types'
-import { getUserFriendlyMessage, inferErrorLevel, sanitizeErrorMessage } from './user-friendly'
+import {
+  formatDeveloperMessage,
+  getUserFriendlyMessage,
+  inferErrorLevel,
+  sanitizeErrorMessage,
+} from './user-friendly'
 
 /**
  * Supabaseエラーコードのマッピング
@@ -125,12 +131,24 @@ function parseSupabaseError(error: SupabaseError): {
 }
 
 /**
+ * stack を開発環境でのみ、サニタイズして返す
+ *
+ * stack の1行目は `Error: <生のmessage>` を含むため、message と同じ扱いにする
+ * （index.ts の transformError と揃える）。
+ */
+function sanitizedStack(error: unknown): string | undefined {
+  if (process.env.NODE_ENV !== 'development') return undefined
+  if (!(error instanceof Error) || error.stack === undefined) return undefined
+
+  return sanitizeErrorMessage(error.stack)
+}
+
+/**
  * Supabaseエラーを構造化されたエラーに変換
  * @param error - Supabaseのエラー
  * @param context - 追加のコンテキスト情報
  * @returns 構造化されたエラー
  */
-// eslint-disable-next-line sonarjs/cognitive-complexity
 export function transformSupabaseError(
   error: unknown,
   context?: Record<string, unknown>
@@ -146,14 +164,14 @@ export function transformSupabaseError(
     ) {
       return {
         code: 'ERR_CONFIG',
-        message: error.message,
+        message: sanitizeErrorMessage(error.message),
         userMessage: 'データベース接続が設定されていません。管理者にお問い合わせください。',
         level: 'critical',
         category: 'system',
         timestamp,
         context,
         originalError: error,
-        stack: process.env.NODE_ENV === 'development' ? error.stack : undefined,
+        stack: sanitizedStack(error),
       }
     }
 
@@ -168,8 +186,7 @@ export function transformSupabaseError(
       timestamp,
       context,
       originalError: error,
-      stack:
-        error instanceof Error && process.env.NODE_ENV === 'development' ? error.stack : undefined,
+      stack: sanitizedStack(error),
     }
   }
 
@@ -182,7 +199,12 @@ export function transformSupabaseError(
       ? SUPABASE_USER_MESSAGES[code as keyof typeof SUPABASE_USER_MESSAGES]
       : undefined
   const defaultMessage = 'データベースエラーが発生しました。しばらく待ってから再度お試しください。'
-  const userMessage = mappedUserMessage ?? getUserFriendlyMessage(code, defaultMessage)
+  // code を特定できなかった場合（ERR_UNKNOWN）は DB 操作の文脈に合う文言を使う。
+  // getUserFriendlyMessage は ERR_UNKNOWN を「既知のコード」として扱い汎用文言を返すため、
+  // 第2引数の defaultMessage が捨てられてしまう。
+  const userMessage =
+    mappedUserMessage ??
+    (code === 'ERR_UNKNOWN' ? defaultMessage : getUserFriendlyMessage(code, defaultMessage))
 
   // エラーレベルの推測
   const level = inferErrorLevel(message, category)
@@ -207,8 +229,7 @@ export function transformSupabaseError(
     context: errorContext,
     timestamp,
     originalError: error,
-    stack:
-      process.env.NODE_ENV === 'development' && error instanceof Error ? error.stack : undefined,
+    stack: sanitizedStack(error),
   }
 }
 
@@ -229,9 +250,11 @@ export async function safeSupabaseOperation<T>(
     const structuredError = transformSupabaseError(error, context)
 
     // 開発環境でのみコンソール出力
+    // 構造体をそのまま渡すと originalError（生のメッセージと stack を保持）が
+    // 展開表示されるため、index.ts の logError と同じく整形済み文字列を出す
     if (process.env.NODE_ENV === 'development') {
       // eslint-disable-next-line no-console
-      console.error('Supabase operation failed:', structuredError)
+      console.error('Supabase operation failed:', formatDeveloperMessage(structuredError))
     }
 
     return { error: structuredError }
@@ -243,14 +266,18 @@ export async function safeSupabaseOperation<T>(
  * Supabaseクライアントの標準レスポンス形式に対応
  * @param response - Supabaseのレスポンス
  * @param context - エラーコンテキスト
- * @returns データまたはエラーをスロー
+ * @returns データ
+ * @throws {StructuredErrorException} error がある場合。`.structured` に構造化エラーが入る
+ * @throws {Error} error は無いが data が null の場合
  */
 export function checkSupabaseResponse<T>(
   response: { data: T | null; error: unknown },
   context?: Record<string, unknown>
 ): T {
   if (response.error) {
-    throw transformSupabaseError(response.error, context)
+    // StructuredError をそのまま throw すると catch 側で instanceof Error が false になり
+    // stack も付かないため、Error 派生でラップする（構造化情報は .structured に残る）
+    throw new StructuredErrorException(transformSupabaseError(response.error, context))
   }
 
   if (response.data == null) {

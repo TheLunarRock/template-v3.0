@@ -14,8 +14,8 @@ import {
   checkSupabaseResponse,
   isSupabaseError,
   safeSupabaseOperation,
+  StructuredErrorException,
   transformSupabaseError,
-  type StructuredError,
 } from '@/utils/error-handling'
 
 afterEach(() => {
@@ -86,8 +86,8 @@ describe('transformSupabaseError', () => {
 
     expect(result.code).toBe('ERR_UNKNOWN')
     expect(result.category).toBe('unknown')
-    expect(result.userMessage).toBe(
-      '予期しないエラーが発生しました。しばらく待ってから再度お試しください。'
+    expect(result.userMessage, 'DB 操作の文脈に合う文言を返す（汎用文言に潰されない）').toBe(
+      'データベースエラーが発生しました。しばらく待ってから再度お試しください。'
     )
   })
 
@@ -136,6 +136,27 @@ describe('transformSupabaseError', () => {
     expect(transformSupabaseError(42).message).toBe('42')
   })
 
+  it('development では stack がサニタイズされる', () => {
+    vi.stubEnv('NODE_ENV', 'development')
+
+    const result = transformSupabaseError(new Error('insert failed for password=hunter2'))
+
+    expect(result.stack, 'development では stack を保持する').toBeDefined()
+    expect(
+      result.stack,
+      'stack の1行目は "Error: <生のmessage>" を含むため、message だけ伏せても意味がない'
+    ).not.toContain('hunter2')
+  })
+
+  it('環境変数未設定の分岐でも message がサニタイズされる', () => {
+    const result = transformSupabaseError(
+      new Error('Missing Supabase environment variables (api_key=sk-live-abc123)')
+    )
+
+    expect(result.code).toBe('ERR_CONFIG')
+    expect(result.message).not.toContain('sk-live-abc123')
+  })
+
   it('production では stack を持たない', () => {
     vi.stubEnv('NODE_ENV', 'production')
 
@@ -161,13 +182,26 @@ describe('safeSupabaseOperation', () => {
     expect(result.error?.code).toBe('ERR_DUPLICATE')
   })
 
-  it('development では失敗をコンソールに出す', async () => {
+  it('development では失敗を整形済み文字列でコンソールに出す', async () => {
     vi.stubEnv('NODE_ENV', 'development')
     const spy = vi.spyOn(console, 'error').mockImplementation(() => {})
 
     await safeSupabaseOperation(() => Promise.reject(new Error('boom')))
 
-    expect(spy).toHaveBeenCalledWith('Supabase operation failed:', expect.anything())
+    expect(spy).toHaveBeenCalledWith('Supabase operation failed:', expect.any(String))
+    expect(String(spy.mock.calls[0][1])).toContain('[ERROR] [unknown]')
+  })
+
+  it('ログに originalError の生の値が展開されない', async () => {
+    vi.stubEnv('NODE_ENV', 'development')
+    const spy = vi.spyOn(console, 'error').mockImplementation(() => {})
+
+    await safeSupabaseOperation(() => Promise.reject(new Error('login failed: password=hunter2')))
+
+    const logged = spy.mock.calls.flat().map(String).join(' ')
+    expect(logged, '構造体をそのまま渡すと originalError の生メッセージが展開される').not.toContain(
+      'hunter2'
+    )
   })
 
   it('development 以外ではコンソールに出さない', async () => {
@@ -185,7 +219,7 @@ describe('checkSupabaseResponse', () => {
     expect(checkSupabaseResponse({ data: { id: 1 }, error: null })).toEqual({ id: 1 })
   })
 
-  it('error があるとき構造化エラーを throw する（Error インスタンスではない）', () => {
+  it('error があるとき Error 派生（StructuredErrorException）を throw する', () => {
     let thrown: unknown
 
     try {
@@ -194,11 +228,24 @@ describe('checkSupabaseResponse', () => {
       thrown = error
     }
 
-    expect(thrown).toBeDefined()
-    expect(thrown, 'StructuredError オブジェクトをそのまま throw する実装').not.toBeInstanceOf(
-      Error
-    )
-    expect((thrown as StructuredError).code).toBe('ERR_DUPLICATE')
+    expect(thrown, 'catch 側で instanceof Error が成立する').toBeInstanceOf(Error)
+    expect(thrown).toBeInstanceOf(StructuredErrorException)
+    expect((thrown as Error).stack, 'Error 派生なので stack を持つ').toBeDefined()
+  })
+
+  it('throw された例外から構造化情報を失わずに取り出せる', () => {
+    try {
+      checkSupabaseResponse({ data: null, error: { message: 'duplicate key', code: '23505' } })
+      expect.unreachable('throw されるはず')
+    } catch (error) {
+      const exception = error as StructuredErrorException
+
+      expect(exception.name).toBe('StructuredErrorException')
+      expect(exception.message).toBe('duplicate key')
+      expect(exception.structured.code).toBe('ERR_DUPLICATE')
+      expect(exception.structured.category).toBe('database')
+      expect(exception.structured.userMessage).toBe('既に同じデータが登録されています。')
+    }
   })
 
   it('error が無く data が null なら Error を throw する', () => {
