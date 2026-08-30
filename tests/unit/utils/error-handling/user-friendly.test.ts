@@ -85,6 +85,27 @@ describe('sanitizeErrorMessage', () => {
     })
   })
 
+  describe('JSON 形式の機密情報', () => {
+    it('JSON.stringify 由来の "password":"値" を伏せる', () => {
+      const result = sanitizeErrorMessage('Context: {"password":"hunter2"}')
+
+      expect(result).not.toContain('hunter2')
+      expect(result).toContain('***')
+    })
+
+    it('キーは残し値だけ伏せる。機密でないキーの値は伏せない', () => {
+      const result = sanitizeErrorMessage('{"api_key":"xxxsecret","host":"db.internal"}')
+
+      expect(result).not.toContain('xxxsecret')
+      expect(result, 'キー名は調査に必要なので残す').toContain('api_key')
+      expect(result, '機密でない値は読める形で残す').toContain('"host":"db.internal"')
+    })
+
+    it('文字列以外の値（数値・null）も伏せる', () => {
+      expect(sanitizeErrorMessage('{"token":12345}')).not.toContain('12345')
+    })
+  })
+
   describe('壊してはいけない性質', () => {
     it('冪等（2回通しても結果が変わらない）', () => {
       const inputs = [
@@ -93,6 +114,7 @@ describe('sanitizeErrorMessage', () => {
         'user not found: taro.yamada@example.com',
         'oauth failed client_secret: xyz789',
         'connection failed: postgres://admin:s3cr3t@db.internal:5432/app',
+        'Context: {"password":"hunter2"}',
       ]
 
       for (const input of inputs) {
@@ -202,6 +224,36 @@ describe('formatDeveloperMessage', () => {
     expect(result).toContain('fetch failed')
     expect(result).toContain('"url":"/api/users"')
     expect(result).toContain('Time: 2026-08-30T12:34:56.000Z')
+  })
+
+  it('Context に含まれる機密情報が出力に残らない', () => {
+    const withSecret: StructuredError = {
+      message: 'update failed',
+      level: 'error',
+      category: 'database',
+      context: { password: 'hunter2', userId: 'u_123' },
+      timestamp: new Date('2026-08-31T00:00:00.000Z'),
+    }
+
+    const result = formatDeveloperMessage(withSecret)
+
+    expect(result).not.toContain('hunter2')
+    expect(result, '機密でない値はそのまま読める').toContain('u_123')
+  })
+
+  it('機密でない Context はそのまま読める', () => {
+    const withContext: StructuredError = {
+      message: 'retry exhausted',
+      level: 'error',
+      category: 'network',
+      context: { userId: 'u_123', retryCount: 3 },
+      timestamp: new Date('2026-08-31T00:00:00.000Z'),
+    }
+
+    const result = formatDeveloperMessage(withContext)
+
+    expect(result).toContain('"userId":"u_123"')
+    expect(result).toContain('"retryCount":3')
   })
 
   it('code とコンテキストが無い場合はその項目を出さない', () => {

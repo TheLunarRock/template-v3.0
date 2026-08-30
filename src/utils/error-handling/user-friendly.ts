@@ -195,8 +195,10 @@ export function formatDeveloperMessage(error: StructuredError): string {
   parts.push(error.message)
 
   // コンテキスト情報
+  // 呼び出し側が context に機密情報を入れることがあるため、ここでもサニタイズする。
+  // （handleError(e, { context: { password: '...' } }) がそのままコンソールに出ていた）
   if (error.context && Object.keys(error.context).length > 0) {
-    parts.push(`Context: ${JSON.stringify(error.context)}`)
+    parts.push(`Context: ${sanitizeErrorMessage(JSON.stringify(error.context))}`)
   }
 
   // タイムスタンプ
@@ -219,6 +221,19 @@ export function formatDeveloperMessage(error: StructuredError): string {
 const SECRET_ASSIGNMENT_PATTERN =
   // eslint-disable-next-line sonarjs/slow-regex -- 入力はエラーメッセージ1件のみで長さが実用上限られる
   /([\w-]*(?:password|token|secret|api[_-]?key)[\w-]*)\s*[=:]\s*['"]?[^'"\s]+['"]?/gi
+
+/**
+ * JSON 形式（`"key": "値"`）の機密情報
+ *
+ * SECRET_ASSIGNMENT_PATTERN はキーと `=` `:` の間に引用符が挟まる形に一致しないため、
+ * `JSON.stringify` の出力（`{"password":"hunter2"}`）が素通りしていた。
+ * formatDeveloperMessage が `Context: ${JSON.stringify(...)}` を出力する経路で効く。
+ *
+ * 値だけを `"***"` に置き換えるので、キー名と JSON としての形は保たれる
+ * （ログを読んで調査できる状態を維持するため）。数値・null などの非文字列値も対象。
+ */
+const JSON_SECRET_PATTERN =
+  /("[\w-]*(?:password|token|secret|api[_-]?key)[\w-]*"\s*:\s*)("[^"]*"|[^,}\s]+)/gi
 
 /**
  * `Bearer <値>` のパターン
@@ -273,6 +288,10 @@ export function sanitizeErrorMessage(message: string): string {
   sanitized = sanitized.replace(BEARER_PATTERN, (match, keyword: string, value: string) =>
     looksLikeCredential(value) ? `${keyword} ***` : match
   )
+
+  // JSON 形式のキーと値（"password":"..."）。
+  // SECRET_ASSIGNMENT_PATTERN より先に処理して、JSON としての形を保ったまま値だけ伏せる
+  sanitized = sanitized.replace(JSON_SECRET_PATTERN, '$1"***"')
 
   // password / token / secret / api_key などのキーと値
   sanitized = sanitized.replace(SECRET_ASSIGNMENT_PATTERN, '$1=***')

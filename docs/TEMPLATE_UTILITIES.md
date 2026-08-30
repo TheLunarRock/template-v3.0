@@ -103,6 +103,22 @@ if (errors.length > 0) {
 }
 ```
 
+### サニタイズの範囲
+
+`sanitizeErrorMessage` は `password` / `token` / `secret` / `api_key` の値、`Bearer <トークン>`、接続文字列の資格情報（`postgres://user:pass@host`）、メールアドレスのローカル部を伏せます。値を伴わないキーワード（`Invalid password format` 等）は調査できるようそのまま残します。
+
+サニタイズが適用されるのは次の3つです。
+
+| 対象                                        | 適用箇所                                                           |
+| ------------------------------------------- | ------------------------------------------------------------------ |
+| `StructuredError.message`                   | `transformError` / `transformSupabaseError`                        |
+| `StructuredError.stack`                     | `transformError`（`NODE_ENV=development` のときのみ stack を保持） |
+| `formatDeveloperMessage` の `Context:` 出力 | `JSON.stringify(context)` の結果に適用                             |
+
+**⚠️ `originalError` はサニタイズされません。** ここには元のエラーインスタンスがそのまま入ります（生の `message` と `stack` を保持）。これは意図的で、サニタイズすると `instanceof` 判定やカスタムエラークラスが壊れるためです。
+
+Sentry などの外部サービスへ送る実装を書く場合、`originalError` をそのまま送らないでください。送るなら `message` / `stack` / `userMessage` / `code` など、サニタイズ済みのフィールドを選んで渡します。
+
 ---
 
 ## 保護されたフィーチャー
