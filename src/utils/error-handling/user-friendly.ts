@@ -206,34 +206,72 @@ export function formatDeveloperMessage(error: StructuredError): string {
 }
 
 /**
+ * 機密情報のキーと値（`key=値` / `key: 値`）を拾うパターン
+ *
+ * `client_secret` / `access_token` / `X-Api-Key` のようにキーワードの前後に語が付く形も
+ * 拾うため、キーワードを `[\w-]*` で挟む。
+ * `=` または `:` の後に値がある場合のみ一致するので、
+ * 「Invalid password format」「The token has expired」のような文中の単語は伏せない。
+ *
+ * 走査対象はエラーメッセージ1件（人間が読める長さ）で、外部入力が
+ * 無制限に長くなる経路では使わないため、後戻りの実害はない。
+ */
+const SECRET_ASSIGNMENT_PATTERN =
+  // eslint-disable-next-line sonarjs/slow-regex -- 入力はエラーメッセージ1件のみで長さが実用上限られる
+  /([\w-]*(?:password|token|secret|api[_-]?key)[\w-]*)\s*[=:]\s*['"]?[^'"\s]+['"]?/gi
+
+/**
+ * `Bearer <値>` のパターン
+ * `=` `:` を伴わないため専用に扱う。
+ */
+const BEARER_PATTERN = /\b(bearer)\s+([\w.~+/=-]{8,})/gi
+
+/**
+ * メールアドレス（ローカル部のみ伏せ、ドメインは調査のため残す）
+ */
+// eslint-disable-next-line sonarjs/slow-regex -- Email regex is bounded and safe
+const EMAIL_PATTERN = /([a-zA-Z0-9._%+-]+)@([a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/g
+
+/**
+ * `Bearer` の後ろの語が資格情報らしいか判定する
+ *
+ * 「bearer authentication failed」のような通常の文まで伏せると調査できなくなるため、
+ * 小文字英字だけの短い語（＝英単語）は資格情報とみなさない。
+ * 実際のトークンは大文字・数字・記号を含むか、十分に長い。
+ */
+function looksLikeCredential(value: string): boolean {
+  return value.length >= 20 || /[^a-z]/.test(value)
+}
+
+/**
  * エラーメッセージのサニタイズ
  * セキュリティ上重要な情報を除去
+ *
+ * この結果は transformError → StructuredError.message → logError の経路で
+ * コンソールへ出るため、伏せ漏れはそのままログへの漏洩になる。
+ * 一方で伏せすぎると調査できなくなるので、**値を伴う場合だけ**伏せる。
+ *
  * @param message - 元のメッセージ
  * @returns サニタイズされたメッセージ
  */
 export function sanitizeErrorMessage(message: string): string {
-  // パスワード、トークンなどの機密情報を除去
   let sanitized = message
 
-  // パスワード関連
-  // eslint-disable-next-line sonarjs/no-hardcoded-passwords -- Sanitizing passwords, not hardcoding
-  sanitized = sanitized.replace(/password[=:]\s*['"]?[^'"\s]+['"]?/gi, 'password=***')
+  // Bearer トークン（キーワード置換より先に処理する。
+  // 「access_token: Bearer eyJ...」のとき、先にキー側を伏せると値が "Bearer" で止まり
+  // 後続の実トークンが残ってしまうため）
+  sanitized = sanitized.replace(BEARER_PATTERN, (match, keyword: string, value: string) =>
+    looksLikeCredential(value) ? `${keyword} ***` : match
+  )
 
-  // トークン関連
-  sanitized = sanitized.replace(/token[=:]\s*['"]?[^'"\s]+['"]?/gi, 'token=***')
-
-  // APIキー関連
-  sanitized = sanitized.replace(/api[_-]?key[=:]\s*['"]?[^'"\s]+['"]?/gi, 'api_key=***')
+  // password / token / secret / api_key などのキーと値
+  sanitized = sanitized.replace(SECRET_ASSIGNMENT_PATTERN, '$1=***')
 
   // メールアドレス（部分的に隠す）
-  sanitized = sanitized.replace(
-    // eslint-disable-next-line sonarjs/slow-regex -- Email regex is bounded and safe
-    /([a-zA-Z0-9._%+-]+)@([a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/g,
-    (_match, local, domain) => {
-      const hiddenLocal = String(local).charAt(0) + '***'
-      return `${hiddenLocal}@${domain}`
-    }
-  )
+  sanitized = sanitized.replace(EMAIL_PATTERN, (_match, local, domain) => {
+    const hiddenLocal = String(local).charAt(0) + '***'
+    return `${hiddenLocal}@${domain}`
+  })
 
   return sanitized
 }
