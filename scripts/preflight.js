@@ -14,6 +14,108 @@ const fs = require('fs')
 const path = require('path')
 const { getPackageManagerCommand, MCP_CONFIG } = require('./utils')
 
+/**
+ * 機密情報とみなす変数名（部分一致・大小文字無視）
+ * client_secret / API_KEY / accessToken / CLAUDE_CODE_OAUTH_TOKEN 等を拾う。
+ */
+const SECRET_NAME_PATTERN =
+  /password|passwd|secret|token|credential|api[_-]?key|apikey|private[_-]?key|access[_-]?key/i
+
+/**
+ * 実害が無く、検出すると開発の邪魔になる値
+ * （空文字・プレースホルダ・テンプレート変数）
+ */
+const PLACEHOLDER_VALUE_PATTERN =
+  /^(?:|x+|\.{3}|<[^>]*>|\$\{[^}]*\}|(?:your|dummy|sample|example|placeholder|changeme|todo|fake|test)[\w\s-]*)$/i
+
+/** `name = '値'`（型注釈があってもよい） */
+const ASSIGNMENT_PATTERN = /([A-Za-z_$][\w$]*)\s*(?::[^=\n]*)?=\s*(['"`])([^'"`\n]*)\2/g
+
+/** `name: '値'`（オブジェクトリテラルのプロパティ） */
+const PROPERTY_PATTERN = /([A-Za-z_$][\w$]*)\s*:\s*(['"`])([^'"`\n]*)\2/g
+
+/** 行コメントらしき行（例示のコードを誤検知しないため） */
+const COMMENT_LINE_PATTERN = /^\s*(?:\/\/|\/\*|\*|#)/
+
+/**
+ * 値が資格情報らしいか
+ *
+ * 実在の API キー・トークンは空白を含まない印字可能 ASCII で、ある程度の長さがある。
+ * 「ERR_INVALID_CREDENTIALS: 'メールアドレスまたはパスワードが正しくありません。'」のような
+ * 日本語のユーザー向け文言を資格情報と誤認しないための門番。
+ *
+ * 本命の検出は gitleaks なので、ここは取りこぼしより誤検知ゼロを優先する。
+ */
+function looksLikeSecretValue(value) {
+  return value.length >= 8 && !/\s/.test(value) && /^[\x20-\x7e]+$/.test(value)
+}
+
+/**
+ * ソース内のハードコードされたシークレットを検出する
+ *
+ * キーワードの「出現」ではなく「機密っぽい名前への文字列リテラル代入」を見る。
+ * 出現だけで判定すると、シークレットを伏せるためのコード
+ * （SECRET_ASSIGNMENT_PATTERN 等の定数名）まで誤検知する（2026-08-31-001）。
+ *
+ * process.env からの読み出しは値が文字列リテラルではないため自然に対象外になる。
+ *
+ * @param {string} content - ファイル内容
+ * @returns {{ lineNumber: number, name: string, masked: string }[]}
+ */
+function findHardcodedSecrets(content) {
+  const found = []
+
+  content.split('\n').forEach((line, index) => {
+    if (COMMENT_LINE_PATTERN.test(line)) return
+
+    const seen = new Set()
+
+    for (const pattern of [ASSIGNMENT_PATTERN, PROPERTY_PATTERN]) {
+      pattern.lastIndex = 0
+      let match
+
+      while ((match = pattern.exec(line)) !== null) {
+        const [, name, quote, value] = match
+
+        if (!SECRET_NAME_PATTERN.test(name)) continue
+        if (PLACEHOLDER_VALUE_PATTERN.test(value)) continue
+        if (!looksLikeSecretValue(value)) continue
+        if (seen.has(name)) continue
+        seen.add(name)
+
+        // 値そのものは CI ログに出さない
+        const literal = quote + value + quote
+        found.push({
+          lineNumber: index + 1,
+          name,
+          masked: line.trim().split(literal).join(`${quote}***${quote}`),
+        })
+      }
+    }
+  })
+
+  return found
+}
+
+/** src 配下のソースファイルを再帰的に集める */
+function collectSourceFiles(dir) {
+  const extensions = ['.ts', '.tsx', '.js', '.jsx']
+  const files = []
+
+  if (!fs.existsSync(dir)) return files
+
+  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    const full = path.join(dir, entry.name)
+    if (entry.isDirectory()) {
+      files.push(...collectSourceFiles(full))
+    } else if (extensions.includes(path.extname(entry.name))) {
+      files.push(full)
+    }
+  }
+
+  return files
+}
+
 // 色付きコンソール出力
 const colors = {
   reset: '\x1b[0m',
@@ -190,25 +292,19 @@ async function preflight() {
   }
 
   // シークレットの漏洩チェック
+  // 本命の検出は gitleaks（pre-commit と security.yml の2箇所）が担う。
+  // ここは補助なので、誤検知を出さないことを優先する。
   log.info('シークレット漏洩チェック...')
-  const secretPatterns = ['CLAUDE_CODE_OAUTH_TOKEN', 'API_KEY', 'SECRET', 'PASSWORD', 'TOKEN']
 
   let secretsFound = false
-  const srcFiles = runCommand(
-    'find src -type f -name "*.ts" -o -name "*.tsx" -o -name "*.js" -o -name "*.jsx" 2>/dev/null',
-    true
-  )
 
-  if (srcFiles.success && srcFiles.output) {
-    for (const pattern of secretPatterns) {
-      const grepResult = runCommand(
-        `grep -l "${pattern}" ${srcFiles.output.replace(/\n/g, ' ')} 2>/dev/null || true`,
-        true
-      )
-      if (grepResult.output && grepResult.output.trim()) {
-        log.error(`潜在的なシークレット露出: ${pattern} が検出されました`)
-        secretsFound = true
-      }
+  for (const file of collectSourceFiles('src')) {
+    const findings = findHardcodedSecrets(fs.readFileSync(file, 'utf8'))
+
+    for (const finding of findings) {
+      log.error(`ハードコードされたシークレット: ${file}:${finding.lineNumber}`)
+      console.log(`${colors.dim}    ${finding.masked}${colors.reset}`)
+      secretsFound = true
     }
   }
 
@@ -371,16 +467,20 @@ ${colors.blue}━━━━━━━━━━━━━━━━━━━━━━
   process.exit(readyToDeploy ? 0 : 1)
 }
 
-// エラーハンドリング
-process.on('unhandledRejection', (error) => {
-  log.error('Preflightチェック中にエラーが発生しました')
-  console.error(error)
-  process.exit(1)
-})
+module.exports = { SECRET_NAME_PATTERN, findHardcodedSecrets, collectSourceFiles }
 
-// 実行
-preflight().catch((error) => {
-  log.error('Preflightチェックに失敗しました')
-  console.error(error)
-  process.exit(1)
-})
+// 直接実行されたときだけ走らせる（テストから require できるようにするため）
+if (require.main === module) {
+  // エラーハンドリング
+  process.on('unhandledRejection', (error) => {
+    log.error('Preflightチェック中にエラーが発生しました')
+    console.error(error)
+    process.exit(1)
+  })
+
+  preflight().catch((error) => {
+    log.error('Preflightチェックに失敗しました')
+    console.error(error)
+    process.exit(1)
+  })
+}

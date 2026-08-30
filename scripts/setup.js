@@ -732,7 +732,9 @@ jobs:
         run: pnpm build
 
       - name: Preflightチェック
-        run: pnpm preflight
+        run: |
+          cp .env.ci .env.local 2>/dev/null || true
+          pnpm preflight
 `
     fs.writeFileSync(ciPath, ciWorkflow)
     log.success('GitHub Actions CI/CDワークフローを作成しました')
