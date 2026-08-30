@@ -94,15 +94,100 @@ function listFeatureNames(cwd = process.cwd()) {
     .filter((f) => fs.statSync(path.join(featuresDir, f)).isDirectory())
 }
 
+// 検査用にコメントを除去する（元の内容は書き換えない）
+//
+// 教育目的でコメントアウトされた「やってはいけない例」を本物の違反として
+// 検出していたため（2026-08-30-002）。.claude/hooks/dev-server-guard.sh が
+// heredoc 本文とクォート文字列を判定前に除去しているのと同じ考え方。
+//
+// 誤検知より見落としの方が危険なので、判断に迷う形は「コメントではない」側に倒す:
+//   - 文字列リテラル（'...' / "..." / `...`）の中の // や /* はコメントにしない
+//     （'https://example.com' の // で行末まで消すと本物の違反を見落とす）
+//   - ' と " は行をまたいだら文字列とみなさない（JSX テキストの don't 等で
+//     ファイル末尾まで飲み込まないため）。複数行を許すのはテンプレートリテラルのみ
+//   - 直前が \ の // は正規表現リテラル（/https:\/\//）とみなして除去しない
+// 除去部分は空白に置換し、改行は保持する（行数を変えない）
+function stripComments(code) {
+  let out = ''
+  let i = 0
+  const n = code.length
+
+  while (i < n) {
+    const ch = code[i]
+    const next = code[i + 1]
+
+    // 文字列リテラル / テンプレートリテラル
+    if (ch === "'" || ch === '"' || ch === '`') {
+      const multiline = ch === '`'
+      let j = i + 1
+      let closed = false
+
+      while (j < n) {
+        if (code[j] === '\\') {
+          j += 2
+          continue
+        }
+        if (!multiline && code[j] === '\n') break
+        if (code[j] === ch) {
+          closed = true
+          break
+        }
+        j++
+      }
+
+      if (closed) {
+        out += code.slice(i, j + 1)
+        i = j + 1
+      } else {
+        // 閉じていない = 文字列ではない（アポストロフィ等）。1文字だけ進める
+        out += ch
+        i++
+      }
+      continue
+    }
+
+    // 行コメント
+    if (ch === '/' && next === '/' && code[i - 1] !== '\\') {
+      while (i < n && code[i] !== '\n') {
+        out += ' '
+        i++
+      }
+      continue
+    }
+
+    // ブロックコメント（改行は保持）
+    if (ch === '/' && next === '*') {
+      out += '  '
+      i += 2
+      while (i < n && !(code[i] === '*' && code[i + 1] === '/')) {
+        out += code[i] === '\n' ? '\n' : ' '
+        i++
+      }
+      if (i < n) {
+        out += '  '
+        i += 2
+      }
+      continue
+    }
+
+    out += ch
+    i++
+  }
+
+  return out
+}
+
 // より高度な相対パス参照チェック
 // knownFeatures はテスト容易性のため注入可能（未指定時はディスクから取得）
 function checkRelativeImports(filePath, content, featureName, knownFeatures) {
   const violations = []
   const features = knownFeatures || listFeatureNames()
+  // コメントアウトされた import 例を違反として数えない（2026-08-30-002）
+  const scannable = stripComments(content)
   const relativeImportRegex = /from\s+['"](\.\.\/[^'"]+)['"]/g
   let match
 
-  while ((match = relativeImportRegex.exec(content)) !== null) {
+  while ((match = relativeImportRegex.exec(scannable)) !== null) {
     const importPath = match[1]
 
     // ../で始まるパスを解析
@@ -186,7 +271,11 @@ function checkFile(filePath, content, featureName, options = {}) {
   const violations = []
   const fileName = path.basename(filePath)
 
-  // 相対パスの高度なチェック
+  // パターン照合はコメントを除いた文字列に対して行う（2026-08-30-002）。
+  // checkErrorBoundaryUsage は content.includes() の単純判定なので元の内容を使う。
+  const scannable = stripComments(content)
+
+  // 相対パスの高度なチェック（checkRelativeImports 側でもコメント除去する）
   const relativeViolations = checkRelativeImports(filePath, content, featureName, knownFeatures)
   violations.push(...relativeViolations)
 
@@ -204,7 +293,7 @@ function checkFile(filePath, content, featureName, options = {}) {
     if (check.file && fileName !== check.file) continue
 
     const regex = new RegExp(check.pattern, 'gm')
-    const matches = content.match(regex)
+    const matches = scannable.match(regex)
 
     if (matches) {
       violations.push({
@@ -540,6 +629,7 @@ process.on('unhandledRejection', (error) => {
 module.exports = {
   checkPatterns,
   IMPORT_SCOPE_CHECKS,
+  stripComments,
   listFeatureNames,
   checkRelativeImports,
   checkErrorBoundaryUsage,
