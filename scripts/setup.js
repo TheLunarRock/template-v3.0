@@ -648,24 +648,28 @@ global.localStorage = localStorageMock as any;
   if (!fs.existsSync(ciPath)) {
     const ciWorkflow = `name: CI/CD Pipeline
 
-# 個人開発前提のため main push 時のみ実行（v3.7.8〜）
-# develop branch は使わないため除外。PR運用ON時は pull_request を再追加
+# 個人開発前提のため main のみを対象にする（v3.7.8〜）
+# develop branch は使わないため除外。pull_request は PR運用ON（sc:enable-pr）時のために残してある
 on:
   push:
     branches: [main]
   pull_request:
     branches: [main]
 
+# 同一ブランチへの連続 push で古い run を走らせ続けない（Actions 分数の節約）。
+# 後から来た push が正なので、キューイングではなく打ち切る
+concurrency:
+  group: ci-\${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   quality:
     name: コード品質チェック
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v2
-        with:
-          version: 9
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
         with:
           node-version-file: '.nvmrc'
           cache: 'pnpm'
@@ -688,11 +692,9 @@ jobs:
     name: テスト実行
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v2
-        with:
-          version: 9
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
         with:
           node-version-file: '.nvmrc'
           cache: 'pnpm'
@@ -705,7 +707,7 @@ jobs:
 
       - name: カバレッジレポートをアーティファクト化
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: coverage-report
           path: coverage/
@@ -716,11 +718,9 @@ jobs:
     runs-on: ubuntu-latest
     needs: [quality, test]
     steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v2
-        with:
-          version: 9
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
         with:
           node-version-file: '.nvmrc'
           cache: 'pnpm'
@@ -754,18 +754,22 @@ permissions:
   contents: read
   security-events: write
 
+# 同一ブランチへの連続 push で古い run を走らせ続けない（Actions 分数の節約）。
+# 監査対象は常に最新コミットなので、途中の run を完走させる意味がない
+concurrency:
+  group: security-\${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   dependency-audit:
     name: 依存パッケージ脆弱性監査（pnpm audit）
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: pnpm/action-setup@v2
-        with:
-          version: 9
+      - uses: pnpm/action-setup@v6
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version-file: '.nvmrc'
           cache: 'pnpm'
@@ -784,7 +788,7 @@ jobs:
     name: シークレットスキャン（gitleaks・二重防御）
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
@@ -803,7 +807,7 @@ jobs:
     if: github.event.repository.visibility == 'public'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: CodeQL初期化
         uses: github/codeql-action/init@v3

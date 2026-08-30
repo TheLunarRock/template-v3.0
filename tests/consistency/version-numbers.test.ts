@@ -8,7 +8,7 @@
  * @category 整合性
  * @priority 🟡 important
  */
-/* eslint-disable sonarjs/slow-regex */
+/* eslint-disable sonarjs/slow-regex, security/detect-non-literal-fs-filename */
 
 import { describe, it, expect } from 'vitest'
 import { readFileSync } from 'fs'
@@ -57,42 +57,70 @@ describe('整合性: バージョン番号がファイル間で一致する', ()
     ).toBe(true)
   })
 
-  it('package.json packageManager のバージョンが整合している', () => {
-    // "pnpm@9.12.0" → "9"
-    const pmMatch = /^pnpm@(\d+)/.exec(pkg.packageManager)
-    if (!pmMatch) {
-      throw new Error('package.json packageManager が "pnpm@X.Y.Z" 形式ではありません')
+  it('package.json に packageManager がある（pnpm の単一の真実の源）', () => {
+    expect(
+      /^pnpm@\d+\.\d+\.\d+/.test(pkg.packageManager),
+      `\npackage.json の packageManager が "pnpm@X.Y.Z" 形式ではありません: ${pkg.packageManager}\n` +
+        `pnpm/action-setup@v6 はこのフィールドから pnpm のバージョンを読むため、\n` +
+        `消すとワークフローがバージョンを決められなくなります。\n` +
+        `修正方法: package.json に "packageManager": "pnpm@X.Y.Z" を設定してください。`
+    ).toBe(true)
+  })
+
+  it('ワークフローが pnpm のバージョンを直書きしていない（packageManager を単一の真実の源にする）', () => {
+    const targets = [
+      'scripts/setup.js',
+      '.github/workflows/ci.yml',
+      '.github/workflows/security.yml',
+    ] as const
+
+    /**
+     * pnpm/action-setup のステップ内に version: が直書きされていないか調べる。
+     * ステップの範囲は「`- uses:` の行より深いインデントが続く間」で判定する。
+     */
+    const directVersions = (text: string): string[] => {
+      const lines = text.split('\n')
+      const found: string[] = []
+
+      lines.forEach((line, index) => {
+        if (!line.includes('pnpm/action-setup@')) return
+        const baseIndent = line.search(/\S/)
+
+        for (let cursor = index + 1; cursor < lines.length; cursor++) {
+          const next = lines[cursor]
+          if (next.trim() === '') continue
+          if (next.search(/\S/) <= baseIndent) break // 次のステップに入った
+
+          const match = /^\s*version:\s*(.+)$/.exec(next)
+          if (match) found.push(match[1].trim())
+        }
+      })
+
+      return found
     }
-    const majorVersion = pmMatch[1]
 
-    // setup.js / ci.yml / security.yml で pnpm の major バージョンが一致するか
-    const setupCode = readFileSync(path.join(ROOT, 'scripts/setup.js'), 'utf8')
-    const ciYml = readFileSync(path.join(ROOT, '.github/workflows/ci.yml'), 'utf8')
-    const securityYml = readFileSync(path.join(ROOT, '.github/workflows/security.yml'), 'utf8')
+    for (const target of targets) {
+      const content = readFileSync(path.join(ROOT, target), 'utf8')
 
-    // pnpm/action-setup の version: N を抽出
-    const extractActionVersions = (text: string): string[] =>
-      [...text.matchAll(/pnpm\/action-setup@v\d+[\s\S]*?version:\s*(\d+)/g)].map((m) => m[1])
+      expect(
+        directVersions(content),
+        `\n${target} に pnpm のバージョン直書きが検出されました（v3.8.5〜禁止）。\n` +
+          `pnpm/action-setup@v6 は package.json の packageManager（${pkg.packageManager}）から読むため、\n` +
+          `直書きすると真実の源が2つになりズレます。\n` +
+          `修正方法: pnpm/action-setup ステップから with: version: の記述を削除してください。`
+      ).toEqual([])
+    }
 
-    const allVersions = [
-      ...extractActionVersions(setupCode),
-      ...extractActionVersions(ciYml),
-      ...extractActionVersions(securityYml),
-    ]
-    const unique = [...new Set(allVersions)]
+    // 検査が空振りしないよう、参照自体が消えていないことも確認する
+    for (const workflow of ['.github/workflows/ci.yml', '.github/workflows/security.yml']) {
+      const content = readFileSync(path.join(ROOT, workflow), 'utf8')
 
-    expect(
-      unique.length,
-      `\npnpm メジャーバージョンが ci.yml / security.yml / setup.js で不整合です: ${unique.join(', ')}\n` +
-        `package.json packageManager: ${pkg.packageManager}\n` +
-        `修正方法: 全ファイルで pnpm/action-setup の version を ${majorVersion} に統一してください。`
-    ).toBe(1)
-
-    expect(
-      unique[0],
-      `\npnpm メジャーバージョンが package.json と一致しません: ${unique[0]} vs ${majorVersion}\n` +
-        `修正方法: pnpm/action-setup version を ${majorVersion} に更新してください。`
-    ).toBe(majorVersion)
+      expect(
+        content.includes('pnpm/action-setup@'),
+        `\n${workflow} に pnpm/action-setup の参照がありません。\n` +
+          `修正方法: pnpm をセットアップするステップを復元してください。`
+      ).toBe(true)
+    }
   })
 
   it('CI/security ワークフローが .nvmrc を単一の真実の源として参照している', () => {

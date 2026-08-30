@@ -1,8 +1,14 @@
 # 🔐 シークレットスキャン（gitleaks）
 echo "🔐 シークレットスキャン..."
 if command -v gitleaks >/dev/null 2>&1; then
-  gitleaks git --pre-commit --staged --verbose 2>&1 | tail -5
-  if [ ${PIPESTATUS[0]} -ne 0 ]; then
+  # POSIX sh 互換で終了ステータスを見る（husky はフックを sh で起動する）。
+  # 以前は `gitleaks ... | tail -5` の後に bash 専用の PIPESTATUS を参照していたため、
+  # /bin/sh が dash の環境（多くの Linux）では判定が偽になり、
+  # 秘密情報を検出してもコミットがブロックされなかった（第2層が環境依存で無効化）。
+  gitleaks_output=$(gitleaks git --pre-commit --staged --verbose 2>&1)
+  gitleaks_status=$?
+  echo "$gitleaks_output" | tail -5
+  if [ "$gitleaks_status" -ne 0 ]; then
     echo ""
     echo "❌ 秘密情報の流出を検出しました！"
     echo "APIキー・パスワード等がステージングに含まれています。"
