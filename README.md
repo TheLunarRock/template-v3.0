@@ -56,6 +56,8 @@ claude
 
 動作確認したいときだけ `pnpm dev` を起動します。詳細は [SETUP_GUIDE.md](./SETUP_GUIDE.md) を参照。
 
+`src/app/icon.svg` は中立なプレースホルダです。プロジェクトのアイコンに差し替えてください（App Router のファイル規約で `<link rel="icon">` は自動生成されます）。
+
 ### 🔧 Git Hooksの自動設定
 
 このテンプレートは**最初から機能するGit Hooks**を提供します：
