@@ -227,6 +227,16 @@ const SECRET_ASSIGNMENT_PATTERN =
 const BEARER_PATTERN = /\b(bearer)\s+([\w.~+/=-]{8,})/gi
 
 /**
+ * 接続文字列に埋め込まれた資格情報（`<scheme>://<user>:<password>@<host>`）
+ *
+ * ホストとポートは障害調査に必要なので残し、ユーザー名とパスワードだけ伏せる。
+ * `:` `@` が揃った形だけに一致するため、`https://example.com/docs` のような
+ * 資格情報を持たない URL は変化しない。
+ */
+// eslint-disable-next-line sonarjs/slow-regex -- 入力はエラーメッセージ1件のみで長さが実用上限られる
+const CONNECTION_CREDENTIALS_PATTERN = /([a-z][\w+.-]*:\/\/)[^\s:@/]+:[^\s@/]+@/gi
+
+/**
  * メールアドレス（ローカル部のみ伏せ、ドメインは調査のため残す）
  */
 // eslint-disable-next-line sonarjs/slow-regex -- Email regex is bounded and safe
@@ -266,6 +276,10 @@ export function sanitizeErrorMessage(message: string): string {
 
   // password / token / secret / api_key などのキーと値
   sanitized = sanitized.replace(SECRET_ASSIGNMENT_PATTERN, '$1=***')
+
+  // 接続文字列の資格情報（メール置換より先に処理する。
+  // 後に回すとメール用パターンが user:pass@host を拾って1文字目が残る）
+  sanitized = sanitized.replace(CONNECTION_CREDENTIALS_PATTERN, '$1***:***@')
 
   // メールアドレス（部分的に隠す）
   sanitized = sanitized.replace(EMAIL_PATTERN, (_match, local, domain) => {

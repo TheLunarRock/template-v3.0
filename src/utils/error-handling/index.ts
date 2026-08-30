@@ -92,7 +92,13 @@ export function transformError(error: unknown, options?: ErrorHandlingOptions): 
       context: options?.context,
       timestamp,
       originalError: error,
-      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined,
+      // stack の1行目は "Error: <生のmessage>" を含むため、message と同じくサニタイズする。
+      // logError が console.error(message, error.stack) で並べて出力するため、
+      // ここを素通しにすると message を伏せた意味がなくなる。
+      stack:
+        process.env.NODE_ENV === 'development' && error.stack !== undefined
+          ? sanitizeErrorMessage(error.stack)
+          : undefined,
     }
   }
 

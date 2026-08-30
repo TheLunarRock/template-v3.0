@@ -68,6 +68,23 @@ describe('sanitizeErrorMessage', () => {
     })
   })
 
+  describe('接続文字列の資格情報', () => {
+    it('<scheme>://<user>:<password>@<host> のユーザー名とパスワードを伏せ、ホストとポートは残す', () => {
+      const result = sanitizeErrorMessage(
+        'connection failed: postgres://admin:s3cr3t@db.internal:5432/app'
+      )
+
+      expect(result).not.toContain('s3cr3t')
+      expect(result).not.toContain('admin')
+      expect(result, 'ホストとポートは調査に必要なので残す').toContain('db.internal:5432')
+    })
+
+    it('資格情報を含まない URL は変化しない', () => {
+      const message = 'see https://example.com/docs for details'
+      expect(sanitizeErrorMessage(message)).toBe(message)
+    })
+  })
+
   describe('壊してはいけない性質', () => {
     it('冪等（2回通しても結果が変わらない）', () => {
       const inputs = [
@@ -75,6 +92,7 @@ describe('sanitizeErrorMessage', () => {
         'Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.abc.def',
         'user not found: taro.yamada@example.com',
         'oauth failed client_secret: xyz789',
+        'connection failed: postgres://admin:s3cr3t@db.internal:5432/app',
       ]
 
       for (const input of inputs) {
