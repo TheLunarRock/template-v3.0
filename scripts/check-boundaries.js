@@ -167,15 +167,22 @@ function checkErrorBoundaryUsage(filePath, content) {
   return violations
 }
 
-// src/app 配下にも適用する import 系チェックの名前
-// 構造チェック（ErrorBoundary未使用 / PageContent未分離 / index.ts不在）は適用しない。
-// テンプレート同梱の src/app/page.tsx が即座に警告を出し、警告に慣れる状態を作るため。
+// src/app 配下にも適用する checkPatterns の名前（パターン系チェックのスコープ）
+// index.ts 前提のチェック（フック公開 / UIコンポーネント公開）はフィーチャー固有のため
+// src/app には適用しない。
+//
+// 一方 ErrorBoundary未使用 / PageContent未分離 は 2026-08-30 から src/app にも適用する。
+// 以前はテンプレート同梱の src/app/page.tsx が即座に警告を出すため除外していたが、
+// その page.tsx が要求パターン（ErrorBoundary → PageContent）を満たしたため除外の根拠が消えた。
+// index.ts不在 は App Router のディレクトリに当てはまらないので引き続き適用しない。
 const IMPORT_SCOPE_CHECKS = new Set(['内部ディレクトリ参照'])
 
 // ファイル内容の検査
-// options.structural=false で src/app 向けに import 系チェックのみ実行する
+// options.structural  = false で checkPatterns を IMPORT_SCOPE_CHECKS のみに絞る（src/app 向け）
+// options.errorBoundary = ErrorBoundary未使用 / PageContent未分離 を適用するか
+//   （既定は structural と同じ。src/app は structural=false でも true を渡す）
 function checkFile(filePath, content, featureName, options = {}) {
-  const { structural = true, knownFeatures } = options
+  const { structural = true, errorBoundary = structural, knownFeatures } = options
   const violations = []
   const fileName = path.basename(filePath)
 
@@ -183,8 +190,8 @@ function checkFile(filePath, content, featureName, options = {}) {
   const relativeViolations = checkRelativeImports(filePath, content, featureName, knownFeatures)
   violations.push(...relativeViolations)
 
-  // ErrorBoundary使用チェック（フィーチャー配下のみ）
-  if (structural) {
+  // ErrorBoundary使用チェック（フィーチャー配下 + src/app）
+  if (errorBoundary) {
     const errorBoundaryViolations = checkErrorBoundaryUsage(filePath, content)
     violations.push(...errorBoundaryViolations)
   }
@@ -216,7 +223,7 @@ function checkFile(filePath, content, featureName, options = {}) {
 // 走査対象ディレクトリの検査
 // target: { dir, featureName, structural, label }
 function checkTarget(target) {
-  const { dir, featureName, structural } = target
+  const { dir, featureName, structural, errorBoundary = structural } = target
   const violations = []
   const knownFeatures = listFeatureNames()
 
@@ -225,7 +232,11 @@ function checkTarget(target) {
 
   for (const file of files) {
     const content = fs.readFileSync(file, 'utf8')
-    const fileViolations = checkFile(file, content, featureName, { structural, knownFeatures })
+    const fileViolations = checkFile(file, content, featureName, {
+      structural,
+      errorBoundary,
+      knownFeatures,
+    })
     violations.push(...fileViolations)
   }
 
@@ -328,7 +339,8 @@ function getScanTargets(cwd = process.cwd()) {
     }
   }
 
-  // src/app は import 系チェックのみ（構造チェックは適用しない）
+  // src/app は import 系チェック + page.tsx の構造チェック（ErrorBoundary / PageContent）。
+  // index.ts不在 はフィーチャー固有の要件なので適用しない（structural: false）。
   const appDir = path.join(cwd, 'src/app')
   if (fs.existsSync(appDir)) {
     targets.push({
@@ -336,6 +348,7 @@ function getScanTargets(cwd = process.cwd()) {
       featureName: null,
       label: 'src/app',
       structural: false,
+      errorBoundary: true,
     })
   }
 

@@ -70,7 +70,9 @@ ${colors.red}エラー: フィーチャー名が指定されていません${col
   console.log(`\n${colors.bold}🚀 フィーチャー '${featureName}' を作成中...${colors.reset}\n`)
 
   // ディレクトリ構造作成
-  const dirs = ['api', 'components', 'hooks', 'types', 'utils', 'constants', 'store', '__tests__']
+  // テストは tests/unit/features/<名前>.test.ts に生成する（このスクリプト後半で作成）ため、
+  // フィーチャー配下に空の __tests__/ を作らない。
+  const dirs = ['api', 'components', 'hooks', 'types', 'utils', 'constants', 'store']
   dirs.forEach((dir) => {
     const dirPath = path.join(featurePath, dir)
     fs.mkdirSync(dirPath, { recursive: true })
@@ -307,7 +309,8 @@ ${featureName} フィーチャーの実装
 - \`utils/\` - ユーティリティ関数（内部使用のみ）
 - \`constants/\` - 定数定義
 - \`store/\` - 状態管理（内部使用のみ）
-- \`__tests__/\` - テストファイル
+
+テストはこのディレクトリではなく \`tests/unit/features/${featureName}.test.ts\` に置く。
 
 ## 公開API（index.ts）
 - \`get${pascalName}Data()\` - データ取得

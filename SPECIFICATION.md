@@ -142,8 +142,10 @@ src/features/[feature-name]/
 │   └── index.ts
 ├── utils/            # ヘルパー関数（内部使用のみ）
 ├── store/            # 状態管理（内部使用のみ）
-├── __tests__/        # テストファイル
 └── index.ts          # 公開API（最小限）
+
+テストはフィーチャー配下ではなく tests/unit/features/<feature-name>.test.ts に置く
+（pnpm create:feature が生成する）
 ```
 
 ### 4.2 境界ルール（絶対遵守）

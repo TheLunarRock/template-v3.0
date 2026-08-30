@@ -8,7 +8,7 @@
 
 import { describe, it, expect, vi, afterEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
-import { ErrorBoundary, FeatureErrorBoundary } from './ErrorBoundary'
+import { ErrorBoundary, FeatureErrorBoundary } from '@/components/ErrorBoundary'
 
 /** レンダリング時に必ず例外を投げる子コンポーネント */
 function Boom(): React.ReactElement {

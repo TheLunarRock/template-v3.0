@@ -119,25 +119,23 @@ describe('Regression: 2026-08-29-005 - 境界チェックのディープimport�
         'src/app からフィーチャー内部を直接 import しても検出されない穴が残る。',
       ].join('\n')
     ).toBeDefined()
-    // 構造チェック（ErrorBoundary未使用 / PageContent未分離 / index.ts不在）は適用しない
+    // structural: false = index.ts 前提のチェック（index.ts不在 / フック公開 / UIコンポーネント公開）は適用しない。
+    // ErrorBoundary未使用 / PageContent未分離 は 2026-08-30 から src/app にも適用する
+    // （errorBoundary フラグで分離。tests/regression/2026-08-30-001-*.test.ts が検証）。
     expect(appTarget?.structural).toBe(false)
   })
 
-  it('3b. src/app では構造チェックを適用しない（テンプレート同梱 page.tsx で警告を出さない）', () => {
+  // 2026-08-30-001 で方針を反転: src/app にも ErrorBoundary未使用 / PageContent未分離 を適用する。
+  // ここで守り続けるのは「フィーチャー配下の構造チェックを殺していない」こと。
+  // src/app 側の適用は tests/regression/2026-08-30-001-*.test.ts が検証する。
+  it('3b. フィーチャー配下では構造チェックが従来どおり効く', () => {
     const barePage = 'export default function Page() {\n  return <div />\n}\n'
 
-    const asApp = boundaries.checkFile('src/app/page.tsx', barePage, null, {
-      structural: false,
-      knownFeatures: KNOWN_FEATURES,
-    })
-    expect(checksOf(asApp)).not.toContain('ErrorBoundary未使用')
-    expect(checksOf(asApp)).not.toContain('PageContent未分離')
-
-    // フィーチャー配下では従来どおり検出される（構造チェック自体は殺さない）
     const asFeature = boundaries.checkFile('src/features/user/page.tsx', barePage, 'user', {
       knownFeatures: KNOWN_FEATURES,
     })
     expect(checksOf(asFeature)).toContain('ErrorBoundary未使用')
+    expect(checksOf(asFeature)).toContain('PageContent未分離')
   })
 
   it('4. ../../user/api/x が他フィーチャーへの相対パス参照として検出される', () => {
