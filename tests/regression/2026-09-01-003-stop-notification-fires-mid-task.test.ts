@@ -124,6 +124,10 @@ function envFor(stub: Stub, projectDir: string): Record<string, string> {
     CI: '',
     CLAUDE_NOTIFY_DISABLED: '',
     CLAUDE_NOTIFY_NO_SLACK: '',
+    // PID ディレクトリはテストごとに分ける。既定の $HOME/.claude/notify-repeat を
+    // 共有すると、stop-all がディレクトリ内の全 PID を kill する仕様のせいで
+    // 並列実行中の別テストや実運用の通知を巻き添えにする（回帰 2026-09-01-006）。
+    CLAUDE_NOTIFY_PIDDIR: path.join(stub.dir, 'piddir'),
   }
 }
 

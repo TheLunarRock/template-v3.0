@@ -28,6 +28,10 @@
 #   発火し、auto mode では作業の途中で何度も鳴るため、待っている間に作業が
 #   再開されたらキャンセルする。0 なら即時。
 #
+#   PID ファイルの置き場所は CLAUDE_NOTIFY_PIDDIR で上書きできる（既定は
+#   $HOME/.claude/notify-repeat）。stop-all がディレクトリ内の全 PID を kill する
+#   仕様のため、テストは必ず専用ディレクトリを渡して実運用と分離すること。
+#
 #   Slack は環境変数 CLAUDE_NOTIFY_SLACK_URL / CLAUDE_NOTIFY_SLACK_TEXT で受け取る。
 #   遅延・Slack・デスクトップ通知を 1 本のバックグラウンドジョブにまとめており、
 #   PID ファイル 1 つで丸ごとキャンセルできる。キャンセルされたときに
@@ -50,7 +54,12 @@
 
 set -u
 
-PIDDIR="$HOME/.claude/notify-repeat"
+# PID ファイルの置き場所。既定は実運用向けの $HOME/.claude/notify-repeat。
+# stop-all はこのディレクトリ内の *.pid を「プロジェクトを問わず全て」kill するため、
+# テストが既定値のまま走ると、並列実行中の別テストの待機ジョブや、開発者が
+# 実際に受け取るはずだった通知まで巻き添えで消える。テストはこの変数で
+# テストごとの一時ディレクトリを渡し、実運用と状態を共有しないこと。
+PIDDIR="${CLAUDE_NOTIFY_PIDDIR:-$HOME/.claude/notify-repeat}"
 
 # alerter に渡す保険のタイムアウト（秒）。0 にすると、停止を取りこぼしたときに
 # 通知が永久に残るため、長めの有限値にしておく。

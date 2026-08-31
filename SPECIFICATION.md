@@ -1160,6 +1160,9 @@ Webhook URL 取得手順:
 | `CLAUDE_NOTIFY_ALERTER`    | `alerter` の配置を上書きする。`none` で無効化しフォールバック経路を通す  |
 | `CLAUDE_NOTIFY_NO_SLACK=1` | Slack 送信だけを止める。デスクトップ通知は出る（動作確認用）             |
 | `CLAUDE_NOTIFY_STOP_DELAY` | `Stop` の通知を遅らせる秒数。既定 15、`0` で即時（§11.4.4）              |
+| `CLAUDE_NOTIFY_PIDDIR`     | PID ファイルの置き場所。既定 `$HOME/.claude/notify-repeat`（下記）       |
+
+`CLAUDE_NOTIFY_PIDDIR` は **PID ファイルの置き場所**。`stop-all` はこのディレクトリ内の `*.pid` を**プロジェクトを問わず全て** kill する仕様のため、既定値のままテストを走らせると、並列実行中の別テストの待機ジョブや開発者の実運用の通知まで巻き添えで消える。実際に CI が3プッシュ連続で赤くなり、`vitest` のファイル並列実行によって §11.4.4 の遅延待ちジョブが別ファイルの `stop-all` に殺されていた（2026-09-01）。原因はタイミングではなく共有状態なので、タイムアウトを延ばす対処では直らない。**通知フックを起動するテストは必ずテストごとの一時ディレクトリを渡すこと。** 回帰テスト: `tests/regression/2026-09-01-006-notify-piddir-shared-with-tests.test.ts`
 
 `CLAUDE_NOTIFY_DRY_RUN` の出力フォーマット（改行区切り）:
 

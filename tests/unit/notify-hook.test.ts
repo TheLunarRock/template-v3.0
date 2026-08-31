@@ -23,7 +23,7 @@
  * @priority 🟡 important
  */
 
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, afterAll } from 'vitest'
 import { spawnSync } from 'child_process'
 import path from 'path'
 
@@ -252,14 +252,24 @@ describe('繰り返し通知: フックは作業をブロックしない', () =>
  * 仕様: SPECIFICATION.md §11.10
  */
 describe('繰り返し通知: セッションが終了していたら鳴らさない', () => {
-  const PIDDIR = path.join(process.env.HOME ?? '', '.claude/notify-repeat')
+  // 実運用の $HOME/.claude/notify-repeat とは共有しない。stop-all はディレクトリ内の
+  // 全 PID を kill するため、既定値のままだと並列実行中の別テストの待機ジョブや
+  // 開発者の実運用の通知まで巻き添えで消える（回帰 2026-09-01-006）。
+  const PIDDIR = spawnSync(BASH_BIN, ['-c', 'mktemp -d'], {
+    encoding: 'utf8',
+    timeout: 30_000,
+  }).stdout.trim()
+
+  afterAll(() => {
+    spawnSync(BASH_BIN, ['-c', 'rm -rf "$1"', 'sh', PIDDIR], { timeout: 30_000 })
+  })
 
   /** 起動を試み、PID ファイルが作られたかどうかを返す */
   function tryStart(env: Record<string, string>, dir: string): boolean {
     spawnSync(BASH_BIN, [REPEAT_HOOK, 'start', dir, 'テスト', '本文', 'Ping', '60', '1'], {
       encoding: 'utf8',
       timeout: 30_000,
-      env: { ...process.env, ...env },
+      env: { ...process.env, CLAUDE_NOTIFY_PIDDIR: PIDDIR, ...env },
     })
     const key = spawnSync(BASH_BIN, [REPEAT_HOOK, 'key', dir], {
       encoding: 'utf8',
@@ -270,7 +280,10 @@ describe('繰り返し通知: セッションが終了していたら鳴らさ�
     const existed =
       spawnSync(BASH_BIN, ['-c', 'test -f "$1"', 'sh', pidfile], { timeout: 30_000 }).status === 0
     // 後始末（万一起動していた場合に鳴らし続けないため）
-    spawnSync(BASH_BIN, [REPEAT_HOOK, 'stop', dir], { timeout: 30_000 })
+    spawnSync(BASH_BIN, [REPEAT_HOOK, 'stop', dir], {
+      timeout: 30_000,
+      env: { ...process.env, CLAUDE_NOTIFY_PIDDIR: PIDDIR },
+    })
     return existed
   }
 
@@ -300,9 +313,11 @@ describe('繰り返し通知: セッションが終了していたら鳴らさ�
   })
 
   it('stop-all は稼働中のループが無くても exit 0 を返す', () => {
+    // 既定の PIDDIR を向けると実運用の通知まで消えるため、必ず専用ディレクトリを渡す
     const r = spawnSync(BASH_BIN, [REPEAT_HOOK, 'stop-all'], {
       encoding: 'utf8',
       timeout: 30_000,
+      env: { ...process.env, CLAUDE_NOTIFY_PIDDIR: PIDDIR },
     })
 
     expect(r.status).toBe(0)

@@ -167,6 +167,10 @@ EOF
         CLAUDE_NOTIFY_DISABLED: '',
         // 遅延は本テストの関心ではないので即時にする
         CLAUDE_NOTIFY_STOP_DELAY: '0',
+        // PID ディレクトリはテストごとに分ける。既定の $HOME/.claude/notify-repeat を
+        // 共有すると、stop-all がディレクトリ内の全 PID を kill する仕様のせいで
+        // 並列実行中の別テストや実運用の通知を巻き添えにする（回帰 2026-09-01-006）。
+        CLAUDE_NOTIFY_PIDDIR: path.join(dir, 'piddir'),
         ...env,
       },
     })

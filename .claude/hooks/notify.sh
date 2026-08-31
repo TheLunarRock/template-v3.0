@@ -44,6 +44,9 @@
 #   CLAUDE_NOTIFY_NO_SLACK=1  Slack 送信だけを止める（デスクトップ通知は出す）。
 #                             動作確認で直接叩くたびに実 Slack が飛ぶのを防ぐ
 #   CLAUDE_NOTIFY_STOP_DELAY=15 Stop の通知を遅らせる秒数。0 で即時
+#   CLAUDE_NOTIFY_PIDDIR      PID ファイルの置き場所（既定 $HOME/.claude/notify-repeat）。
+#                             stop-all がディレクトリ内の全 PID を kill するため、
+#                             テストは専用ディレクトリを渡して実運用と分離する
 #
 # 注意: 本フックは通知専用のため、いかなる場合も exit 0 で通過させる。
 #       ガード系フック（dev-server-guard 等）と違い作業を止めてはならない。
