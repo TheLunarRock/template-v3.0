@@ -9,9 +9,10 @@
 #
 # 仕組み:
 #   - stdin から Hook ペイロード（JSON）を受け取り node で解析する（jq 非依存）
-#   - Stop         → 「作業が終わりました」＋ 最終回答をクリップボードへコピー
-#                    （Stop ペイロードの last_assistant_message を使うため
-#                     transcript の解析は不要）
+#   - Stop         → 「作業が終わりました」を通知する
+#     クリップボードへのコピーは行わない。報告を pbcopy で受け渡す運用と衝突し、
+#     Stop フックが後から last_assistant_message で上書きして報告を壊すため
+#     廃止した（2026-09-01）。報告の受け渡しは呼び出し側が担う。
 #   - Notification → 承認待ち（permission_prompt 等）だけを通知する。
 #                    待機（idle_prompt）は通知しない。Stop で 1 通目が出たあと
 #                    待つほど発火して Slack が積み上がり、Stop の「作業が
@@ -58,7 +59,6 @@ INPUT=$(cat)
 #   2行目      通知タイトル
 #   3行目      通知本文（1行に正規化済み）
 #   4行目      サウンド名（/System/Library/Sounds/<name>.aiff）
-#   5行目以降  クリップボードへ入れる本文（無い場合は空）
 RESULT=$(printf '%s' "$INPUT" | node -e '
   let d = "";
   process.stdin.on("data", (c) => (d += c));
@@ -72,14 +72,10 @@ RESULT=$(printf '%s' "$INPUT" | node -e '
     let title = "";
     let message = "";
     let sound = "";
-    let clip = "";
 
     if (event === "Stop") {
-      clip = String(p.last_assistant_message || "");
       title = "✅ Claude Code — " + project;
-      message = clip
-        ? "作業が終わりました。報告はクリップボードにあります"
-        : "作業が終わりました";
+      message = "作業が終わりました";
       sound = "Glass";
     } else if (event === "Notification") {
       // 待機は通知しない。マッチャー（settings.json）でも除いているが、
@@ -106,7 +102,7 @@ RESULT=$(printf '%s' "$INPUT" | node -e '
     // 通知センターでの表示崩れを防ぐため本文は 1 行に正規化する
     message = message.replace(/\s+/g, " ").trim();
 
-    console.log(["OK", title, message, sound].join("\n") + "\n" + clip);
+    console.log(["OK", title, message, sound].join("\n"));
   });
 ' 2>/dev/null) || RESULT="SKIP"
 
@@ -124,15 +120,6 @@ fi
 TITLE=$(printf '%s\n' "$RESULT" | sed -n '2p')
 MESSAGE=$(printf '%s\n' "$RESULT" | sed -n '3p')
 SOUND=$(printf '%s\n' "$RESULT" | sed -n '4p')
-REPORT=$(printf '%s\n' "$RESULT" | sed -n '5,$p')
-
-# ---- クリップボード（macOS のみ）----
-# 報告本文をクリップボードへ（通知から本文を読み返す手間をなくす）
-if [ "$(uname -s)" = "Darwin" ]; then
-  if [ -n "$REPORT" ] && command -v pbcopy >/dev/null 2>&1; then
-    printf '%s' "$REPORT" | pbcopy
-  fi
-fi
 
 # ---- 遅延の要否 ----
 # Stop だけを遅らせる。DRY_RUN の 5 行フォーマットは変えられないため、

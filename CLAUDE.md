@@ -293,6 +293,8 @@ cp .claude/settings.json .claude/settings.local.json
 
 ## 発火タイミングと通知内容
 
+**通知フックはクリップボードを操作しない。** かつて `Stop` の `last_assistant_message` を `pbcopy` で入れていたが、報告を `pbcopy` で受け渡す運用と衝突し、報告が上書きされるため廃止した（2026-09-01・SPECIFICATION.md §11.4.5）。報告の受け渡しは呼び出し側の責務。
+
 **通知が出るのは「作業完了（`Stop`）」と「承認待ち（`Notification`）」の2種類だけ。待機（`idle_prompt`）では通知しない。** 待つほど繰り返し発火し、Slack は履歴なので同じ内容が積み上がるうえ、Stop の「作業が終わりました」が「応答がないまま止まっています」に上書きされるため。Stop の通知は消すまで残るので見逃さない。
 
 **作業完了の通知は15秒遅れて出る。その間に作業が再開されたら鳴らない。** `Stop` は「タスク完了」ではなく「1回の応答が終わった」で発火するため、auto mode では作業の途中で何度も鳴ってしまうから。遅延中に `PreToolUse` / `UserPromptSubmit` が来たらキャンセルされ、**デスクトップ通知も Slack も送られない**（`CLAUDE_NOTIFY_STOP_DELAY` で変更・`0` で即時）。承認待ちは人間が動かないと進まないので遅延させない。
@@ -344,6 +346,7 @@ bash .claude/hooks/notify-repeat.sh stop-all
 9. **動作確認で `notify.sh` を直接叩くときは `CLAUDE_NOTIFY_NO_SLACK=1` を付ける** — 付けないと 1 回ごとに実 Slack が飛ぶ。テストから `notify.sh` を実行する場合も同じ（`CLAUDE_NOTIFY_DRY_RUN=1` なら不要）
 10. **Slack 送信を `notify.sh` に戻さない** — 遅延中にキャンセルされたとき「通知は取り消されたのに Slack だけ飛ぶ」最悪の形になる。送信は必ず `notify-repeat.sh` のジョブ内で行う
 11. **承認待ちを遅延させない** — `permission_prompt` / `agent_needs_input` は人間が動かないと進まない
+12. **クリップボードへのコピーを復活させない** — 報告を `pbcopy` で受け渡す運用を壊す。「通知から報告を読み返せると便利」は 2026-09-01 に廃止済みの発想（SPECIFICATION.md §11.4.5）
 
 ## トラブルシューティング
 

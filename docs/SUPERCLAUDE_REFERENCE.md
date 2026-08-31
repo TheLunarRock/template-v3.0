@@ -25,15 +25,15 @@ MCP 初回セットアップ手順・通知の詳細・CI 構成・過去の設�
 
 ## 発火タイミングと通知内容
 
-| イベント                             | 通知内容                                           | 音    |
-| ------------------------------------ | -------------------------------------------------- | ----- |
-| **Stop**                             | 作業が終わりました。報告はクリップボードにあります | Glass |
-| **Notification** `permission_prompt` | 確認待ちで止まっています（ツール使用の承認）       | Ping  |
-| **Notification** `idle_prompt`       | **通知しない**（Slack が積み上がるため）           | —     |
-| **Notification** `elicitation_*`     | 入力／URL の入力を求めて止まっています             | Ping  |
-| **Notification** `agent_needs_input` | サブエージェントが入力を待っています               | Ping  |
+| イベント                             | 通知内容                                     | 音    |
+| ------------------------------------ | -------------------------------------------- | ----- |
+| **Stop**                             | 作業が終わりました                           | Glass |
+| **Notification** `permission_prompt` | 確認待ちで止まっています（ツール使用の承認） | Ping  |
+| **Notification** `idle_prompt`       | **通知しない**（Slack が積み上がるため）     | —     |
+| **Notification** `elicitation_*`     | 入力／URL の入力を求めて止まっています       | Ping  |
+| **Notification** `agent_needs_input` | サブエージェントが入力を待っています         | Ping  |
 
-**クリップボード連携:** `Stop` フックのペイロードに含まれる `last_assistant_message`（その turn の最終回答）を `pbcopy` でクリップボードへ入れる。通知に気付いた時点で報告本文がそのまま貼り付けられる。
+**クリップボードには触れない:** かつて `Stop` の `last_assistant_message` を `pbcopy` で入れていたが、報告を `pbcopy` で受け渡す運用と衝突し、報告が上書きされるため廃止（2026-09-01）。理由は SPECIFICATION.md §11.4.5 を参照（消すと同じものが再び足される）。
 
 **通知は「作業完了」と「承認待ち」の2種類だけ:** 待機（`idle_prompt`）では通知しない。待つほど繰り返し発火し、デスクトップ通知は上書きされて1枚に見える一方で **Slack は履歴なので積み上がる**うえ、Stop の「作業が終わりました」が「応答がないまま止まっています」に化けるため。Stop の通知は消すまで残るので、idle が無くても見逃さない（SPECIFICATION.md §11.4.2）。
 
@@ -75,7 +75,7 @@ CI 環境（`CI` 変数あり）では通知しない。
 | 通知が2回来る                         | `~/.claude/settings.json` に旧グローバル hooks が残っている  | グローバル側スクリプトに譲渡ガードを入れる（SPECIFICATION.md §11.8）                                  |
 | 通知が来ない                          | ターミナル／エディタに通知権限がない                         | システム設定 → 通知 で該当アプリを許可                                                                |
 | 音は鳴るが通知が出ない                | 同上（音は `afplay` で別経路のため鳴る）                     | 同上                                                                                                  |
-| macOS 以外で動かない                  | 通知センター・`afplay`・`pbcopy` は macOS 前提               | Slack 連携のみ利用（macOS 依存部分は自動でスキップされる）                                            |
+| macOS 以外で動かない                  | 通知センター・`afplay` は macOS 前提                         | Slack 連携のみ利用（macOS 依存部分は自動でスキップされる）                                            |
 | 通知が鳴り止まない                    | 停止フックが未登録、または別プロジェクトの通知が残っている   | `bash .claude/hooks/notify-repeat.sh stop-all` で全停止。`ls ~/.claude/notify-repeat/` で稼働中を確認 |
 | エディタを閉じた後も鳴る              | セッションの生存監視が効いていない                           | `stop-all` で停止。SPECIFICATION.md §11.10.6 を確認                                                   |
 | 通知がすぐ消える                      | `alerter` が未導入でフォールバック経路になっている           | `brew install vjeantet/tap/alerter`。導入後は消すまで残る                                             |

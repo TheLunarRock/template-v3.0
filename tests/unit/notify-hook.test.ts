@@ -6,8 +6,8 @@
  * .claude/hooks/notify.sh がその通知を担う。本テストは以下を保証する。
  *
  * - Stop / Notification それぞれで正しい文言・サウンドが選ばれる
- * - Stop の last_assistant_message がクリップボード本文として渡される
- *   （引用符・バックスラッシュ・改行を含んでも壊れない）
+ * - クリップボードには一切触れない（報告を pbcopy で受け渡す運用と衝突し、
+ *   Stop フックが後から上書きして報告を壊すため廃止。回帰 2026-09-01-004）
  * - 待機（idle_prompt）では通知しない（Slack が積み上がるため。回帰 2026-09-01-002）
  * - 対象外イベント・壊れた入力では何もしない
  * - 通知専用フックとして、いかなる入力でも作業をブロックしない（常に exit 0）
@@ -15,7 +15,7 @@
  * - セッションが終了していればループを起動しない（エディタを閉じた後に鳴り続けない）
  *
  * 判定のみを検証するため CLAUDE_NOTIFY_DRY_RUN=1 で実行する
- * （osascript / afplay / pbcopy / Slack 送信の副作用は起こさない）。
+ * （osascript / afplay / Slack 送信の副作用は起こさない）。
  *
  * 仕様: SPECIFICATION.md §11
  *
@@ -42,8 +42,6 @@ interface HookResult {
   title: string
   message: string
   sound: string
-  /** 5行目以降: クリップボードへ渡される報告本文 */
-  clipboard: string
 }
 
 /** 通知フックにペイロードを渡し、判定結果を構造化して返す */
@@ -55,45 +53,36 @@ function runHook(payload: unknown, env: Record<string, string> = {}): HookResult
     env: { ...process.env, CLAUDE_NOTIFY_DRY_RUN: '1', ...env },
   })
   const lines = result.stdout.split('\n')
-  // 5行目以降が報告本文。末尾の空行は出力上の改行なので落とす
-  const clipboardLines = lines.slice(4)
-  while (clipboardLines.length > 0 && clipboardLines[clipboardLines.length - 1] === '') {
-    clipboardLines.pop()
-  }
   return {
     status: result.status,
     kind: lines[0] ?? '',
     title: lines[1] ?? '',
     message: lines[2] ?? '',
     sound: lines[3] ?? '',
-    clipboard: clipboardLines.join('\n'),
   }
 }
 
 const CWD = '/Users/example/Documents/GitHub/my-app'
 
 describe('Stop: 作業完了の通知', () => {
-  it('最終回答をクリップボード本文として渡す', () => {
-    const report = '実装しました。\n- 引用符 " を含む\n- バックスラッシュ \\ を含む'
-    const r = runHook({
-      hook_event_name: 'Stop',
-      cwd: CWD,
-      last_assistant_message: report,
-    })
-
-    expect(r.kind).toBe('OK')
-    expect(r.title).toContain('my-app')
-    expect(r.message).toBe('作業が終わりました。報告はクリップボードにあります')
-    expect(r.sound).toBe('Glass')
-    expect(r.clipboard).toBe(report)
-  })
-
-  it('最終回答が無い場合はクリップボードに言及しない', () => {
+  it('プロジェクト名つきの文言とサウンドを選ぶ', () => {
     const r = runHook({ hook_event_name: 'Stop', cwd: CWD })
 
     expect(r.kind).toBe('OK')
+    expect(r.title).toContain('my-app')
     expect(r.message).toBe('作業が終わりました')
-    expect(r.clipboard).toBe('')
+    expect(r.sound).toBe('Glass')
+  })
+
+  // 報告は呼び出し側が pbcopy で受け渡す。フックが last_assistant_message を
+  // クリップボードへ入れると、その報告を後から上書きして壊す（回帰 2026-09-01-004）。
+  it('last_assistant_message があっても文言は変わらず、判定結果にも現れない', () => {
+    const report = '実装しました。\n- 引用符 " を含む\n- バックスラッシュ \\ を含む'
+    const r = runHook({ hook_event_name: 'Stop', cwd: CWD, last_assistant_message: report })
+
+    expect(r.message).toBe('作業が終わりました')
+    expect(r.message).not.toContain('クリップボード')
+    expect(r.sound).toBe('Glass')
   })
 })
 
