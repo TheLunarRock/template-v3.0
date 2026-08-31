@@ -9,7 +9,6 @@
       "Bash(pnpm:*)",
       "Bash(npm run:*)",
       "Bash(npm install:*)",
-      "Bash(npx:*)",
       "Bash(node:*)",
       "Bash(chmod:*)",
       "Bash(sed:*)",
@@ -18,9 +17,7 @@
       "Bash(grep:*)",
       "Bash(awk:*)",
       "Bash(mkdir:*)",
-      "Bash(rm:*)",
       "Bash(cp:*)",
-      "Bash(curl:*)",
       "Bash(timeout:*)",
       "Bash(sha256sum:*)",
       "Bash(cloc:*)",
@@ -32,7 +29,6 @@
       "Bash(git branch:*)",
       "Bash(git show:*)",
       "Bash(git pull:*)",
-      "Bash(git push:*)",
       "Bash(git stash:*)",
       "Bash(gh run list:*)",
       "Bash(gh run view:*)",
@@ -69,7 +65,6 @@
       "mcp__serena__find_symbol",
       "mcp__serena__find_referencing_symbols",
       "mcp__serena__get_symbols_overview",
-      "mcp__serena__execute_shell_command",
       "mcp__serena__find_file",
       "mcp__sequential-thinking__sequentialthinking",
       "mcp__context7__resolve-library-id",
@@ -101,7 +96,8 @@
       "Read(~/.aws/*)",
       "mcp__claude-in-chrome",
       "mcp__playwright",
-      "mcp__puppeteer"
+      "mcp__puppeteer",
+      "mcp__serena__execute_shell_command"
     ],
     "ask": [
       "mcp__supabase__execute_sql",
@@ -119,7 +115,9 @@
       "Bash(git push origin feature/*)",
       "Bash(git push -u origin feature/*)",
       "Bash(git push --set-upstream origin feature/*)",
-      "Bash(git push --force origin *)"
+      "Bash(git push --force origin *)",
+      "Bash(rm -rf:*)",
+      "Bash(rm -r:*)"
     ]
   },
   "hooks": {
@@ -143,7 +141,7 @@
         ]
       },
       {
-        "matcher": "Bash",
+        "matcher": "Bash|mcp__.*__execute_shell_command",
         "hooks": [
           {
             "type": "command",

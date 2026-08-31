@@ -200,8 +200,11 @@ describe('配線: settings.json に deny とフックが登録されている', 
       entry.hooks.some((h) => h.command.includes('blocking-op-guard.sh'))
     ).map((entry) => entry.matcher)
 
+    // matcher は 2026-09-01 に "Bash|mcp__.*__execute_shell_command" へ広げた
+    // （serena のシェル経由でガードを迂回できたため。回帰 2026-09-01-005）。
+    // ここでは「Bash への反応を失っていないこと」を選択肢単位で確認する。
     expect(
-      matchersWithGuard,
+      matchersWithGuard.flatMap((m) => m.split('|')),
       '\n.claude/settings.json の PreToolUse に blocking-op-guard.sh の Bash 登録がありません。'
     ).toContain('Bash')
 

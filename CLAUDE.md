@@ -52,12 +52,17 @@
 
 **評価優先順位:** `deny` → `ask` → `allow`（denyが最優先）
 
-| カテゴリ     | denyルール                                                                                       | 防止する操作                 |
-| ------------ | ------------------------------------------------------------------------------------------------ | ---------------------------- |
-| システム破壊 | `rm -rf /`, `rm -rf ~`, `mkfs*`, `dd`, `> /dev/*`                                                | OS・ディスクの破壊           |
-| 権限破壊     | `chmod 777 *`                                                                                    | 全ファイルのworld-writable化 |
-| Git保護      | `git push --force origin main/master`                                                            | 本番ブランチの履歴破壊       |
-| 秘密情報保護 | `Read(**/*.pem)`, `Read(**/*.key)`, `Read(~/.ssh/*)`, `Read(~/.aws/*)`, `Read(**/*credentials*)` | 秘密鍵・認証情報の読み取り   |
+| カテゴリ       | denyルール                                                                                       | 防止する操作                                 |
+| -------------- | ------------------------------------------------------------------------------------------------ | -------------------------------------------- |
+| システム破壊   | `rm -rf /`, `rm -rf ~`, `mkfs*`, `dd`, `> /dev/*`                                                | OS・ディスクの破壊                           |
+| 権限破壊       | `chmod 777 *`                                                                                    | 全ファイルのworld-writable化                 |
+| Git保護        | `git push --force origin main/master`                                                            | 本番ブランチの履歴破壊                       |
+| 秘密情報保護   | `Read(**/*.pem)`, `Read(**/*.key)`, `Read(~/.ssh/*)`, `Read(~/.aws/*)`, `Read(**/*credentials*)` | 秘密鍵・認証情報の読み取り                   |
+| ガード迂回防止 | `mcp__serena__execute_shell_command`                                                             | **ガードフックを通らないシェル実行**（下記） |
+
+**なぜ serena のシェル実行を deny するのか:** ガードフック（`dev-server-guard` / `git-push-guard` / `blocking-op-guard`）と `deny` の `Bash(...)` 形式は、いずれも **Bash ツールにしか反応しない**。serena のシェル経由なら `pnpm dev`・`git push --force origin main`・`npx playwright` が警告もブロックも無く通り、**3層すべてを 1 つの allow エントリで迂回できていた**（2026-09-01 に発見）。保険として `PreToolUse` の matcher も `Bash|mcp__.*__execute_shell_command` に広げてある。serena の**シェル実行以外**（`find_symbol` / `replace_symbol_body` 等）は allow のまま使える。
+
+**`Bash(node:*)` を allow に残しているのは意図的:** コマンド名を allow に並べる方式は、任意コード実行（`node -e` / `sed -i` / `bash -c`）を許した時点で**実行内容の境界にはならない**。実効的に効いているのは「内容を検査して確定ブロックするガードフック」であり、allow の役割は毎回聞かれる煩わしさを減らすことに過ぎない。`Bash(node:*)` を外しても `bash -c` で同じことができ、**プロンプトが増えるだけで防御は増えない**。
 
 **通常の開発操作には影響しない:** `rm src/...`、`chmod +x`、`git push origin feature/...`等は許可。
 
@@ -129,6 +134,7 @@ ALLOW_DEV_SERVER=1 pnpm dev
 11. **DB破壊系Hookと ask 設定を削除・無効化しない** — `.claude/hooks/db-destructive-warning.sh` および settings.json の Supabase MCP破壊系 ask 5種は、過去の本番DB削除事故の再発防止策。解除が必要な場合は`settings.local.json`で個別override（テンプレートのsettings.jsonは触らない）
 12. **`public` スキーマに新規テーブルを作成したら明示的に GRANT を付与する** — 2026-05-30 以降に作成された Supabase プロジェクトでは、`public` スキーマのテーブルがデフォルトで Data API（PostgREST / GraphQL / supabase-js）に公開されない。テーブル作成マイグレーションには `grant select, insert, update, delete on table public.<table> to authenticated, service_role;`（連番列・シーケンスを使う場合は `grant usage, select on all sequences in schema public to authenticated, service_role;`）を必ず含める。未認証公開が必要なテーブルのみ `anon` を明示追加し、必ず RLS（`enable row level security`）を併用する。既存テーブルは公開状態が維持されるため遡及対応は不要。**このルールは Supabase 固有。Neon など自動 REST API を持たない素の PostgreSQL ではアクセスモデルが異なり該当しない**（認可はアプリ層で実装。`anon`/`authenticated` GRANT を機械的に流用しないこと）。詳細は [SPECIFICATION.md セクション12.15.9](./SPECIFICATION.md) を参照
 13. **Neon 利用時は学習データに頼らず現行仕様を都度確認する** — Neon は破壊的変更・デフォルト変更が頻繁（Auth SDK 書き換え・Snapshot 課金導入・Postgres 拡張/API 廃止等）。Auth SDK / Management API / 利用可能な拡張は実装前に必ず Context7 か公式 changelog で**現行仕様を確認**してから書く（AI の既存知識をそのまま使わない）。コスト系（Snapshot 課金等の fail-open 変更）は使用前に料金影響を確認する。個別 API 名は陳腐化するため先回りで文書化せず、実使用で繰り返し間違える点が出たらそのときルール化する（YAGNI）。詳細は [SPECIFICATION.md セクション12.15.9.11](./SPECIFICATION.md) を参照
+14. **`allow` に `mcp__serena__execute_shell_command` を戻さない** — ガードフックと `deny` の `Bash(...)` 形式は Bash ツールにしか反応しないため、serena のシェル経由だと開発サーバー起動・force push・ブラウザ自動操作の禁止がすべて迂回できる。シェルが必要なときは Bash ツールを使う（ガードが効く）。`Bash(node:*)` 等を「危険だから」と allow から外すのは逆に無意味（`bash -c` で同じことができ、プロンプトが増えるだけ）
 
 ## GitHub側セキュリティ設定のvisibility分岐
 
