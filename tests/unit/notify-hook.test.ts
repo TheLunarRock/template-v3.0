@@ -8,6 +8,7 @@
  * - Stop / Notification それぞれで正しい文言・サウンドが選ばれる
  * - Stop の last_assistant_message がクリップボード本文として渡される
  *   （引用符・バックスラッシュ・改行を含んでも壊れない）
+ * - 待機（idle_prompt）では通知しない（Slack が積み上がるため。回帰 2026-09-01-002）
  * - 対象外イベント・壊れた入力では何もしない
  * - 通知専用フックとして、いかなる入力でも作業をブロックしない（常に exit 0）
  * - 繰り返し通知のループがプロジェクト単位で分離される（並行作業中に混線しない）
@@ -99,7 +100,6 @@ describe('Stop: 作業完了の通知', () => {
 describe('Notification: 止まっている状態の通知', () => {
   it.each([
     ['permission_prompt', '確認待ちで止まっています（ツール使用の承認）'],
-    ['idle_prompt', '応答がないまま止まっています'],
     ['elicitation_dialog', '入力を求めて止まっています'],
     ['elicitation_url_dialog', 'URL の入力を求めて止まっています'],
     ['agent_needs_input', 'サブエージェントが入力を待っています'],
@@ -133,6 +133,18 @@ describe('Notification: 止まっている状態の通知', () => {
     expect(r.kind).toBe('OK')
     expect(r.message).toBe('確認待ちで止まっています')
   })
+
+  // 待機は通知しない。Stop で 1 通目が出たあと待つほど発火し、Slack が
+  // 積み上がるため（回帰: 2026-09-01-002）。
+  it('idle_prompt では通知しない', () => {
+    const r = runHook({
+      hook_event_name: 'Notification',
+      cwd: CWD,
+      notification_type: 'idle_prompt',
+    })
+
+    expect(r.kind).toBe('SKIP')
+  })
 })
 
 describe('通知しないケース', () => {
@@ -154,7 +166,14 @@ describe('通知しないケース', () => {
 describe('通知フックは作業をブロックしない', () => {
   it.each([
     ['正常な Stop', { hook_event_name: 'Stop', cwd: CWD, last_assistant_message: 'done' }],
-    ['正常な Notification', { hook_event_name: 'Notification', notification_type: 'idle_prompt' }],
+    [
+      '正常な Notification',
+      { hook_event_name: 'Notification', notification_type: 'permission_prompt' },
+    ],
+    [
+      '通知しない Notification',
+      { hook_event_name: 'Notification', notification_type: 'idle_prompt' },
+    ],
     ['対象外イベント', { hook_event_name: 'PreToolUse' }],
     ['空ペイロード', {}],
   ])('%s で exit 0 を返す', (_label, payload) => {

@@ -29,13 +29,15 @@ MCP 初回セットアップ手順・通知の詳細・CI 構成・過去の設�
 | ------------------------------------ | -------------------------------------------------- | ----- |
 | **Stop**                             | 作業が終わりました。報告はクリップボードにあります | Glass |
 | **Notification** `permission_prompt` | 確認待ちで止まっています（ツール使用の承認）       | Ping  |
-| **Notification** `idle_prompt`       | 応答がないまま止まっています                       | Ping  |
+| **Notification** `idle_prompt`       | **通知しない**（Slack が積み上がるため）           | —     |
 | **Notification** `elicitation_*`     | 入力／URL の入力を求めて止まっています             | Ping  |
 | **Notification** `agent_needs_input` | サブエージェントが入力を待っています               | Ping  |
 
 **クリップボード連携:** `Stop` フックのペイロードに含まれる `last_assistant_message`（その turn の最終回答）を `pbcopy` でクリップボードへ入れる。通知に気付いた時点で報告本文がそのまま貼り付けられる。
 
-**「長時間止まっている」の検知範囲:** Claude Code に「同じ作業でループしている」ことを直接知らせるイベントは存在しない。60秒無応答で発火する `idle_prompt` と、承認待ちの `permission_prompt` がその代替になる。
+**通知は「作業完了」と「承認待ち」の2種類だけ:** 待機（`idle_prompt`）では通知しない。待つほど繰り返し発火し、デスクトップ通知は上書きされて1枚に見える一方で **Slack は履歴なので積み上がる**うえ、Stop の「作業が終わりました」が「応答がないまま止まっています」に化けるため。Stop の通知は消すまで残るので、idle が無くても見逃さない（SPECIFICATION.md §11.4.2）。
+
+**「長時間止まっている」の検知範囲:** Claude Code に「同じ作業でループしている」ことを直接知らせるイベントは存在しない。承認待ちの `permission_prompt` と作業完了の `Stop` が代替になるが、AI が延々と試行を続けている状態は通知されない。
 
 ## Slack 連携（任意）
 
@@ -55,8 +57,11 @@ Webhook URL は git 管理下に置かず、以下の順で解決する。
 | `CLAUDE_NOTIFY_INTERVAL=15` | 繰り返しの間隔（秒）※フォールバック経路のみ有効  |
 | `CLAUDE_NOTIFY_MAX=10`      | 繰り返しの上限回数（上限到達で自然終了）※同上    |
 | `CLAUDE_NOTIFY_ALERTER`     | `alerter` の配置を上書きする（`none` で無効化）  |
+| `CLAUDE_NOTIFY_NO_SLACK=1`  | Slack 送信だけを止める（デスクトップ通知は出る） |
 
 `CLAUDE_NOTIFY_INTERVAL` / `CLAUDE_NOTIFY_MAX` は **`alerter` が無い環境のフォールバック経路でのみ有効**。`alerter` 経路では通知を1回出して消されるまで待つため、間隔も上限回数も使われない。`CLAUDE_NOTIFY_ALERTER=none` を指定すると `alerter` が入っていてもフォールバック経路を通せる（回帰テストがこれを利用している）。
+
+`CLAUDE_NOTIFY_NO_SLACK=1` は**手動での動作確認用**。付けずに `notify.sh` を直接叩くと 1 回ごとに実際の Slack が飛ぶ（2026-09-01 にスマホへ通知が積み上がった）。手順は SPECIFICATION.md §11.9.1 を参照。
 
 CI 環境（`CI` 変数あり）では通知しない。
 

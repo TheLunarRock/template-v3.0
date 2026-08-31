@@ -991,7 +991,7 @@ claude.ai は作業終了時にデスクトップ通知を出すが、エディ�
     ],
     "Notification": [
       {
-        "matcher": "permission_prompt|idle_prompt|elicitation_dialog|elicitation_url_dialog|agent_needs_input",
+        "matcher": "permission_prompt|elicitation_dialog|elicitation_url_dialog|agent_needs_input",
         "hooks": [
           {
             "type": "command",
@@ -1056,7 +1056,7 @@ claude.ai は作業終了時にデスクトップ通知を出すが、エディ�
 | `Stop`（最終回答あり）                  | 作業が終わりました。報告はクリップボードにあります | Glass    | 最終回答       |
 | `Stop`（最終回答なし）                  | 作業が終わりました                                 | Glass    | —              |
 | `Notification` `permission_prompt`      | 確認待ちで止まっています（ツール使用の承認）       | Ping     | —              |
-| `Notification` `idle_prompt`            | 応答がないまま止まっています                       | Ping     | —              |
+| `Notification` `idle_prompt`            | **通知しない（SKIP）**                             | —        | —              |
 | `Notification` `elicitation_dialog`     | 入力を求めて止まっています                         | Ping     | —              |
 | `Notification` `elicitation_url_dialog` | URL の入力を求めて止まっています                   | Ping     | —              |
 | `Notification` `agent_needs_input`      | サブエージェントが入力を待っています               | Ping     | —              |
@@ -1065,9 +1065,15 @@ claude.ai は作業終了時にデスクトップ通知を出すが、エディ�
 
 通知タイトルは `✅ Claude Code — <プロジェクト名>`（Stop）／`⏸ Claude Code — <プロジェクト名>`（Notification）。プロジェクト名はペイロードの `cwd` の末尾から取る。
 
+**通知が出るのは「作業完了（Stop）」と「承認待ち（Notification）」の 2 種類だけで、待機（`idle_prompt`）では出さない。** 待機は待つほど繰り返し発火するため、デスクトップ通知は `--group` で上書きされて 1 枚に見える一方、**Slack は履歴なので同じ内容が積み上がる**。さらに後発の `idle_prompt` が Stop の「作業が終わりました」を「応答がないまま止まっています」に上書きしてしまう。マッチャー（§11.3）から外したうえで、すり抜けた場合の保険として `notify.sh` 側でも弾いている。
+
+idle を落としても見逃さない。Stop の通知は消すまで画面に残るため（§11.10）、それを見てプロジェクトへ移動して入力すれば `UserPromptSubmit` で消える。「通知が残っている＝未着手」が成り立つ。なお `permission_prompt` / `agent_needs_input` は `Stop` では発火せず、放置するとエージェントが止まったまま進まないため外してはならない（これらは繰り返し発火しないので積み上がらない）。
+
 #### 11.4.3 「長時間止まっている」の検知範囲
 
-Claude Code に「同じ作業でループしている」ことを直接知らせるイベントは**存在しない**。60秒無応答で発火する `idle_prompt` と、承認待ちの `permission_prompt` がその代替となる。エラーで停止して人間の判断を待つケースはこの2つで捕捉できるが、AI が延々と試行を続けている状態は通知されない。
+Claude Code に「同じ作業でループしている」ことを直接知らせるイベントは**存在しない**。エラーで停止して人間の判断を待つケースは `permission_prompt`（承認待ち）と `Stop`（作業完了）で捕捉できるが、AI が延々と試行を続けている状態は通知されない。
+
+60秒無応答で発火する `idle_prompt` は理屈のうえでは「止まっている」の検知に使えるが、通知が積み上がる害の方が大きいため**採用していない**（§11.4.2）。
 
 ### 11.5 Slack 連携（任意）
 
@@ -1099,6 +1105,7 @@ Webhook URL 取得手順:
 | `CLAUDE_NOTIFY_INTERVAL`   | 繰り返しの間隔（秒）。既定 15。**フォールバック経路のみ有効**            |
 | `CLAUDE_NOTIFY_MAX`        | 繰り返しの上限回数。既定 10（上限到達で自然終了）。**同上**              |
 | `CLAUDE_NOTIFY_ALERTER`    | `alerter` の配置を上書きする。`none` で無効化しフォールバック経路を通す  |
+| `CLAUDE_NOTIFY_NO_SLACK=1` | Slack 送信だけを止める。デスクトップ通知は出る（動作確認用）             |
 
 `CLAUDE_NOTIFY_DRY_RUN` の出力フォーマット（改行区切り）:
 
@@ -1170,7 +1177,28 @@ rm ~/.claude/slack-notify.sh
 | 対象外イベント・壊れた入力では何もしない                                     |
 | いかなる入力でも `exit 0` を返す（作業をブロックしない）                     |
 
-通知の発行経路（`alerter` / フォールバック）は `tests/regression/2026-09-01-001-repeat-notification-cannot-be-dismissed.test.ts` が検証する（§11.10.6）。
+通知の発行経路（`alerter` / フォールバック）は `tests/regression/2026-09-01-001-repeat-notification-cannot-be-dismissed.test.ts` が検証する（§11.10.6）。発火条件（待機では通知しない／承認待ちは通知する）と `CLAUDE_NOTIFY_NO_SLACK` は `tests/regression/2026-09-01-002-idle-prompt-floods-slack.test.ts` が検証する。
+
+#### 11.9.1 手動での動作確認
+
+**必ず `CLAUDE_NOTIFY_NO_SLACK=1` を付けること。** 付けずに直接叩くと 1 回ごとに実際の Slack が飛び、スマホに通知が積み上がる（2026-09-01 に実際に発生した）。
+
+```bash
+# 作業完了 → 通知が出る
+echo "{\"hook_event_name\":\"Stop\",\"cwd\":\"$PWD\"}" \
+  | env CLAUDE_NOTIFY_NO_SLACK=1 bash .claude/hooks/notify.sh
+
+# 待機 → 何も出ない
+echo "{\"hook_event_name\":\"Notification\",\"notification_type\":\"idle_prompt\",\"cwd\":\"$PWD\"}" \
+  | env CLAUDE_NOTIFY_NO_SLACK=1 bash .claude/hooks/notify.sh
+
+# 承認待ち → 通知が出る
+echo "{\"hook_event_name\":\"Notification\",\"notification_type\":\"permission_prompt\",\"cwd\":\"$PWD\"}" \
+  | env CLAUDE_NOTIFY_NO_SLACK=1 bash .claude/hooks/notify.sh
+
+# 出した通知を消す
+bash .claude/hooks/notify-stop.sh
+```
 
 ### 11.10 消すまで残る通知
 

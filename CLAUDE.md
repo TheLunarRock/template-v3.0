@@ -293,6 +293,8 @@ cp .claude/settings.json .claude/settings.local.json
 
 ## 発火タイミングと通知内容
 
+**通知が出るのは「作業完了（`Stop`）」と「承認待ち（`Notification`）」の2種類だけ。待機（`idle_prompt`）では通知しない。** 待つほど繰り返し発火し、Slack は履歴なので同じ内容が積み上がるうえ、Stop の「作業が終わりました」が「応答がないまま止まっています」に上書きされるため。Stop の通知は消すまで残るので見逃さない。
+
 → [`docs/SUPERCLAUDE_REFERENCE.md`](./docs/SUPERCLAUDE_REFERENCE.md) に移動（常時読み込み対象外）: 通知の発火タイミング一覧
 
 ## 消すまで残る通知（デスクトップ通知）
@@ -336,6 +338,8 @@ bash .claude/hooks/notify-repeat.sh stop-all
 5. **`alerter` を前景で呼ばない** — 消されるまでブロックするため、前景で呼ぶとフックが返らず Claude Code が止まる。必ずバックグラウンド起動
 6. **セッションの生存監視を外さない** — 外すとエディタを閉じた後も通知が残る／鳴り続ける（2026-08-31 に発生した事故の再発防止策）
 7. **フォールバック経路を消さない** — テンプレートは友人に配られるため `brew install` を前提にできない。`alerter` が無い環境でも通知が機能すること
+8. **`idle_prompt` を通知に戻さない** — Slack が積み上がり、`Stop` の文言も上書きされる。`permission_prompt` / `agent_needs_input` は逆に外さないこと（`Stop` では発火せず、放置すると進まない）
+9. **動作確認で `notify.sh` を直接叩くときは `CLAUDE_NOTIFY_NO_SLACK=1` を付ける** — 付けないと 1 回ごとに実 Slack が飛ぶ
 
 ## トラブルシューティング
 

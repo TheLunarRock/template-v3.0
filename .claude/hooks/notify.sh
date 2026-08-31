@@ -12,7 +12,11 @@
 #   - Stop         → 「作業が終わりました」＋ 最終回答をクリップボードへコピー
 #                    （Stop ペイロードの last_assistant_message を使うため
 #                     transcript の解析は不要）
-#   - Notification → notification_type ごとの文言で「止まっている」ことを通知
+#   - Notification → 承認待ち（permission_prompt 等）だけを通知する。
+#                    待機（idle_prompt）は通知しない。Stop で 1 通目が出たあと
+#                    待つほど発火して Slack が積み上がり、Stop の「作業が
+#                    終わりました」が「応答がないまま止まっています」に化けるため。
+#                    Stop の通知は消すまで残るので idle が無くても見逃さない。
 #   - 通知は macOS 通知センター＋サウンド。Slack Webhook 設定時は併せて送信
 #   - デスクトップ通知は notify-repeat.sh に委譲する。alerter があれば
 #     「消すまで画面に残る通知」を 1 回だけ出し、無ければ従来どおり
@@ -31,6 +35,8 @@
 #   CLAUDE_NOTIFY_INTERVAL=15 繰り返しの間隔（秒）※フォールバック経路のみ
 #   CLAUDE_NOTIFY_MAX=10      繰り返しの上限回数（鳴りっぱなし防止）※同上
 #   CLAUDE_NOTIFY_ALERTER     alerter の配置を上書きする（'none' で無効化）
+#   CLAUDE_NOTIFY_NO_SLACK=1  Slack 送信だけを止める（デスクトップ通知は出す）。
+#                             動作確認で直接叩くたびに実 Slack が飛ぶのを防ぐ
 #
 # 注意: 本フックは通知専用のため、いかなる場合も exit 0 で通過させる。
 #       ガード系フック（dev-server-guard 等）と違い作業を止めてはならない。
@@ -70,9 +76,14 @@ RESULT=$(printf '%s' "$INPUT" | node -e '
         : "作業が終わりました";
       sound = "Glass";
     } else if (event === "Notification") {
+      // 待機は通知しない。マッチャー（settings.json）でも除いているが、
+      // すり抜けて呼ばれた場合の保険としてここでも弾く。
+      if (String(p.notification_type || "") === "idle_prompt") {
+        console.log("SKIP");
+        return;
+      }
       const LABEL = {
         permission_prompt: "確認待ちで止まっています（ツール使用の承認）",
-        idle_prompt: "応答がないまま止まっています",
         elicitation_dialog: "入力を求めて止まっています",
         elicitation_url_dialog: "URL の入力を求めて止まっています",
         agent_needs_input: "サブエージェントが入力を待っています",
@@ -129,6 +140,10 @@ if [ "$(uname -s)" = "Darwin" ]; then
 fi
 
 # ---- Slack 通知（Webhook が設定されている場合のみ） ----
+# 動作確認で本フックを直接叩くと 1 回ごとに実際の Slack が飛ぶ。
+# CLAUDE_NOTIFY_NO_SLACK=1 で送信だけを止められる（デスクトップ通知は出る）。
+[ "${CLAUDE_NOTIFY_NO_SLACK:-}" = "1" ] && exit 0
+
 WEBHOOK="${CLAUDE_NOTIFY_WEBHOOK:-}"
 if [ -z "$WEBHOOK" ] && [ -r "$HOME/.claude/notify-webhook.txt" ]; then
   WEBHOOK=$(tr -d '\r\n' < "$HOME/.claude/notify-webhook.txt")
