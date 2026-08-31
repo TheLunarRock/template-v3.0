@@ -284,15 +284,33 @@ cp .claude/settings.json .claude/settings.local.json
 
 通知は `.claude/hooks/notify.sh` として同梱されており、**クローンした時点で macOS 通知が動作する**。`pnpm setup:sc` の実行は Slack 連携を使う場合のみ必要。
 
-| 項目               | 内容                                                      |
-| ------------------ | --------------------------------------------------------- |
-| **通知スクリプト** | `.claude/hooks/notify.sh`（git 管理・秘密情報なし）       |
-| **登録先**         | `.claude/settings.json` の `Stop` / `Notification` フック |
-| **前提**           | macOS（通知・音）。Slack は任意                           |
+| 項目               | 内容                                                                                                   |
+| ------------------ | ------------------------------------------------------------------------------------------------------ |
+| **通知スクリプト** | `.claude/hooks/notify.sh`（git 管理・秘密情報なし）                                                    |
+| **繰り返し**       | `.claude/hooks/notify-repeat.sh`（気付くまで鳴らす）／ `.claude/hooks/notify-stop.sh`（操作で止める）  |
+| **登録先**         | `.claude/settings.json` の `Stop` / `Notification`（通知）＋ `PreToolUse` / `UserPromptSubmit`（停止） |
+| **前提**           | macOS（通知・音）。Slack は任意                                                                        |
 
 ## 発火タイミングと通知内容
 
 → [`docs/SUPERCLAUDE_REFERENCE.md`](./docs/SUPERCLAUDE_REFERENCE.md) に移動（常時読み込み対象外）: 通知の発火タイミング一覧
+
+## 気付くまで繰り返す（デスクトップ通知）
+
+macOS 26 では通知スタイルを「持続的」にしても通知が数秒で消える（2026-08-31 実機確認）。OS 設定では「クリックするまで残す」を実現できないため、**人間が操作するまで一定間隔で鳴らし続ける**。
+
+- **既定**: 15秒間隔・最大10回（`CLAUDE_NOTIFY_INTERVAL` / `CLAUDE_NOTIFY_MAX` で変更）
+- **停止**: `PreToolUse`（承認した）/ `UserPromptSubmit`（プロンプトを送った）/ 呼び出し元 `claude` プロセスの終了
+- **分離**: ループはプロジェクト単位。1つ止めても並行作業中の別リポジトリは鳴り続ける
+- **Slack**: 繰り返さず1回だけ（スマホ側に履歴が残るため）
+
+鳴り止まないときの緊急停止:
+
+```bash
+bash .claude/hooks/notify-repeat.sh stop-all
+```
+
+設計の経緯・検証した経路・PID の置き場所は [SPECIFICATION.md](./SPECIFICATION.md) のセクション11.10を参照。
 
 ## Slack 連携（任意）
 
@@ -307,6 +325,9 @@ cp .claude/settings.json .claude/settings.local.json
 1. **通知フックを無効化・削除しない** — 作業が止まったことに人間が気付けなくなる
 2. **通知フックは exit 0 を守る** — ガード系フックと違い、通知が作業をブロックしてはいけない
 3. **Webhook URL をコードやドキュメントに書かない** — 上記2経路（環境変数・git 管理外ファイル）のみ
+4. **停止フック（`notify-stop.sh`）を外さない** — 外すと上限回数まで鳴り続ける。軽量に保つため node 起動等を足さないこと
+5. **繰り返しを「持続的通知」に戻さない** — macOS 26 で消えることを実機確認済み。OS 側の設定変更では解決しない
+6. **セッションの生存監視を外さない** — 外すとエディタを閉じた後も鳴り続ける（2026-08-31 に発生した事故の再発防止策）
 
 ## トラブルシューティング
 

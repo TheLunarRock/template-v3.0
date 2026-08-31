@@ -10,6 +10,8 @@
  *   （引用符・バックスラッシュ・改行を含んでも壊れない）
  * - 対象外イベント・壊れた入力では何もしない
  * - 通知専用フックとして、いかなる入力でも作業をブロックしない（常に exit 0）
+ * - 繰り返し通知のループがプロジェクト単位で分離される（並行作業中に混線しない）
+ * - セッションが終了していればループを起動しない（エディタを閉じた後に鳴り続けない）
  *
  * 判定のみを検証するため CLAUDE_NOTIFY_DRY_RUN=1 で実行する
  * （osascript / afplay / pbcopy / Slack 送信の副作用は起こさない）。
@@ -26,6 +28,8 @@ import path from 'path'
 
 const ROOT = path.resolve(__dirname, '../..')
 const HOOK = path.join(ROOT, '.claude/hooks/notify.sh')
+const REPEAT_HOOK = path.join(ROOT, '.claude/hooks/notify-repeat.sh')
+const STOP_HOOK = path.join(ROOT, '.claude/hooks/notify-stop.sh')
 
 // PATH 依存のコマンド解決を避けるため絶対パスで起動する
 const BASH_BIN = '/bin/bash'
@@ -167,5 +171,132 @@ describe('通知フックは作業をブロックしない', () => {
 
     expect(result.status).toBe(0)
     expect(result.stdout.split('\n')[0]).toBe('SKIP')
+  })
+})
+
+/**
+ * 繰り返し通知は「気付くまで鳴らす」ため、止め忘れると鳴り続ける。
+ * 複数リポジトリを並行で動かすので、あるプロジェクトで操作を再開しても
+ * 別プロジェクトのループを巻き込んで止めてはならない。
+ * キーの生成は notify-repeat.sh に集約されており、その一意性を検証する。
+ *
+ * 仕様: SPECIFICATION.md §11.10
+ */
+describe('繰り返し通知: プロジェクト単位の分離', () => {
+  /** PID ファイル名に使うキーを取得する */
+  function keyFor(dir: string): string {
+    const r = spawnSync(BASH_BIN, [REPEAT_HOOK, 'key', dir], {
+      encoding: 'utf8',
+      timeout: 30_000,
+    })
+    return r.stdout.trim()
+  }
+
+  it('プロジェクトが違えば別のキーになる', () => {
+    expect(keyFor('/Users/example/GitHub/app-a')).not.toBe(keyFor('/Users/example/GitHub/app-b'))
+  })
+
+  it('同じディレクトリなら常に同じキーになる（起動側と停止側でズレない）', () => {
+    const dir = '/Users/example/GitHub/my-app'
+
+    expect(keyFor(dir)).toBe(keyFor(dir))
+  })
+
+  it('同名でもパスが違えば衝突しない', () => {
+    expect(keyFor('/Users/example/GitHub/my-app')).not.toBe(keyFor('/Users/example/work/my-app'))
+  })
+
+  it('キーはプロジェクト名を含み、ファイル名として安全な文字だけで構成される', () => {
+    const key = keyFor('/Users/example/GitHub/my-app')
+
+    expect(key).toContain('my-app')
+    expect(key).toMatch(/^[A-Za-z0-9._-]+$/)
+  })
+})
+
+describe('繰り返し通知: フックは作業をブロックしない', () => {
+  it('稼働中のループが無くても停止フックは exit 0 を返す', () => {
+    const r = spawnSync(BASH_BIN, [STOP_HOOK], {
+      encoding: 'utf8',
+      timeout: 30_000,
+      // 存在しないプロジェクトを指しても落ちないこと
+      env: { ...process.env, CLAUDE_PROJECT_DIR: '/Users/example/no-such-project-for-test' },
+    })
+
+    expect(r.status).toBe(0)
+  })
+
+  it.each(['', 'bogus'])('未知の action では何もせず exit 0 を返す: %s', (action) => {
+    const r = spawnSync(BASH_BIN, [REPEAT_HOOK, action, '/Users/example/app'], {
+      encoding: 'utf8',
+      timeout: 30_000,
+    })
+
+    expect(r.status).toBe(0)
+  })
+})
+
+/**
+ * ループはバックグラウンドで動くため、放置するとエディタを閉じた後も鳴り続ける。
+ * 実際に「閉じたはずの Cursor の通知が止まらない」事故が起きたため、
+ * 呼び出し元セッションの生存を監視し、死んでいれば起動しないことを保証する。
+ *
+ * 仕様: SPECIFICATION.md §11.10
+ */
+describe('繰り返し通知: セッションが終了していたら鳴らさない', () => {
+  const PIDDIR = path.join(process.env.HOME ?? '', '.claude/notify-repeat')
+
+  /** 起動を試み、PID ファイルが作られたかどうかを返す */
+  function tryStart(env: Record<string, string>, dir: string): boolean {
+    spawnSync(BASH_BIN, [REPEAT_HOOK, 'start', dir, 'テスト', '本文', 'Ping', '60', '1'], {
+      encoding: 'utf8',
+      timeout: 30_000,
+      env: { ...process.env, ...env },
+    })
+    const key = spawnSync(BASH_BIN, [REPEAT_HOOK, 'key', dir], {
+      encoding: 'utf8',
+      timeout: 30_000,
+    }).stdout.trim()
+    const pidfile = path.join(PIDDIR, `${key}.pid`)
+    // fs の動的パス参照を避け、判定はシェルに任せる
+    const existed =
+      spawnSync(BASH_BIN, ['-c', 'test -f "$1"', 'sh', pidfile], { timeout: 30_000 }).status === 0
+    // 後始末（万一起動していた場合に鳴らし続けないため）
+    spawnSync(BASH_BIN, [REPEAT_HOOK, 'stop', dir], { timeout: 30_000 })
+    return existed
+  }
+
+  it('監視対象のセッションが既に終了していれば起動しない', () => {
+    // 存在しない PID を監視対象にする＝エディタを閉じた後と同じ状態
+    const started = tryStart({ CLAUDE_NOTIFY_WATCH_PID: '999999' }, '/Users/example/closed-session')
+
+    expect(started).toBe(false)
+  })
+
+  it('CI では起動しない', () => {
+    const started = tryStart(
+      { CI: 'true', CLAUDE_NOTIFY_WATCH_PID: String(process.pid) },
+      '/Users/example/ci-session'
+    )
+
+    expect(started).toBe(false)
+  })
+
+  it('CLAUDE_NOTIFY_DISABLED=1 では起動しない', () => {
+    const started = tryStart(
+      { CLAUDE_NOTIFY_DISABLED: '1', CLAUDE_NOTIFY_WATCH_PID: String(process.pid) },
+      '/Users/example/disabled-session'
+    )
+
+    expect(started).toBe(false)
+  })
+
+  it('stop-all は稼働中のループが無くても exit 0 を返す', () => {
+    const r = spawnSync(BASH_BIN, [REPEAT_HOOK, 'stop-all'], {
+      encoding: 'utf8',
+      timeout: 30_000,
+    })
+
+    expect(r.status).toBe(0)
   })
 })

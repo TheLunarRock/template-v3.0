@@ -167,6 +167,15 @@
             "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/blocking-op-guard.sh\""
           }
         ]
+      },
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/notify-stop.sh\""
+          }
+        ]
       }
     ],
     "Stop": [
@@ -186,6 +195,16 @@
           {
             "type": "command",
             "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/notify.sh\""
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/notify-stop.sh\""
           }
         ]
       }

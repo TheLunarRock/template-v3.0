@@ -14,6 +14,10 @@
 #                     transcript の解析は不要）
 #   - Notification → notification_type ごとの文言で「止まっている」ことを通知
 #   - 通知は macOS 通知センター＋サウンド。Slack Webhook 設定時は併せて送信
+#   - デスクトップ通知は notify-repeat.sh 経由で「気付くまで繰り返す」。
+#     macOS 26 では通知スタイル「持続的」でも通知が数秒で消え、クリックするまで
+#     画面に残すことが OS 側の設定では実現できないため（2026-08-31 実機確認）。
+#     Slack へは繰り返さず 1 回だけ送る（スマホ側で履歴が残るため）。
 #
 # 秘密情報の扱い:
 #   Slack Webhook URL は git 管理下に置かない。以下の順で解決する。
@@ -24,6 +28,8 @@
 # 制御用の環境変数:
 #   CLAUDE_NOTIFY_DISABLED=1  通知を完全に無効化する
 #   CLAUDE_NOTIFY_DRY_RUN=1   副作用を起こさず判定結果のみ stdout に出す（テスト用）
+#   CLAUDE_NOTIFY_INTERVAL=15 繰り返しの間隔（秒）
+#   CLAUDE_NOTIFY_MAX=10      繰り返しの上限回数（鳴りっぱなし防止）
 #
 # 注意: 本フックは通知専用のため、いかなる場合も exit 0 で通過させる。
 #       ガード系フック（dev-server-guard 等）と違い作業を止めてはならない。
@@ -102,21 +108,21 @@ MESSAGE=$(printf '%s\n' "$RESULT" | sed -n '3p')
 SOUND=$(printf '%s\n' "$RESULT" | sed -n '4p')
 REPORT=$(printf '%s\n' "$RESULT" | sed -n '5,$p')
 
-# ---- macOS 通知（通知センター・サウンド・クリップボード） ----
+# ---- macOS 通知（クリップボード + 気付くまで繰り返す通知） ----
 if [ "$(uname -s)" = "Darwin" ]; then
   # 報告本文をクリップボードへ（通知から本文を読み返す手間をなくす）
   if [ -n "$REPORT" ] && command -v pbcopy >/dev/null 2>&1; then
     printf '%s' "$REPORT" | pbcopy
   fi
 
-  # 引数渡しで表示する（本文の " や \ による AppleScript 崩れを防ぐ）
-  osascript -e 'on run argv
-    display notification (item 1 of argv) with title (item 2 of argv)
-  end run' "$MESSAGE" "$TITLE" >/dev/null 2>&1
-
-  # 通知センターの権限設定に関わらず音は鳴らしたいので afplay で明示的に再生する
-  if [ -r "/System/Library/Sounds/${SOUND}.aiff" ]; then
-    afplay "/System/Library/Sounds/${SOUND}.aiff" >/dev/null 2>&1 &
+  # 通知の発行とサウンド再生は notify-repeat.sh に委譲する。
+  # macOS 26 では通知スタイルを「持続的」にしても通知が数秒で消えるため、
+  # 人間が操作するまで一定間隔で鳴らし続ける（停止は notify-stop.sh が担う）。
+  HOOK_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+  if [ -x "$HOOK_DIR/notify-repeat.sh" ]; then
+    "$HOOK_DIR/notify-repeat.sh" start "${CLAUDE_PROJECT_DIR:-$PWD}" \
+      "$TITLE" "$MESSAGE" "$SOUND" \
+      "${CLAUDE_NOTIFY_INTERVAL:-15}" "${CLAUDE_NOTIFY_MAX:-10}"
   fi
 fi
 
