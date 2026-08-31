@@ -1,32 +1,67 @@
 #!/usr/bin/env bash
-# 気付くまで通知を繰り返すループの起動・停止
+# デスクトップ通知の発行・停止（消すまで残る通知 / 繰り返しのフォールバック）
 #
 # 背景:
 #   macOS 26 では通知スタイルを「持続的」に設定しても、osascript / terminal-notifier
-#   経由の通知が数秒で消える（2026-08-31 に実機で確認）。「クリックするまで画面に残す」
-#   ことが OS 側の設定で実現できないため、通知スタイルに依存せず、人間が操作するまで
-#   一定間隔で鳴らし続ける方式を採る。
+#   経由の通知が数秒で消える（2026-08-31 に実機で確認）。当初は「気付くまで一定間隔で
+#   鳴らし続ける」方式を採ったが、osascript の display notification はバナーの
+#   ディスミスをコールバックしないため、バツ印で消しても止められず実運用で邪魔になった。
+#
+#   2026-08-31 の検証で alerter が解決策になることを確認した。
+#     - 通知が消えるまで画面に残る
+#     - 消されるまでブロックし、消された理由を JSON で返す
+#       （バツ印で消すと activationType "closed" / 放置すると "timeout"）
+#     - --remove <group> で別プロセスから消せる
+#   つまり繰り返す必要がない。1 回出して、消されるまで待つだけでよい。
+#
+#   ただしテンプレートは友人に配られるため brew install を前提にできない。
+#   alerter があればそれを使い、無ければ従来の繰り返し方式にフォールバックする。
 #
 # 使い方:
 #   notify-repeat.sh start <project-dir> <title> <message> <sound> [interval] [max]
 #   notify-repeat.sh stop  <project-dir>
-#   notify-repeat.sh key   <project-dir>   … PID ファイル名に使うキーを表示する
-#   notify-repeat.sh stop-all              … 全プロジェクトのループを止める（緊急停止）
+#   notify-repeat.sh key   <project-dir>   … 通知のグループ ID / PID ファイル名を表示する
+#   notify-repeat.sh stop-all              … 全プロジェクトの通知を消す（緊急停止）
+#
+#   interval / max はフォールバック経路（alerter が無い環境）でのみ使う。
 #
 # プロジェクト単位で分離する理由:
 #   複数リポジトリを並行で動かすため。1 つのプロジェクトで操作を再開しても、
-#   別プロジェクトの通知は鳴り続ける。キーの生成をこのファイルに集約することで、
+#   別プロジェクトの通知は残る。キーの生成をこのファイルに集約することで、
 #   起動側（notify.sh）と停止側（notify-stop.sh）でキーがズレないようにしている。
+#   このキーは alerter の --group にもそのまま渡すため、--remove で消す対象が
+#   常に「自分のプロジェクトの通知だけ」になる。
 #
 # 停止のされ方:
 #   操作を再開すると PreToolUse / UserPromptSubmit フックから notify-stop.sh が
-#   呼ばれて止まる。取りこぼしに備えて max 回で自然終了もする（鳴りっぱなし防止）。
+#   呼ばれて止まる。alerter 経路ではバツ印で消しても止まる（それが本来の目的）。
+#   フォールバック経路は取りこぼしに備えて max 回で自然終了する（鳴りっぱなし防止）。
 #
 # 注意: 通知系フックのため、いかなる場合も exit 0 で通過させる。
 
 set -u
 
 PIDDIR="$HOME/.claude/notify-repeat"
+
+# alerter に渡す保険のタイムアウト（秒）。0 にすると、停止を取りこぼしたときに
+# 通知が永久に残るため、長めの有限値にしておく。
+ALERTER_TIMEOUT=1800
+
+# 通知を消したかどうかを見張る間隔（秒）。alerter 経路でのみ使う。
+ALERTER_WATCH_POLL=5
+
+# alerter の実行ファイルを返す（無ければ非ゼロで返る）。
+# CLAUDE_NOTIFY_ALERTER で配置を上書きできる。'none' を渡すと明示的に無効化され、
+# 実機に alerter が入っていてもフォールバック経路を検証できる。
+alerter_bin() {
+  if [ -n "${CLAUDE_NOTIFY_ALERTER:-}" ]; then
+    [ "$CLAUDE_NOTIFY_ALERTER" = "none" ] && return 1
+    [ -x "$CLAUDE_NOTIFY_ALERTER" ] || return 1
+    printf '%s' "$CLAUDE_NOTIFY_ALERTER"
+    return 0
+  fi
+  command -v alerter 2>/dev/null
+}
 
 # プロジェクトディレクトリから一意なキーを作る。
 # 可読性のため basename を残しつつ、同名リポジトリの衝突をハッシュで避ける。
@@ -43,8 +78,8 @@ pidfile_for() {
 }
 
 # 呼び出し元の Claude Code セッションの PID を辿る。
-# ループはバックグラウンドで動くため、エディタを閉じても生き残ってしまう。
-# セッションが消えたら鳴らす意味が無いので、生存を監視して止める。
+# 通知はバックグラウンドで待つため、エディタを閉じても生き残ってしまう。
+# セッションが消えたら知らせる意味が無いので、生存を監視して止める。
 session_pid() {
   local pid="$PPID" comm i=0
   while [ "$pid" -gt 1 ] && [ "$i" -lt 12 ]; do
@@ -61,16 +96,24 @@ session_pid() {
   done
   # 辿れなかった場合は監視しない（空を返す）。
   # 直近の親はフック実行用のシェルで即座に終了するため、監視対象にすると
-  # ループが 1 回で止まってしまう。
+  # 通知が 1 回で止まってしまう。
   printf ''
 }
 
+# 画面に出ている通知を消し、待機中のプロセスを止める。
+# alerter 経路とフォールバック経路のどちらで出したかを問わず動く必要がある
+# （PID を kill しても alerter が出したバナーは画面に残るため --remove が要る）。
 stop_loop() {
-  local f pid
+  local f pid a
   f=$(pidfile_for "$1")
+  # 通知が出ていなければ何もしない。PreToolUse から毎回呼ばれるため、
+  # ここを早期 return にして通常のツール実行に負荷をかけない。
   [ -f "$f" ] || return 0
+  if a=$(alerter_bin); then
+    "$a" --remove "$(key_for "$1")" >/dev/null 2>&1
+  fi
   pid=$(cat "$f" 2>/dev/null)
-  # プロセスグループごと止める（sleep 中の子プロセスを残さない）
+  # プロセスグループごと止める（待機中の子プロセスを残さない）
   if [ -n "$pid" ]; then
     kill -- "-$pid" 2>/dev/null || kill "$pid" 2>/dev/null
   fi
@@ -85,11 +128,16 @@ case "$ACTION" in
     stop_loop "$DIR"
     exit 0
     ;;
-  # 全プロジェクトのループを止める（取り残しの掃除・手動の緊急停止用）
+  # 全プロジェクトの通知を消す（取り残しの掃除・手動の緊急停止用）
   stop-all)
     if [ -d "$PIDDIR" ]; then
+      ALERTER_ALL=$(alerter_bin) || ALERTER_ALL=""
       for f in "$PIDDIR"/*.pid; do
         [ -f "$f" ] || continue
+        # PID ファイル名がそのまま通知のグループ ID になっている
+        if [ -n "$ALERTER_ALL" ]; then
+          "$ALERTER_ALL" --remove "$(basename "$f" .pid)" >/dev/null 2>&1
+        fi
         pid=$(cat "$f" 2>/dev/null)
         if [ -n "$pid" ]; then
           kill -- "-$pid" 2>/dev/null || kill "$pid" 2>/dev/null
@@ -99,7 +147,7 @@ case "$ACTION" in
     fi
     exit 0
     ;;
-  # 稼働中のループを追う / テストでキーの一致を確認するための補助コマンド
+  # 稼働中の通知を追う / テストでキーの一致を確認するための補助コマンド
   key)
     key_for "$DIR"
     printf '\n'
@@ -115,7 +163,7 @@ SOUND="${5:-Ping}"
 INTERVAL="${6:-15}"
 MAX="${7:-10}"
 
-# 同じプロジェクトの古いループが残っていれば止めてから始める（多重に鳴らさない）
+# 同じプロジェクトの古い通知が残っていれば消してから始める（多重に出さない）
 stop_loop "$DIR"
 
 [ "$(uname -s)" = "Darwin" ] || exit 0
@@ -125,16 +173,46 @@ stop_loop "$DIR"
 # 監視対象は通常セッションから辿る。テストでは上書きして挙動を検証する。
 WATCH_PID="${CLAUDE_NOTIFY_WATCH_PID:-$(session_pid)}"
 
-# 呼び出し元のセッションが既に終わっているなら、そもそもループを作らない。
-# ここで弾かないと、起動直後に終了するループと PID ファイルの書き込みが競合し、
-# 誰も参照しない PID ファイルが残る。
+# 呼び出し元のセッションが既に終わっているなら、そもそも通知を出さない。
+# ここで弾かないと、起動直後に終了する待機プロセスと PID ファイルの書き込みが
+# 競合し、誰も参照しない PID ファイルが残る。
 if [ -n "$WATCH_PID" ] && ! kill -0 "$WATCH_PID" 2>/dev/null; then
   exit 0
 fi
 
 mkdir -p "$PIDDIR" 2>/dev/null || exit 0
 PIDFILE=$(pidfile_for "$DIR")
+KEY=$(key_for "$DIR")
 
+# ---- alerter 経路: 消すまで残る通知を 1 回だけ出す ----
+if ALERTER=$(alerter_bin); then
+  (
+    # alerter は通知が消されるまでブロックするため、必ずバックグラウンドで起動する。
+    # 前景で呼ぶとフックが返らず Claude Code が止まる。
+    "$ALERTER" --title "$TITLE" --message "$MESSAGE" --sound "$SOUND" \
+      --group "$KEY" --timeout "$ALERTER_TIMEOUT" >/dev/null 2>&1 &
+    alerter_pid=$!
+
+    # 消されるまで待つ。待っている間にセッションが終了したら通知を消す
+    # （エディタを閉じた後に通知が残り続けるのを防ぐ）。
+    while kill -0 "$alerter_pid" 2>/dev/null; do
+      if [ -n "$WATCH_PID" ] && ! kill -0 "$WATCH_PID" 2>/dev/null; then
+        "$ALERTER" --remove "$KEY" >/dev/null 2>&1
+        kill "$alerter_pid" 2>/dev/null
+        break
+      fi
+      sleep "$ALERTER_WATCH_POLL"
+    done
+    rm -f "$PIDFILE"
+  ) >/dev/null 2>&1 &
+
+  echo $! > "$PIDFILE"
+  exit 0
+fi
+
+# ---- フォールバック: alerter が無い環境では気付くまで繰り返す ----
+# osascript の通知は数秒で消えるうえディスミスを検知できないため、
+# 一定間隔で鳴らし直すことでしか気付かせられない。
 (
   i=0
   while [ "$i" -lt "$MAX" ]; do

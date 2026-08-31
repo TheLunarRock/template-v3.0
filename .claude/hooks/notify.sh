@@ -14,10 +14,10 @@
 #                     transcript の解析は不要）
 #   - Notification → notification_type ごとの文言で「止まっている」ことを通知
 #   - 通知は macOS 通知センター＋サウンド。Slack Webhook 設定時は併せて送信
-#   - デスクトップ通知は notify-repeat.sh 経由で「気付くまで繰り返す」。
-#     macOS 26 では通知スタイル「持続的」でも通知が数秒で消え、クリックするまで
-#     画面に残すことが OS 側の設定では実現できないため（2026-08-31 実機確認）。
-#     Slack へは繰り返さず 1 回だけ送る（スマホ側で履歴が残るため）。
+#   - デスクトップ通知は notify-repeat.sh に委譲する。alerter があれば
+#     「消すまで画面に残る通知」を 1 回だけ出し、無ければ従来どおり
+#     気付くまで繰り返す（2026-08-31 実機確認。詳細は notify-repeat.sh 冒頭）。
+#     Slack へはどちらの経路でも 1 回だけ送る（スマホ側で履歴が残るため）。
 #
 # 秘密情報の扱い:
 #   Slack Webhook URL は git 管理下に置かない。以下の順で解決する。
@@ -28,8 +28,9 @@
 # 制御用の環境変数:
 #   CLAUDE_NOTIFY_DISABLED=1  通知を完全に無効化する
 #   CLAUDE_NOTIFY_DRY_RUN=1   副作用を起こさず判定結果のみ stdout に出す（テスト用）
-#   CLAUDE_NOTIFY_INTERVAL=15 繰り返しの間隔（秒）
-#   CLAUDE_NOTIFY_MAX=10      繰り返しの上限回数（鳴りっぱなし防止）
+#   CLAUDE_NOTIFY_INTERVAL=15 繰り返しの間隔（秒）※フォールバック経路のみ
+#   CLAUDE_NOTIFY_MAX=10      繰り返しの上限回数（鳴りっぱなし防止）※同上
+#   CLAUDE_NOTIFY_ALERTER     alerter の配置を上書きする（'none' で無効化）
 #
 # 注意: 本フックは通知専用のため、いかなる場合も exit 0 で通過させる。
 #       ガード系フック（dev-server-guard 等）と違い作業を止めてはならない。
@@ -108,7 +109,7 @@ MESSAGE=$(printf '%s\n' "$RESULT" | sed -n '3p')
 SOUND=$(printf '%s\n' "$RESULT" | sed -n '4p')
 REPORT=$(printf '%s\n' "$RESULT" | sed -n '5,$p')
 
-# ---- macOS 通知（クリップボード + 気付くまで繰り返す通知） ----
+# ---- macOS 通知（クリップボード + 消すまで残る通知） ----
 if [ "$(uname -s)" = "Darwin" ]; then
   # 報告本文をクリップボードへ（通知から本文を読み返す手間をなくす）
   if [ -n "$REPORT" ] && command -v pbcopy >/dev/null 2>&1; then
@@ -116,8 +117,9 @@ if [ "$(uname -s)" = "Darwin" ]; then
   fi
 
   # 通知の発行とサウンド再生は notify-repeat.sh に委譲する。
-  # macOS 26 では通知スタイルを「持続的」にしても通知が数秒で消えるため、
-  # 人間が操作するまで一定間隔で鳴らし続ける（停止は notify-stop.sh が担う）。
+  # alerter があれば消すまで残る通知を 1 回だけ出し、無ければ気付くまで繰り返す。
+  # INTERVAL / MAX はフォールバック経路でのみ使われる（alerter 経路では不要）。
+  # どちらの経路でも停止は notify-stop.sh が担う。
   HOOK_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
   if [ -x "$HOOK_DIR/notify-repeat.sh" ]; then
     "$HOOK_DIR/notify-repeat.sh" start "${CLAUDE_PROJECT_DIR:-$PWD}" \

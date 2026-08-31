@@ -28,6 +28,9 @@ brew install node pnpm
 brew install gh gitleaks
 gh auth login
 
+# 消すまで残る通知（Claude Code の作業完了・確認待ちを見逃さないため）
+brew install vjeantet/tap/alerter
+
 # Python パッケージマネージャー（Serena MCP用）
 curl -LsSf https://astral.sh/uv/install.sh | sh
 
@@ -39,8 +42,19 @@ npm install -g @anthropic-ai/claude-code
 | ------------ | ----------------------------------------------------------------------------- |
 | **gh**       | 第5-6層セキュリティ自動化（Secret Scanning / Push Protection / ブランチ保護） |
 | **gitleaks** | 第2層 pre-commit シークレット検出 + 第9層 二重防御                            |
+| **alerter**  | 通知を「消すまで画面に残す」（未導入なら自動でフォールバック）                |
 | **uv**       | Serena MCP（セマンティック検索・プロジェクト記憶）                            |
 | **claude**   | SuperClaude統合・MCPサーバー登録                                              |
+
+#### ⚠️ alerter を入れたら macOS の通知設定も必ず確認する
+
+`alerter` を入れただけでは通知は表示されない。**この設定が未了だと通知が一切出ない**（2026-08-31 に実際にこれで詰まった）。
+
+1. **システム設定 → 通知 → ターミナル**（Cursor 等の内蔵ターミナルから使う場合も「ターミナル」が対象）
+2. **「通知を許可」を ON**
+3. **「通知スタイル」を「持続的」**にする — バナーのままだと数秒で消えてしまい、`alerter` を入れた意味が無くなる
+
+`alerter` が無い場合は `.claude/hooks/notify-repeat.sh` が自動的に「気付くまで繰り返す」方式にフォールバックするため、インストールしなくても通知自体は機能する。
 
 ### 🟢 MCPサーバー登録（claude CLI インストール後・初回のみ）
 
