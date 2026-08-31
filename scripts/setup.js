@@ -795,7 +795,7 @@ jobs:
           fetch-depth: 0
 
       - name: gitleaks実行
-        uses: gitleaks/gitleaks-action@v2
+        uses: gitleaks/gitleaks-action@v3
         env:
           GITHUB_TOKEN: \${{ secrets.GITHUB_TOKEN }}
 
@@ -812,13 +812,13 @@ jobs:
       - uses: actions/checkout@v7
 
       - name: CodeQL初期化
-        uses: github/codeql-action/init@v3
+        uses: github/codeql-action/init@v4
         with:
           languages: javascript-typescript
           queries: security-and-quality
 
       - name: CodeQL解析
-        uses: github/codeql-action/analyze@v3
+        uses: github/codeql-action/analyze@v4
         with:
           category: '/language:javascript-typescript'
 `
