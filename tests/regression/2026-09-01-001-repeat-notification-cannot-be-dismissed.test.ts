@@ -83,6 +83,13 @@ EOF
 printf 'afplay\n' >> "$CLAUDE_TEST_LOG"
 EOF
 
+    # 実 Slack への送信を物理的に起こさないための保険。
+    # CLAUDE_NOTIFY_NO_SLACK=1 でも止めているが、二重に塞ぐ。
+    cat > "$dir/bin/curl" <<'EOF'
+#!/bin/sh
+printf 'curl\n' >> "$CLAUDE_TEST_LOG"
+EOF
+
     if [ "$1" = "with-alerter" ]; then
       cat > "$dir/bin/alerter" <<'EOF'
 #!/bin/sh
@@ -120,6 +127,11 @@ function envFor(stub: { dir: string; log: string }, projectDir: string): Record<
     // CI では通知しない仕様のため、検証時は明示的に外す
     CI: '',
     CLAUDE_NOTIFY_DISABLED: '',
+    // テスト実行のたびに実 Slack が飛ぶのを防ぐ（Webhook が設定済みの環境がある）
+    CLAUDE_NOTIFY_NO_SLACK: '1',
+    // 本テストの関心は通知の発行経路。Stop の遅延（既定15秒）は 0 にして即時にする
+    // （遅延そのものは 2026-09-01-003 が検証する）
+    CLAUDE_NOTIFY_STOP_DELAY: '0',
   }
 }
 

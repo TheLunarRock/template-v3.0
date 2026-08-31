@@ -122,6 +122,10 @@ describe('Regression: 2026-09-01-002 - CLAUDE_NOTIFY_NO_SLACK で送信を止め
    * curl を差し替えた環境で notify.sh を実行し、curl が呼ばれたかを返す。
    * uname は Linux を返させてデスクトップ通知経路を通さない
    * （テスト実行中に実際の通知を出さないため）。
+   *
+   * Slack 送信は notify-repeat.sh のバックグラウンドジョブへ移った
+   * （キャンセル時に Slack だけ飛ぶのを防ぐため。2026-09-01-003）。
+   * 同期的には観測できないので、Stop の遅延を 0 にしたうえで少し待つ。
    */
   function slackAttempted(env: Record<string, string>): boolean {
     const setup = spawnSync(
@@ -161,15 +165,31 @@ EOF
         CLAUDE_NOTIFY_WEBHOOK: 'https://example.invalid/hook',
         CI: '',
         CLAUDE_NOTIFY_DISABLED: '',
+        // 遅延は本テストの関心ではないので即時にする
+        CLAUDE_NOTIFY_STOP_DELAY: '0',
         ...env,
       },
     })
 
-    // fs の動的パス参照を避け、判定はシェルに任せる
+    // fs の動的パス参照を避け、判定はシェルに任せる。
+    // 送信は非同期なので、現れるまで最大 3 秒待つ。
     const called =
-      spawnSync(BASH_BIN, ['-c', 'grep -q curl "$1" 2>/dev/null', 'sh', log], {
-        timeout: 30_000,
-      }).status === 0
+      spawnSync(
+        BASH_BIN,
+        [
+          '-c',
+          `
+      for _ in $(seq 1 60); do
+        if grep -q curl "$1" 2>/dev/null; then exit 0; fi
+        sleep 0.05
+      done
+      exit 1
+    `,
+          'sh',
+          log,
+        ],
+        { timeout: 30_000 }
+      ).status === 0
     spawnSync(BASH_BIN, ['-c', 'rm -rf "$1"', 'sh', dir], { timeout: 30_000 })
     return called
   }

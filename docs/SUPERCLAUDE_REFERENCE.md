@@ -58,8 +58,11 @@ Webhook URL は git 管理下に置かず、以下の順で解決する。
 | `CLAUDE_NOTIFY_MAX=10`      | 繰り返しの上限回数（上限到達で自然終了）※同上    |
 | `CLAUDE_NOTIFY_ALERTER`     | `alerter` の配置を上書きする（`none` で無効化）  |
 | `CLAUDE_NOTIFY_NO_SLACK=1`  | Slack 送信だけを止める（デスクトップ通知は出る） |
+| `CLAUDE_NOTIFY_STOP_DELAY`  | `Stop` の通知を遅らせる秒数。既定 15、`0` で即時 |
 
 `CLAUDE_NOTIFY_INTERVAL` / `CLAUDE_NOTIFY_MAX` は **`alerter` が無い環境のフォールバック経路でのみ有効**。`alerter` 経路では通知を1回出して消されるまで待つため、間隔も上限回数も使われない。`CLAUDE_NOTIFY_ALERTER=none` を指定すると `alerter` が入っていてもフォールバック経路を通せる（回帰テストがこれを利用している）。
+
+`CLAUDE_NOTIFY_STOP_DELAY` は**作業完了の通知を遅らせる秒数**。`Stop` は 1 応答の終わりで発火するため、auto mode では作業の途中で何度も鳴ってしまう。遅延中に作業が再開されたら通知も Slack もキャンセルされる（SPECIFICATION.md §11.4.4）。承認待ちは遅延の対象外。
 
 `CLAUDE_NOTIFY_NO_SLACK=1` は**手動での動作確認用**。付けずに `notify.sh` を直接叩くと 1 回ごとに実際の Slack が飛ぶ（2026-09-01 にスマホへ通知が積み上がった）。手順は SPECIFICATION.md §11.9.1 を参照。
 

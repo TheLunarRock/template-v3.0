@@ -18,12 +18,21 @@
 #   alerter があればそれを使い、無ければ従来の繰り返し方式にフォールバックする。
 #
 # 使い方:
-#   notify-repeat.sh start <project-dir> <title> <message> <sound> [interval] [max]
+#   notify-repeat.sh start <project-dir> <title> <message> <sound> [interval] [max] [delay]
 #   notify-repeat.sh stop  <project-dir>
 #   notify-repeat.sh key   <project-dir>   … 通知のグループ ID / PID ファイル名を表示する
 #   notify-repeat.sh stop-all              … 全プロジェクトの通知を消す（緊急停止）
 #
 #   interval / max はフォールバック経路（alerter が無い環境）でのみ使う。
+#   delay は通知を出すまでの待ち時間（秒）。Stop は「1 回の応答が終わった」で
+#   発火し、auto mode では作業の途中で何度も鳴るため、待っている間に作業が
+#   再開されたらキャンセルする。0 なら即時。
+#
+#   Slack は環境変数 CLAUDE_NOTIFY_SLACK_URL / CLAUDE_NOTIFY_SLACK_TEXT で受け取る。
+#   遅延・Slack・デスクトップ通知を 1 本のバックグラウンドジョブにまとめており、
+#   PID ファイル 1 つで丸ごとキャンセルできる。キャンセルされたときに
+#   「デスクトップ通知だけ取り消されて Slack は飛ぶ」という最悪の形を避けるため、
+#   Slack 送信も必ずこのジョブの中で行う（notify.sh 側では送らない）。
 #
 # プロジェクト単位で分離する理由:
 #   複数リポジトリを並行で動かすため。1 つのプロジェクトで操作を再開しても、
@@ -162,13 +171,32 @@ MESSAGE="${4:-}"
 SOUND="${5:-Ping}"
 INTERVAL="${6:-15}"
 MAX="${7:-10}"
+DELAY="${8:-0}"
 
-# 同じプロジェクトの古い通知が残っていれば消してから始める（多重に出さない）
+# 遅延は非負整数のみ受け付ける（不正値は即時扱いにして通知を落とさない）
+case "$DELAY" in
+  '' | *[!0-9]*) DELAY=0 ;;
+esac
+
+# Slack は notify.sh が解決した URL と本文を環境変数で受け取る。
+# ここで送るのは「キャンセル時に Slack だけ飛ぶ」ことを防ぐため。
+SLACK_URL="${CLAUDE_NOTIFY_SLACK_URL:-}"
+SLACK_TEXT="${CLAUDE_NOTIFY_SLACK_TEXT:-}"
+
+# 同じプロジェクトの古い通知が残っていれば消してから始める（多重に出さない）。
+# 遅延待ちのジョブもここで破棄されるため、連続する Stop で二重に鳴らない。
 stop_loop "$DIR"
 
-[ "$(uname -s)" = "Darwin" ] || exit 0
 [ -n "${CI:-}" ] && exit 0
 [ "${CLAUDE_NOTIFY_DISABLED:-}" = "1" ] && exit 0
+
+IS_DARWIN=0
+[ "$(uname -s)" = "Darwin" ] && IS_DARWIN=1
+
+# macOS でなく Slack も送らないなら、やることが無い
+if [ "$IS_DARWIN" = "0" ] && { [ -z "$SLACK_URL" ] || [ -z "$SLACK_TEXT" ]; }; then
+  exit 0
+fi
 
 # 監視対象は通常セッションから辿る。テストでは上書きして挙動を検証する。
 WATCH_PID="${CLAUDE_NOTIFY_WATCH_PID:-$(session_pid)}"
@@ -184,58 +212,83 @@ mkdir -p "$PIDDIR" 2>/dev/null || exit 0
 PIDFILE=$(pidfile_for "$DIR")
 KEY=$(key_for "$DIR")
 
-# ---- alerter 経路: 消すまで残る通知を 1 回だけ出す ----
-if ALERTER=$(alerter_bin); then
-  (
-    # alerter は通知が消されるまでブロックするため、必ずバックグラウンドで起動する。
-    # 前景で呼ぶとフックが返らず Claude Code が止まる。
-    "$ALERTER" --title "$TITLE" --message "$MESSAGE" --sound "$SOUND" \
-      --group "$KEY" --timeout "$ALERTER_TIMEOUT" >/dev/null 2>&1 &
-    alerter_pid=$!
-
-    # 消されるまで待つ。待っている間にセッションが終了したら通知を消す
-    # （エディタを閉じた後に通知が残り続けるのを防ぐ）。
-    while kill -0 "$alerter_pid" 2>/dev/null; do
-      if [ -n "$WATCH_PID" ] && ! kill -0 "$WATCH_PID" 2>/dev/null; then
-        "$ALERTER" --remove "$KEY" >/dev/null 2>&1
-        kill "$alerter_pid" 2>/dev/null
-        break
-      fi
-      sleep "$ALERTER_WATCH_POLL"
-    done
-    rm -f "$PIDFILE"
-  ) >/dev/null 2>&1 &
-
-  echo $! > "$PIDFILE"
-  exit 0
-fi
-
-# ---- フォールバック: alerter が無い環境では気付くまで繰り返す ----
-# osascript の通知は数秒で消えるうえディスミスを検知できないため、
-# 一定間隔で鳴らし直すことでしか気付かせられない。
+# 遅延・Slack・デスクトップ通知を 1 本のジョブにまとめる。
+# PID ファイルに入るのはこのジョブの PID だけなので、notify-stop.sh から
+# 丸ごとキャンセルできる（遅延中に kill されれば Slack も通知も起こらない）。
 (
-  i=0
-  while [ "$i" -lt "$MAX" ]; do
-    # 呼び出し元のセッションが終了していたら鳴らさない。
-    # これが無いと、エディタを閉じた後も上限回数まで鳴り続ける。
-    if [ -n "$WATCH_PID" ]; then
-      kill -0 "$WATCH_PID" 2>/dev/null || break
+  # ---- 遅延（この間にキャンセルされたら何も起こらない）----
+  waited=0
+  while [ "$waited" -lt "$DELAY" ]; do
+    # 待っている間にエディタが閉じられたら、遅延中のものも捨てる
+    if [ -n "$WATCH_PID" ] && ! kill -0 "$WATCH_PID" 2>/dev/null; then
+      rm -f "$PIDFILE"
+      exit 0
     fi
-
-    # 引数渡しで表示する（本文の " や \ による AppleScript 崩れを防ぐ）
-    osascript -e 'on run argv
-      display notification (item 1 of argv) with title (item 2 of argv)
-    end run' "$MESSAGE" "$TITLE" >/dev/null 2>&1
-
-    # 通知センターの権限が無い環境でも音だけは鳴らす
-    if [ -r "/System/Library/Sounds/${SOUND}.aiff" ]; then
-      afplay "/System/Library/Sounds/${SOUND}.aiff" >/dev/null 2>&1
-    fi
-
-    i=$((i + 1))
-    [ "$i" -ge "$MAX" ] && break
-    sleep "$INTERVAL"
+    sleep 1
+    waited=$((waited + 1))
   done
+
+  # ---- Slack（1 回だけ）----
+  if [ -n "$SLACK_URL" ] && [ -n "$SLACK_TEXT" ]; then
+    PAYLOAD=$(NOTIFY_TEXT="$SLACK_TEXT" node -e '
+      console.log(JSON.stringify({ text: process.env.NOTIFY_TEXT }));
+    ' 2>/dev/null)
+    if [ -n "$PAYLOAD" ]; then
+      curl -s --max-time 5 -X POST "$SLACK_URL" \
+        -H "Content-Type: application/json" \
+        -d "$PAYLOAD" >/dev/null 2>&1
+    fi
+  fi
+
+  # ---- デスクトップ通知（macOS のみ）----
+  if [ "$IS_DARWIN" = "1" ]; then
+    if ALERTER=$(alerter_bin); then
+      # ---- alerter 経路: 消すまで残る通知を 1 回だけ出す ----
+      # alerter は通知が消されるまでブロックするため、必ずバックグラウンドで
+      # 起動する。前景で呼ぶとこのジョブが返らず、停止処理と噛み合わない。
+      "$ALERTER" --title "$TITLE" --message "$MESSAGE" --sound "$SOUND" \
+        --group "$KEY" --timeout "$ALERTER_TIMEOUT" >/dev/null 2>&1 &
+      alerter_pid=$!
+
+      # 消されるまで待つ。待っている間にセッションが終了したら通知を消す
+      # （エディタを閉じた後に通知が残り続けるのを防ぐ）。
+      while kill -0 "$alerter_pid" 2>/dev/null; do
+        if [ -n "$WATCH_PID" ] && ! kill -0 "$WATCH_PID" 2>/dev/null; then
+          "$ALERTER" --remove "$KEY" >/dev/null 2>&1
+          kill "$alerter_pid" 2>/dev/null
+          break
+        fi
+        sleep "$ALERTER_WATCH_POLL"
+      done
+    else
+      # ---- フォールバック: alerter が無い環境では気付くまで繰り返す ----
+      # osascript の通知は数秒で消えるうえディスミスを検知できないため、
+      # 一定間隔で鳴らし直すことでしか気付かせられない。
+      i=0
+      while [ "$i" -lt "$MAX" ]; do
+        # 呼び出し元のセッションが終了していたら鳴らさない。
+        # これが無いと、エディタを閉じた後も上限回数まで鳴り続ける。
+        if [ -n "$WATCH_PID" ]; then
+          kill -0 "$WATCH_PID" 2>/dev/null || break
+        fi
+
+        # 引数渡しで表示する（本文の " や \ による AppleScript 崩れを防ぐ）
+        osascript -e 'on run argv
+          display notification (item 1 of argv) with title (item 2 of argv)
+        end run' "$MESSAGE" "$TITLE" >/dev/null 2>&1
+
+        # 通知センターの権限が無い環境でも音だけは鳴らす
+        if [ -r "/System/Library/Sounds/${SOUND}.aiff" ]; then
+          afplay "/System/Library/Sounds/${SOUND}.aiff" >/dev/null 2>&1
+        fi
+
+        i=$((i + 1))
+        [ "$i" -ge "$MAX" ] && break
+        sleep "$INTERVAL"
+      done
+    fi
+  fi
+
   rm -f "$PIDFILE"
 ) >/dev/null 2>&1 &
 

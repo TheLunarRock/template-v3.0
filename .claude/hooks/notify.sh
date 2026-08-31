@@ -18,6 +18,11 @@
 #                    終わりました」が「応答がないまま止まっています」に化けるため。
 #                    Stop の通知は消すまで残るので idle が無くても見逃さない。
 #   - 通知は macOS 通知センター＋サウンド。Slack Webhook 設定時は併せて送信
+#   - Stop の通知は既定 15 秒遅らせる。Stop は「1 回の応答が終わった」で発火し、
+#     auto mode は 1 つの作業を何ターンにも分けて進めるため、そのままだと作業の
+#     途中で何度も鳴る。遅延中に PreToolUse / UserPromptSubmit が来たら
+#     （＝作業が続いている）キャンセルする。承認待ちは人間が動かないと進まない
+#     ので遅延させない。
 #   - デスクトップ通知は notify-repeat.sh に委譲する。alerter があれば
 #     「消すまで画面に残る通知」を 1 回だけ出し、無ければ従来どおり
 #     気付くまで繰り返す（2026-08-31 実機確認。詳細は notify-repeat.sh 冒頭）。
@@ -37,6 +42,7 @@
 #   CLAUDE_NOTIFY_ALERTER     alerter の配置を上書きする（'none' で無効化）
 #   CLAUDE_NOTIFY_NO_SLACK=1  Slack 送信だけを止める（デスクトップ通知は出す）。
 #                             動作確認で直接叩くたびに実 Slack が飛ぶのを防ぐ
+#   CLAUDE_NOTIFY_STOP_DELAY=15 Stop の通知を遅らせる秒数。0 で即時
 #
 # 注意: 本フックは通知専用のため、いかなる場合も exit 0 で通過させる。
 #       ガード系フック（dev-server-guard 等）と違い作業を止めてはならない。
@@ -120,46 +126,62 @@ MESSAGE=$(printf '%s\n' "$RESULT" | sed -n '3p')
 SOUND=$(printf '%s\n' "$RESULT" | sed -n '4p')
 REPORT=$(printf '%s\n' "$RESULT" | sed -n '5,$p')
 
-# ---- macOS 通知（クリップボード + 消すまで残る通知） ----
+# ---- クリップボード（macOS のみ）----
+# 報告本文をクリップボードへ（通知から本文を読み返す手間をなくす）
 if [ "$(uname -s)" = "Darwin" ]; then
-  # 報告本文をクリップボードへ（通知から本文を読み返す手間をなくす）
   if [ -n "$REPORT" ] && command -v pbcopy >/dev/null 2>&1; then
     printf '%s' "$REPORT" | pbcopy
   fi
+fi
 
-  # 通知の発行とサウンド再生は notify-repeat.sh に委譲する。
-  # alerter があれば消すまで残る通知を 1 回だけ出し、無ければ気付くまで繰り返す。
-  # INTERVAL / MAX はフォールバック経路でのみ使われる（alerter 経路では不要）。
-  # どちらの経路でも停止は notify-stop.sh が担う。
-  HOOK_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-  if [ -x "$HOOK_DIR/notify-repeat.sh" ]; then
+# ---- 遅延の要否 ----
+# Stop だけを遅らせる。DRY_RUN の 5 行フォーマットは変えられないため、
+# イベント名だけをここで別途取り出す（判定本体は上の node 呼び出しのまま）。
+EVENT=$(printf '%s' "$INPUT" | node -e '
+  let d = "";
+  process.stdin.on("data", (c) => (d += c));
+  process.stdin.on("end", () => {
+    let p = {};
+    try { p = JSON.parse(d) || {}; } catch (e) {}
+    console.log(String(p.hook_event_name || ""));
+  });
+' 2>/dev/null)
+
+if [ "$EVENT" = "Stop" ]; then
+  DELAY="${CLAUDE_NOTIFY_STOP_DELAY:-15}"
+else
+  # 承認待ちは人間が動かないと進まない状態なので即時に鳴らす
+  DELAY=0
+fi
+
+# ---- Slack の宛先と本文を解決する ----
+# 送信そのものは notify-repeat.sh のジョブ内で行う。遅延中にキャンセルされた
+# ときに「デスクトップ通知は取り消されたのに Slack だけ飛ぶ」を防ぐため、
+# ここでは送らない。
+SLACK_URL=""
+SLACK_TEXT=""
+if [ "${CLAUDE_NOTIFY_NO_SLACK:-}" != "1" ]; then
+  SLACK_URL="${CLAUDE_NOTIFY_WEBHOOK:-}"
+  if [ -z "$SLACK_URL" ] && [ -r "$HOME/.claude/notify-webhook.txt" ]; then
+    SLACK_URL=$(tr -d '\r\n' < "$HOME/.claude/notify-webhook.txt")
+  fi
+  if [ -n "$SLACK_URL" ]; then
+    SLACK_TEXT="$TITLE
+$MESSAGE"
+  fi
+fi
+
+# ---- 通知の発行（デスクトップ + Slack）を notify-repeat.sh に委譲 ----
+# alerter があれば消すまで残る通知を 1 回だけ出し、無ければ気付くまで繰り返す。
+# INTERVAL / MAX はフォールバック経路でのみ使われる（alerter 経路では不要）。
+# どちらの経路でも停止は notify-stop.sh が担う。
+HOOK_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if [ -x "$HOOK_DIR/notify-repeat.sh" ]; then
+  CLAUDE_NOTIFY_SLACK_URL="$SLACK_URL" \
+  CLAUDE_NOTIFY_SLACK_TEXT="$SLACK_TEXT" \
     "$HOOK_DIR/notify-repeat.sh" start "${CLAUDE_PROJECT_DIR:-$PWD}" \
       "$TITLE" "$MESSAGE" "$SOUND" \
-      "${CLAUDE_NOTIFY_INTERVAL:-15}" "${CLAUDE_NOTIFY_MAX:-10}"
-  fi
-fi
-
-# ---- Slack 通知（Webhook が設定されている場合のみ） ----
-# 動作確認で本フックを直接叩くと 1 回ごとに実際の Slack が飛ぶ。
-# CLAUDE_NOTIFY_NO_SLACK=1 で送信だけを止められる（デスクトップ通知は出る）。
-[ "${CLAUDE_NOTIFY_NO_SLACK:-}" = "1" ] && exit 0
-
-WEBHOOK="${CLAUDE_NOTIFY_WEBHOOK:-}"
-if [ -z "$WEBHOOK" ] && [ -r "$HOME/.claude/notify-webhook.txt" ]; then
-  WEBHOOK=$(tr -d '\r\n' < "$HOME/.claude/notify-webhook.txt")
-fi
-
-if [ -n "$WEBHOOK" ]; then
-  PAYLOAD=$(NOTIFY_TITLE="$TITLE" NOTIFY_MESSAGE="$MESSAGE" node -e '
-    console.log(JSON.stringify({
-      text: process.env.NOTIFY_TITLE + "\n" + process.env.NOTIFY_MESSAGE,
-    }));
-  ' 2>/dev/null)
-  if [ -n "$PAYLOAD" ]; then
-    curl -s --max-time 5 -X POST "$WEBHOOK" \
-      -H "Content-Type: application/json" \
-      -d "$PAYLOAD" >/dev/null 2>&1
-  fi
+      "${CLAUDE_NOTIFY_INTERVAL:-15}" "${CLAUDE_NOTIFY_MAX:-10}" "$DELAY"
 fi
 
 exit 0
