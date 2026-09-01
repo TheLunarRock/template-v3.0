@@ -133,7 +133,7 @@ template-v3.0/
 ```
 src/features/[feature-name]/
 ├── api/              # API関数（公開推奨）
-│   └── featureApi.ts
+│   └── feature-api.ts
 ├── components/       # UIコンポーネント（内部使用のみ）
 │   └── Component.tsx
 ├── hooks/            # カスタムフック（内部使用のみ）
@@ -164,7 +164,7 @@ src/features/[feature-name]/
 // src/features/[feature-name]/index.ts
 
 // ✅ API関数（公開推奨）
-export { getFeatureData, createItem } from './api/featureApi'
+export { getFeatureData, createItem } from './api/feature-api'
 
 // ✅ ドメイン型のみ（公開可）
 export type { FeatureItem, FeatureConfig } from './types'

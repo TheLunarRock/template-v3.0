@@ -851,7 +851,7 @@ const sales = unitPrice * quantity // 再計算してはいけない！
 // src/features/[feature-name]/index.ts
 
 // ✅ API関数（公開推奨）
-export { getFeatureData, createItem, updateItem, deleteItem } from './api/featureApi'
+export { getFeatureData, createItem, updateItem, deleteItem } from './api/feature-api'
 
 // ✅ ドメイン型のみ（公開可）
 export type { FeatureItem, FeatureConfig } from './types'

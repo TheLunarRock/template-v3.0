@@ -86,7 +86,7 @@ export {
   create${pascalName},
   update${pascalName},
   delete${pascalName}
-} from './api/${featureName}Api'
+} from './api/${featureName}-api'
 
 // ✅ ドメイン型のみ（公開可）
 export type { 
@@ -132,8 +132,8 @@ export const delete${pascalName} = async (id: string): Promise<void> => {
 }
 `
 
-  fs.writeFileSync(path.join(featurePath, 'api', `${featureName}Api.ts`), apiContent)
-  log.success(`api/${featureName}Api.ts を作成`)
+  fs.writeFileSync(path.join(featurePath, 'api', `${featureName}-api.ts`), apiContent)
+  log.success(`api/${featureName}-api.ts を作成`)
 
   // 型定義ファイル
   const typesContent = `// ${pascalName} Type Definitions
@@ -162,7 +162,7 @@ type ${pascalName}State = {
 
   // フック ファイル（内部使用のみ）- 無限ループ防止版
   const hookContent = `import { useState, useEffect, useMemo, useRef } from 'react'
-import { get${pascalName}Data } from '../api/${featureName}Api'
+import { get${pascalName}Data } from '../api/${featureName}-api'
 import type { ${pascalName} } from '../types'
 import { useInfiniteLoopDetector } from '@/hooks/useInfiniteLoopDetector'
 
@@ -517,7 +517,7 @@ ${colors.green}━━━━━━━━━━━━━━━━━━━━━�
 
 📝 作成されたファイル:
   • index.ts (公開API定義)
-  • api/${featureName}Api.ts (API関数)
+  • api/${featureName}-api.ts (API関数)
   • types/index.ts (型定義)
   • hooks/use${pascalName}.ts (カスタムフック - 内部使用のみ)
   • components/${pascalName}Component.tsx (UIコンポーネント - 内部使用のみ)
@@ -537,7 +537,7 @@ ${colors.red}${colors.bold}⚠️  重要な注意事項:${colors.reset}
 
 次のステップ:
   1. types/index.ts で型を定義
-  2. api/${featureName}Api.ts でAPI関数を実装
+  2. api/${featureName}-api.ts でAPI関数を実装
   3. 必要に応じてコンポーネントとフックを実装
   4. ${colors.green}pnpm test:unit でユニットテストを実行${colors.reset}
 
