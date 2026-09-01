@@ -110,25 +110,48 @@ export type {
 
   // API ファイルのテンプレート
   const apiContent = `// ${pascalName} API Functions
+//
+// 他フィーチャーへ公開してよいのはこの純粋関数だけ。フックやコンポーネントは公開しない。
+// エンドポイントとフィールドは雛形なので、実際のバックエンドに合わせて差し替える。
+
+import type { ${pascalName} } from '../types'
+
+const ENDPOINT = '/api/${featureName}'
+
+/** レスポンスを検証して JSON を取り出す */
+const parseResponse = async (response: Response): Promise<unknown> => {
+  if (!response.ok) {
+    throw new Error(\`${pascalName} API が失敗しました (\${response.status})\`)
+  }
+  return response.json()
+}
 
 export const get${pascalName}Data = async (id: string): Promise<${pascalName}> => {
-  // TODO: 実装
-  throw new Error('Not implemented yet');
+  const response = await fetch(\`\${ENDPOINT}/\${id}\`)
+  return (await parseResponse(response)) as ${pascalName}
 }
 
 export const create${pascalName} = async (data: Partial<${pascalName}>): Promise<${pascalName}> => {
-  // TODO: 実装
-  throw new Error('Not implemented yet');
+  const response = await fetch(ENDPOINT, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  })
+  return (await parseResponse(response)) as ${pascalName}
 }
 
 export const update${pascalName} = async (id: string, data: Partial<${pascalName}>): Promise<${pascalName}> => {
-  // TODO: 実装
-  throw new Error('Not implemented yet');
+  const response = await fetch(\`\${ENDPOINT}/\${id}\`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  })
+  return (await parseResponse(response)) as ${pascalName}
 }
 
 export const delete${pascalName} = async (id: string): Promise<void> => {
-  // TODO: 実装
-  throw new Error('Not implemented yet');
+  const response = await fetch(\`\${ENDPOINT}/\${id}\`, { method: 'DELETE' })
+  await parseResponse(response)
 }
 `
 
@@ -138,22 +161,31 @@ export const delete${pascalName} = async (id: string): Promise<void> => {
   // 型定義ファイル
   const typesContent = `// ${pascalName} Type Definitions
 
-export type ${pascalName} = {
-  id: string;
-  // TODO: プロパティを追加
-  createdAt: Date;
-  updatedAt: Date;
+/** ドメインモデル。フィーチャーの index.ts から公開してよい */
+export interface ${pascalName} {
+  id: string
+  // ドメイン固有のプロパティをここへ追加する
+  createdAt: Date
+  updatedAt: Date
 }
 
-export type ${pascalName}Config = {
-  // TODO: 設定型を定義
+/** フィーチャーの設定。必要な項目を足していく */
+export interface ${pascalName}Config {
+  /** 一覧の取得件数 */
+  limit?: number
 }
 
-// ❌ 内部状態型（公開しない）
-type ${pascalName}State = {
-  data: ${pascalName}[];
-  loading: boolean;
-  error: string | null;
+/**
+ * フックが返す内部状態。
+ *
+ * ⚠️ フィーチャーの index.ts からは公開しない（内部実装のため）。
+ * このファイルから export しているのは、同じフィーチャー内の
+ * hooks/ が import するためだけ。
+ */
+export interface ${pascalName}State {
+  data: ${pascalName} | null
+  loading: boolean
+  error: string | null
 }
 `
 
@@ -163,7 +195,7 @@ type ${pascalName}State = {
   // フック ファイル（内部使用のみ）- 無限ループ防止版
   const hookContent = `import { useState, useEffect, useMemo, useRef } from 'react'
 import { get${pascalName}Data } from '../api/${featureName}-api'
-import type { ${pascalName} } from '../types'
+import type { ${pascalName}, ${pascalName}State } from '../types'
 import { useInfiniteLoopDetector } from '@/hooks/useInfiniteLoopDetector'
 
 // ⚠️ このフックは内部使用のみ！絶対にindex.tsから公開しない！
@@ -178,7 +210,7 @@ interface Use${pascalName}Options {
 export const use${pascalName} = (
   id: string,
   options?: Use${pascalName}Options
-) => {
+): ${pascalName}State => {
   const [data, setData] = useState<${pascalName} | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -193,8 +225,10 @@ export const use${pascalName} = (
     [options?.category, options?.limit, options?.enabled]  // プリミティブ値のみ
   )
   
-  // 🔥 無限ループ防止: 前回のIDを記憶
-  const prevIdRef = useRef(id)
+  // 🔥 無限ループ防止: 取得済みの ID を記憶する。
+  // state の data を effect 内で読むと依存配列に data が必要になり、
+  // それが再実行を招いてループの原因になるため ref で持つ。
+  const fetchedIdRef = useRef<string | null>(null)
 
   // 🔍 リアルタイム無限ループ検出（開発環境のみ）
   useInfiniteLoopDetector({
@@ -209,12 +243,12 @@ export const use${pascalName} = (
       return
     }
     
-    // IDが変わっていない場合はスキップ
-    if (prevIdRef.current === id && data !== null) {
+    // 同じ ID を取得済みならスキップ
+    if (fetchedIdRef.current === id) {
       return
     }
-    
-    prevIdRef.current = id
+
+    fetchedIdRef.current = id
     
     let cancelled = false
     
@@ -240,8 +274,9 @@ export const use${pascalName} = (
       }
     }
     
-    fetchData()
-    
+    // 戻り値を使わない Promise であることを明示する
+    void fetchData()
+
     // クリーンアップ
     return () => {
       cancelled = true
@@ -260,8 +295,8 @@ export const use${pascalName} = (
 import { use${pascalName} } from '../hooks/use${pascalName}'
 
 // ⚠️ このコンポーネントは内部使用のみ！他フィーチャーからは使用不可！
-type ${pascalName}ComponentProps = {
-  id: string;
+interface ${pascalName}ComponentProps {
+  id: string
 }
 
 export const ${pascalName}Component: React.FC<${pascalName}ComponentProps> = ({ id }) => {
@@ -271,7 +306,7 @@ export const ${pascalName}Component: React.FC<${pascalName}ComponentProps> = ({ 
     return <div className="font-rounded">読み込み中...</div>
   }
   
-  if (error) {
+  if (error !== null) {
     return <div className="font-rounded text-red-500">エラー: {error}</div>
   }
   
@@ -282,7 +317,7 @@ export const ${pascalName}Component: React.FC<${pascalName}ComponentProps> = ({ 
   return (
     <div className="bg-white rounded-lg shadow-lg p-6 font-rounded">
       <h2 className="text-2xl font-bold mb-4">${pascalName}</h2>
-      {/* TODO: UIを実装 */}
+      {/* ここにこのフィーチャー独自の UI を実装する */}
       <pre>{JSON.stringify(data, null, 2)}</pre>
     </div>
   )
@@ -384,13 +419,13 @@ async function ${pascalName}PageContent() {
   let error: string | null = null
   
   try {
-    // TODO: 実際のIDまたはパラメータを取得する実装が必要
+    // 実際にはルートパラメータや検索条件から ID を決める
     data = await get${pascalName}Data('sample-id')
   } catch (e) {
     error = e instanceof Error ? e.message : 'データの取得に失敗しました'
   }
   
-  if (error) {
+  if (error !== null) {
     return (
       <div className="p-8 bg-red-50 rounded-lg">
         <p className="text-red-700">{error}</p>
@@ -416,7 +451,7 @@ async function ${pascalName}PageContent() {
           </h1>
           
           <div className="space-y-4">
-            {/* TODO: 実際のUI実装 */}
+            {/* ここにこのページ独自の UI を実装する */}
             <div className="border-l-4 border-blue-500 pl-4">
               <p className="text-sm text-gray-500">ID</p>
               <p className="text-lg font-medium">{data.id}</p>
@@ -447,52 +482,77 @@ async function ${pascalName}PageContent() {
 
   // 単体テストファイル生成
   const unitTestPath = `tests/unit/features/${featureName}.test.ts`
-  const unitTestContent = `import { describe, it, expect, vi } from 'vitest';
-import { get${pascalName}Data, create${pascalName}, update${pascalName}, delete${pascalName} } from '@/features/${featureName}';
+  const unitTestContent = `import { describe, it, expect, vi, afterEach } from 'vitest'
+import {
+  get${pascalName}Data,
+  create${pascalName},
+  update${pascalName},
+  delete${pascalName},
+} from '@/features/${featureName}'
+
+/** fetch を差し替えて、1 回分のレスポンスを返す */
+const mockFetchOnce = (body: unknown, ok = true): void => {
+  global.fetch = vi.fn().mockResolvedValueOnce({
+    ok,
+    status: ok ? 200 : 500,
+    json: () => Promise.resolve(body),
+  } as Response)
+}
+
+afterEach(() => {
+  vi.restoreAllMocks()
+})
 
 describe('${pascalName} API関数', () => {
-  it('get${pascalName}Data がデータを正しく取得する', async () => {
-    // fetchモック
-    global.fetch = vi.fn().mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({ id: 'test-id', name: 'Test' })
-    } as Response);
+  it('get${pascalName}Data が ID を URL に含めて取得する', async () => {
+    mockFetchOnce({ id: 'test-id' })
 
-    const result = await get${pascalName}Data('test-id');
-    expect(result).toEqual({ id: 'test-id', name: 'Test' });
-  });
+    const result = await get${pascalName}Data('test-id')
 
-  it('create${pascalName} が新規作成を実行する', async () => {
-    const newData = { name: 'New Item' };
-    global.fetch = vi.fn().mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({ id: 'new-id', ...newData })
-    } as Response);
+    expect(result.id).toBe('test-id')
+    expect(global.fetch).toHaveBeenCalledWith('/api/${featureName}/test-id')
+  })
 
-    const result = await create${pascalName}(newData);
-    expect(result.name).toBe('New Item');
-  });
+  it('create${pascalName} が本文を送って作成する', async () => {
+    mockFetchOnce({ id: 'new-id' })
 
-  it('update${pascalName} が更新を実行する', async () => {
-    const updateData = { name: 'Updated Item' };
-    global.fetch = vi.fn().mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({ id: 'test-id', ...updateData })
-    } as Response);
+    const result = await create${pascalName}({ id: 'new-id' })
 
-    const result = await update${pascalName}('test-id', updateData);
-    expect(result.name).toBe('Updated Item');
-  });
+    expect(result.id).toBe('new-id')
+    expect(global.fetch).toHaveBeenCalledWith(
+      '/api/${featureName}',
+      expect.objectContaining({ method: 'POST' })
+    )
+  })
+
+  it('update${pascalName} が ID を URL に含めて更新する', async () => {
+    mockFetchOnce({ id: 'test-id' })
+
+    const result = await update${pascalName}('test-id', { id: 'test-id' })
+
+    expect(result.id).toBe('test-id')
+    expect(global.fetch).toHaveBeenCalledWith(
+      '/api/${featureName}/test-id',
+      expect.objectContaining({ method: 'PATCH' })
+    )
+  })
 
   it('delete${pascalName} が削除を実行する', async () => {
-    global.fetch = vi.fn().mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({})
-    } as Response);
+    mockFetchOnce({})
 
-    await expect(delete${pascalName}('test-id')).resolves.not.toThrow();
-  });
-});
+    await expect(delete${pascalName}('test-id')).resolves.toBeUndefined()
+    expect(global.fetch).toHaveBeenCalledWith(
+      '/api/${featureName}/test-id',
+      expect.objectContaining({ method: 'DELETE' })
+    )
+  })
+
+  it('レスポンスが失敗なら例外を投げる', async () => {
+    mockFetchOnce({}, false)
+
+    await expect(get${pascalName}Data('test-id')).rejects.toThrow('${pascalName} API')
+  })
+})
 `
 
   // 単体テストディレクトリの確認と作成

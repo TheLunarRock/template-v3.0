@@ -155,6 +155,30 @@ describe('create-feature.js: 生成されたコードの参照先が実在する
   })
 })
 
+describe('create-feature.js: 生成コードの健全性', () => {
+  /**
+   * 生成コードに抑制コメントを埋めて typecheck / lint を黙らせるのは禁止。
+   * スカフォールドは「最小限だが成立している例」であるべきで、宣言だけして
+   * 使っていない引数や型を抑制コメントで隠すと、雛形として意味が薄くなる。
+   * 将来また黙らせる形で直されないための歯止めとして固定する。
+   */
+  const SUPPRESSIONS = ['eslint-disable', '@ts-ignore', '@ts-expect-error']
+
+  it('生成されたどのファイルにも抑制コメントが含まれない', () => {
+    const { files, dir } = generate('user-profile')
+    const sources = files.filter((file) => /\.tsx?$/.test(file))
+
+    expect(sources.length).toBeGreaterThan(0)
+
+    const offenders = sources.filter((file) => {
+      const content = read(dir, file)
+      return SUPPRESSIONS.some((token) => content.includes(token))
+    })
+
+    expect(offenders).toEqual([])
+  })
+})
+
 describe('create-feature.js: 入力の検証', () => {
   it.each(['UserProfile', 'user_profile', 'userProfile'])(
     'ケバブケース以外は拒否する: %s',
