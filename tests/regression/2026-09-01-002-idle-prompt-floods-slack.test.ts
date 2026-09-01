@@ -198,11 +198,15 @@ EOF
     return called
   }
 
+  // slackAttempted は「送信が無いこと」を確かめるために最大 3 秒ポーリングする。
+  // フック起動の spawn も挟むため、既定の 5 秒では suite の負荷次第で
+  // タイムアウトする。003 / 006 と同じく明示的に余裕を持たせる
+  // （判定内容は変えていない）。
   it('既定では Slack へ送信する', () => {
     expect(slackAttempted({})).toBe(true)
-  })
+  }, 30_000)
 
   it('CLAUDE_NOTIFY_NO_SLACK=1 なら送信しない', () => {
     expect(slackAttempted({ CLAUDE_NOTIFY_NO_SLACK: '1' })).toBe(false)
-  })
+  }, 30_000)
 })
