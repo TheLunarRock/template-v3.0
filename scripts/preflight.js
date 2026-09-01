@@ -56,6 +56,29 @@ function publishesHook(indexContent) {
 }
 
 /**
+ * .env 形式のテキストで、指定キーに空でない値が設定されているかを判定する。
+ *
+ * 以前は envContent.includes(`${envVar}=`) という部分一致だったため、
+ * 「その文字列がファイルのどこかにあるか」しか見ておらず、
+ * コメント行（`# KEY=value`）・空の値（`KEY=`）・末尾一致する別キー
+ * （`MY_KEY=`）のいずれも「設定済み」と誤判定していた（2026-09-02-001）。
+ *
+ * env ファイルの `#` はコメントなので、JS 用の stripComments は使わない。
+ */
+function isEnvVarConfigured(envContent, envVar) {
+  return envContent.split('\n').some((line) => {
+    const trimmed = line.trim()
+    if (trimmed === '' || trimmed.startsWith('#')) return false
+
+    const separator = trimmed.indexOf('=')
+    if (separator === -1) return false
+    if (trimmed.slice(0, separator).trim() !== envVar) return false
+
+    return trimmed.slice(separator + 1).trim() !== ''
+  })
+}
+
+/**
  * 値が資格情報らしいか
  *
  * 実在の API キー・トークンは空白を含まない印字可能 ASCII で、ある程度の長さがある。
@@ -268,7 +291,7 @@ async function preflight() {
       // .env.localから読み込み
       if (fs.existsSync('.env.local')) {
         const envContent = fs.readFileSync('.env.local', 'utf8')
-        if (envContent.includes(`${envVar}=`)) {
+        if (isEnvVarConfigured(envContent, envVar)) {
           log.success(`${envVar} ✓ (.env.local)`)
           results.passed++
         } else {
@@ -490,7 +513,13 @@ ${colors.blue}━━━━━━━━━━━━━━━━━━━━━━
   process.exit(readyToDeploy ? 0 : 1)
 }
 
-module.exports = { SECRET_NAME_PATTERN, findHardcodedSecrets, collectSourceFiles, publishesHook }
+module.exports = {
+  SECRET_NAME_PATTERN,
+  findHardcodedSecrets,
+  collectSourceFiles,
+  publishesHook,
+  isEnvVarConfigured,
+}
 
 // 直接実行されたときだけ走らせる（テストから require できるようにするため）
 if (require.main === module) {
