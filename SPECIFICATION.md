@@ -4424,14 +4424,14 @@ AI ファースト開発において、ドキュメントは **AI への命令�
 
 #### 🔴 Phase 1: 致命的問題の防止
 
-| ファイル                        | 検証内容                                                                             |
-| ------------------------------- | ------------------------------------------------------------------------------------ |
-| `setup-templates.test.ts`       | `setup.js` 内の `ci.yml` / `security.yml` テンプレート文字列が実ファイルと完全一致   |
-| `command-references.test.ts`    | ドキュメント内の pnpm コマンド参照が `package.json` scripts に実在                   |
-| `file-references.test.ts`       | ドキュメント内のファイルパス参照（`scripts/...`等）が実在                            |
-| `vercel-config.test.ts`         | `vercel.json` の deploymentEnabled とブランチ運用記述（main直push）が整合            |
-| `claude-workflow-guard.test.ts` | `claude.yml` の OWNER 起動ゲート・`@v1` 参照・v1廃止入力の不使用・`concurrency` 定義 |
-| `dependency-versions.test.ts`   | SPECIFICATION.md §2 の依存バージョン表と `package.json` の厳密一致                   |
+| ファイル                        | 検証内容                                                                                                                                                                                                                                |
+| ------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `setup-templates.test.ts`       | `setup.js` が writeFileSync で書き出す埋め込みテンプレート7種（`ci.yml` / `security.yml` / `vitest.config.ts` / `tests/setup.ts` / `claudedocs/README.md` / `.vscode/settings.json` / `.vscode/extensions.json`）が実ファイルと完全一致 |
+| `command-references.test.ts`    | ドキュメント内の pnpm コマンド参照が `package.json` scripts に実在                                                                                                                                                                      |
+| `file-references.test.ts`       | ドキュメント内のファイルパス参照（`scripts/...`等）が実在                                                                                                                                                                               |
+| `vercel-config.test.ts`         | `vercel.json` の deploymentEnabled とブランチ運用記述（main直push）が整合                                                                                                                                                               |
+| `claude-workflow-guard.test.ts` | `claude.yml` の OWNER 起動ゲート・`@v1` 参照・v1廃止入力の不使用・`concurrency` 定義                                                                                                                                                    |
+| `dependency-versions.test.ts`   | SPECIFICATION.md §2 の依存バージョン表と `package.json` の厳密一致                                                                                                                                                                      |
 
 #### 🟡 Phase 2: 構造的整合性
 
@@ -4476,12 +4476,11 @@ AI ファースト開発において、ドキュメントは **AI への命令�
 例（`setup-templates.test.ts`）:
 
 ```
-setup.js 内の ci.yml テンプレートと .github/workflows/ci.yml が一致しません
-
+setup.js の ciWorkflow テンプレートと .github/workflows/ci.yml が一致しません。
 修正方法:
-  1. setup.js の ciWorkflow テンプレートと .github/workflows/ci.yml を一致させてください
-  2. 実ファイルが正しい場合: setup.js の該当箇所を更新
-  3. テンプレートが正しい場合: pnpm prettier --write .github/workflows/ci.yml
+  1. 実ファイル（.github/workflows/ci.yml）が正: setup.js の ciWorkflow を実ファイルに合わせる
+  2. テンプレートが正: .github/workflows/ci.yml を更新したうえで pnpm prettier --write .github/workflows/ci.yml
+  ※ 「部分一致」や「キーワード確認」に緩めないこと。乖離を機械的に止めるのが目的。
 ```
 
 ### 23.6 開発フローへの組み込み

@@ -1237,20 +1237,20 @@ pnpm sc:disable-pr  # ON → OFF: ブランチ保護解除 + workflow削除 + �
 
 ## 整合性が保証される対象
 
-| カテゴリ               | テストファイル                  | 検証内容                                                                         |
-| ---------------------- | ------------------------------- | -------------------------------------------------------------------------------- |
-| **コードテンプレート** | `setup-templates.test.ts`       | `setup.js` 内の `ci.yml` / `security.yml` テンプレート vs 実ファイル             |
-| **コマンド参照**       | `command-references.test.ts`    | ドキュメント内の pnpm コマンド参照が `package.json` scripts に実在               |
-| **ファイルパス参照**   | `file-references.test.ts`       | ドキュメント内のパス参照が実在                                                   |
-| **バージョン番号**     | `version-numbers.test.ts`       | `package.json` engines.node がワークフローと整合                                 |
-| **層の数**             | `layer-count.test.ts`           | 「N層防御」が CLAUDE.md と SPECIFICATION.md で一致                               |
-| **保護ファイルリスト** | `protected-files.test.ts`       | `protect-config.js` と CLAUDE.md の保護表が一致                                  |
-| **MCPサーバーリスト**  | `mcp-list.test.ts`              | 必須MCP4種が全ドキュメント・スクリプトに記載                                     |
-| **AGENTS.md同期**      | `agents-sync.test.ts`           | AGENTS.md と CLAUDE.md の always-on ルール抜粋が同期している                     |
-| **Vercel設定**         | `vercel-config.test.ts`         | `vercel.json` の deploymentEnabled とブランチ運用記述（main直push）が整合        |
-| **Claudeワークフロー** | `claude-workflow-guard.test.ts` | `claude.yml` の OWNER 起動ゲート・`@v1` 参照・廃止入力不使用・`concurrency` 定義 |
-| **依存バージョン**     | `dependency-versions.test.ts`   | SPECIFICATION.md §2 の依存バージョン表と `package.json` が一致                   |
-| **テスト目録**         | `consistency-inventory.test.ts` | tests/consistency のファイル数・一覧が CLAUDE.md / SPECIFICATION.md の記載と一致 |
+| カテゴリ               | テストファイル                  | 検証内容                                                                                                                                                           |
+| ---------------------- | ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **コードテンプレート** | `setup-templates.test.ts`       | `setup.js` の埋め込みテンプレート7種（`ci.yml` / `security.yml` / `vitest.config.ts` / `tests/setup.ts` / `claudedocs/README.md` / `.vscode/*.json`）vs 実ファイル |
+| **コマンド参照**       | `command-references.test.ts`    | ドキュメント内の pnpm コマンド参照が `package.json` scripts に実在                                                                                                 |
+| **ファイルパス参照**   | `file-references.test.ts`       | ドキュメント内のパス参照が実在                                                                                                                                     |
+| **バージョン番号**     | `version-numbers.test.ts`       | `package.json` engines.node がワークフローと整合                                                                                                                   |
+| **層の数**             | `layer-count.test.ts`           | 「N層防御」が CLAUDE.md と SPECIFICATION.md で一致                                                                                                                 |
+| **保護ファイルリスト** | `protected-files.test.ts`       | `protect-config.js` と CLAUDE.md の保護表が一致                                                                                                                    |
+| **MCPサーバーリスト**  | `mcp-list.test.ts`              | 必須MCP4種が全ドキュメント・スクリプトに記載                                                                                                                       |
+| **AGENTS.md同期**      | `agents-sync.test.ts`           | AGENTS.md と CLAUDE.md の always-on ルール抜粋が同期している                                                                                                       |
+| **Vercel設定**         | `vercel-config.test.ts`         | `vercel.json` の deploymentEnabled とブランチ運用記述（main直push）が整合                                                                                          |
+| **Claudeワークフロー** | `claude-workflow-guard.test.ts` | `claude.yml` の OWNER 起動ゲート・`@v1` 参照・廃止入力不使用・`concurrency` 定義                                                                                   |
+| **依存バージョン**     | `dependency-versions.test.ts`   | SPECIFICATION.md §2 の依存バージョン表と `package.json` が一致                                                                                                     |
+| **テスト目録**         | `consistency-inventory.test.ts` | tests/consistency のファイル数・一覧が CLAUDE.md / SPECIFICATION.md の記載と一致                                                                                   |
 
 ## Claude Code への絶対指示
 
