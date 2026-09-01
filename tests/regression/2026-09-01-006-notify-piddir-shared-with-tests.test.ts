@@ -44,12 +44,64 @@ function wait(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms))
 }
 
+/**
+ * テスト用の作業ディレクトリを作り、その配下に PATH スタブを置く。
+ *
+ * notify-repeat.sh は PID ファイルを作る前に uname -s を見て、
+ * macOS でなく Slack も無いなら何もせず exit する（意図した早期 exit）。
+ * そのため uname スタブが無いと Linux では PID ファイルが生まれず、
+ * 手元の macOS では通るのに CI（ubuntu）だけ落ちる。
+ *
+ * alerter は CLAUDE_NOTIFY_ALERTER='none' で無効化しているのでフォールバック
+ * 経路に入る。そこで呼ばれる osascript / afplay も、Linux に存在せず実機 macOS
+ * では本当に音が鳴ってしまうため、あわせてスタブにする。
+ */
 function mkTmp(): string {
-  return sh('mktemp -d').trim()
+  return sh(`
+    set -eu
+    dir=$(mktemp -d)
+    mkdir -p "$dir/bin"
+
+    cat > "$dir/bin/uname" <<'EOF'
+#!/bin/sh
+echo Darwin
+EOF
+
+    cat > "$dir/bin/osascript" <<'EOF'
+#!/bin/sh
+exit 0
+EOF
+
+    cat > "$dir/bin/afplay" <<'EOF'
+#!/bin/sh
+exit 0
+EOF
+
+    chmod +x "$dir/bin/"*
+    printf '%s' "$dir"
+  `).trim()
 }
 
 function rmTmp(dir: string): void {
   sh('rm -rf "$1"', [dir])
+}
+
+/** スタブを先頭に置いた PATH */
+function stubPath(tmp: string): string {
+  return `${path.join(tmp, 'bin')}:${process.env.PATH ?? ''}`
+}
+
+/**
+ * スタブ経由で解決される uname -s の結果。
+ * これが Darwin でないと notify-repeat.sh が PID ファイルを作る前に exit するため、
+ * 各テストで明示的に確認する（取りこぼしの再発防止）。
+ */
+function unameViaStub(tmp: string): string {
+  return spawnSync(BASH_BIN, ['-c', 'uname -s'], {
+    encoding: 'utf8',
+    timeout: 30_000,
+    env: { ...process.env, PATH: stubPath(tmp) },
+  }).stdout.trim()
 }
 
 /** そのプロジェクトの PID ファイル名に使われるキー */
@@ -79,7 +131,7 @@ function alive(pid: string): boolean {
  * 通知ジョブを起動する。alerter は無効化し、遅延を長めに取って
  * 実際の通知を出さないまま待機状態に留める。
  */
-function startJob(piddir: string, projectDir: string, delaySec: string): void {
+function startJob(tmp: string, piddir: string, projectDir: string, delaySec: string): void {
   spawnSync(
     BASH_BIN,
     [REPEAT_HOOK, 'start', projectDir, 'テスト', '本文', 'Ping', '60', '1', delaySec],
@@ -88,6 +140,9 @@ function startJob(piddir: string, projectDir: string, delaySec: string): void {
       timeout: 30_000,
       env: {
         ...process.env,
+        // uname / osascript / afplay をスタブへ差し替える。
+        // uname が Darwin を返さないと PID ファイル生成前に exit する
+        PATH: stubPath(tmp),
         CLAUDE_NOTIFY_PIDDIR: piddir,
         CLAUDE_NOTIFY_ALERTER: 'none',
         CLAUDE_NOTIFY_WATCH_PID: String(process.pid),
@@ -101,11 +156,17 @@ function startJob(piddir: string, projectDir: string, delaySec: string): void {
 
 describe('Regression: 2026-09-01-006 - 通知の PID ディレクトリがテストと実運用で共有される', () => {
   it('別の PID ディレクトリを指定した stop-all では、稼働中のジョブが生き残る', async () => {
-    const mine = mkTmp()
-    const other = mkTmp()
+    const tmp = mkTmp()
+    // PID ディレクトリはこのテストの一時ディレクトリ配下に置く
+    const mine = path.join(tmp, 'piddir-mine')
+    const other = path.join(tmp, 'piddir-other')
     const project = '/Users/example/piddir-survivor'
     try {
-      startJob(mine, project, '30')
+      // uname スタブが効いていないと、PID ファイルが「早期 exit で作られない」のか
+      // 「stop-all に消された」のか区別できなくなる
+      expect(unameViaStub(tmp)).toBe('Darwin')
+
+      startJob(tmp, mine, project, '30')
       await wait(600)
 
       const pidfile = path.join(mine, `${keyFor(project)}.pid`)
@@ -127,17 +188,21 @@ describe('Regression: 2026-09-01-006 - 通知の PID ディレクトリがテス
         timeout: 30_000,
         env: { ...process.env, CLAUDE_NOTIFY_PIDDIR: mine },
       })
-      rmTmp(mine)
-      rmTmp(other)
+      rmTmp(tmp)
     }
   }, 30_000)
 
   it('PID ディレクトリを環境変数で指定したら、実運用のディレクトリにファイルを作らない', async () => {
-    const mine = mkTmp()
+    const tmp = mkTmp()
+    const mine = path.join(tmp, 'piddir')
     const project = '/Users/example/piddir-isolated'
     const realPidfile = path.join(REAL_PIDDIR, `${keyFor(project)}.pid`)
     try {
-      startJob(mine, project, '30')
+      // uname スタブが効いていないとそもそも PID ファイルが作られず、
+      // 「実運用側に作らない」が理由もなく通ってしまう
+      expect(unameViaStub(tmp)).toBe('Darwin')
+
+      startJob(tmp, mine, project, '30')
       await wait(600)
 
       // 指定した側にはできている
@@ -149,7 +214,7 @@ describe('Regression: 2026-09-01-006 - 通知の PID ディレクトリがテス
         timeout: 30_000,
         env: { ...process.env, CLAUDE_NOTIFY_PIDDIR: mine },
       })
-      rmTmp(mine)
+      rmTmp(tmp)
     }
   }, 30_000)
 })
