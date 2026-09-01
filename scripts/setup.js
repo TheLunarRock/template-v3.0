@@ -835,11 +835,15 @@ jobs:
   // ========== Step 5: SuperClaude統合強化 ==========
   log.section('Step 5/8: SuperClaude v4統合確認')
 
-  // claudedocs ディレクトリ作成
-  if (!fs.existsSync('claudedocs')) {
-    fs.mkdirSync('claudedocs')
+  // claudedocs（ディレクトリは無ければ作り、ファイルは1つずつ判定する）
+  const claudeDocsDir = 'claudedocs'
+  if (!fs.existsSync(claudeDocsDir)) {
+    fs.mkdirSync(claudeDocsDir, { recursive: true })
+  }
 
-    // README作成
+  // README作成
+  const claudeDocsReadmePath = path.join(claudeDocsDir, 'README.md')
+  if (!fs.existsSync(claudeDocsReadmePath)) {
     const claudeDocsReadme = `# Claude Code専用ドキュメント
 
 このディレクトリはClaude Codeが生成する分析レポートや設計ドキュメント専用です。
@@ -855,9 +859,9 @@ jobs:
 - 人間の開発者は参照のみ
 - プロダクションコードには含めない
 `
-    fs.writeFileSync('claudedocs/README.md', claudeDocsReadme)
-    log.success('claudedocs ディレクトリを作成しました')
-    results.created.push('claudedocs')
+    fs.writeFileSync(claudeDocsReadmePath, claudeDocsReadme)
+    log.success('claudedocs/README.md を作成しました')
+    results.created.push(claudeDocsReadmePath)
   }
 
   // CLAUDE.mdの確認
@@ -927,12 +931,15 @@ jobs:
   // ========== Step 6: VS Code設定 ==========
   log.section('Step 6/8: 開発環境設定')
 
-  // VS Code設定
+  // VS Code設定（ディレクトリは無ければ作り、ファイルは1つずつ判定する）
   const vscodeDir = '.vscode'
   if (!fs.existsSync(vscodeDir)) {
-    fs.mkdirSync(vscodeDir)
+    fs.mkdirSync(vscodeDir, { recursive: true })
+  }
 
-    // settings.json
+  // settings.json
+  const vscodeSettingsPath = path.join(vscodeDir, 'settings.json')
+  if (!fs.existsSync(vscodeSettingsPath)) {
     const vscodeSettings = {
       'editor.formatOnSave': true,
       'editor.defaultFormatter': 'esbenp.prettier-vscode',
@@ -949,9 +956,14 @@ jobs:
         '*.css': 'tailwindcss',
       },
     }
-    fs.writeFileSync(path.join(vscodeDir, 'settings.json'), JSON.stringify(vscodeSettings, null, 2))
+    fs.writeFileSync(vscodeSettingsPath, JSON.stringify(vscodeSettings, null, 2))
+    log.success('.vscode/settings.json を作成しました')
+    results.created.push(vscodeSettingsPath)
+  }
 
-    // extensions.json
+  // extensions.json
+  const vscodeExtensionsPath = path.join(vscodeDir, 'extensions.json')
+  if (!fs.existsSync(vscodeExtensionsPath)) {
     const vscodeExtensions = {
       recommendations: [
         'dbaeumer.vscode-eslint',
@@ -961,13 +973,9 @@ jobs:
         'christian-kohler.path-intellisense',
       ],
     }
-    fs.writeFileSync(
-      path.join(vscodeDir, 'extensions.json'),
-      JSON.stringify(vscodeExtensions, null, 2)
-    )
-
-    log.success('VS Code設定を作成しました')
-    results.created.push('.vscode')
+    fs.writeFileSync(vscodeExtensionsPath, JSON.stringify(vscodeExtensions, null, 2))
+    log.success('.vscode/extensions.json を作成しました')
+    results.created.push(vscodeExtensionsPath)
   }
 
   // ========== Step 7: 完了レポート ==========
