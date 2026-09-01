@@ -61,14 +61,31 @@ export const useInfiniteLoopDetector = (options: LoopDetectorOptions) => {
     const now = Date.now()
     const existing = executionMap.get(name)
 
+    // 時間窓のあいだ実行が途切れたらカウントを捨てる（メモリリーク防止）。
+    // 初回実行でも張る。ここを早期 return の後ろに置くと、1 回しか
+    // レンダーされないコンポーネントのエントリが永久に残る。
+    const scheduleReset = (): void => {
+      if (timerRef.current) {
+        clearTimeout(timerRef.current)
+      }
+      timerRef.current = setTimeout(() => {
+        executionMap.delete(name)
+      }, timeWindow)
+    }
+
     if (!existing) {
-      // 初回実行
+      // 初回実行。警告判定には入らず、リセットの予約だけ行う
       executionMap.set(name, {
         count: 1,
         firstExecution: now,
         lastExecution: now,
       })
-      return
+      scheduleReset()
+      return () => {
+        if (timerRef.current) {
+          clearTimeout(timerRef.current)
+        }
+      }
     }
 
     // 実行情報を更新
@@ -124,14 +141,7 @@ export const useInfiniteLoopDetector = (options: LoopDetectorOptions) => {
       }
     }
 
-    // 5秒後にリセット（メモリリーク防止）
-    if (timerRef.current) {
-      clearTimeout(timerRef.current)
-    }
-
-    timerRef.current = setTimeout(() => {
-      executionMap.delete(name)
-    }, timeWindow)
+    scheduleReset()
 
     return () => {
       if (timerRef.current) {
@@ -139,6 +149,16 @@ export const useInfiniteLoopDetector = (options: LoopDetectorOptions) => {
       }
     }
   })
+
+  // アンマウント時にエントリを捨てる。
+  // 上の effect は依存配列を持たない（毎レンダーの実行回数を数えるため）ので、
+  // その cleanup に delete を足すと毎レンダーでカウントが消え、検出が機能しなくなる。
+  // name をキーにした専用の effect にすることで、アンマウント時だけ削除できる。
+  useEffect(() => {
+    return () => {
+      executionMap.delete(name)
+    }
+  }, [name])
 }
 
 /**
