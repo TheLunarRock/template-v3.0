@@ -13,6 +13,9 @@ const { execSync } = require('child_process')
 const fs = require('fs')
 const path = require('path')
 const { getPackageManagerCommand, MCP_CONFIG } = require('./utils')
+// コメント除去は check-boundaries.js の実装をそのまま使う。
+// 同等の関数をこちらに書くと、両者で挙動がずれて同じ種類の乖離がまた生まれる。
+const { stripComments } = require('./check-boundaries')
 
 /**
  * 機密情報とみなす変数名（部分一致・大小文字無視）
@@ -36,6 +39,21 @@ const PROPERTY_PATTERN = /([A-Za-z_$][\w$]*)\s*:\s*(['"`])([^'"`\n]*)\2/g
 
 /** 行コメントらしき行（例示のコードを誤検知しないため） */
 const COMMENT_LINE_PATTERN = /^\s*(?:\/\/|\/\*|\*|#)/
+
+/** フィーチャーの index.ts がフックを公開しているか（use で始まる名前の export） */
+const HOOK_EXPORT_PATTERN = /export\s*{[^}]*\buse[A-Z]/
+
+/**
+ * index.ts がフックを公開しているかを判定する。
+ *
+ * コメントを剥がしてから走査する。create-feature.js が生成する index.ts は
+ * 「❌❌❌ フック（絶対に公開禁止）」の見出しの下に悪い例をコメントで置くため、
+ * 素のまま正規表現を当てると生成直後の全フィーチャーが誤検出される
+ * （2026-09-01-009）。
+ */
+function publishesHook(indexContent) {
+  return HOOK_EXPORT_PATTERN.test(stripComments(indexContent))
+}
 
 /**
  * 値が資格情報らしいか
@@ -65,7 +83,12 @@ function looksLikeSecretValue(value) {
 function findHardcodedSecrets(content) {
   const found = []
 
-  content.split('\n').forEach((line, index) => {
+  // 行末コメントの中の例も検出対象から外す。COMMENT_LINE_PATTERN だけでは
+  // 行頭コメントしか落とせず、`const x = 1 // API_KEY = '...'` を拾っていた。
+  // stripComments は文字列リテラルを保持し行数も変えないため、行番号はずれない。
+  const scannable = stripComments(content)
+
+  scannable.split('\n').forEach((line, index) => {
     if (COMMENT_LINE_PATTERN.test(line)) return
 
     const seen = new Set()
@@ -367,7 +390,7 @@ async function preflight() {
       // フック公開の最終確認
       const actualPath = fs.existsSync(indexPath) ? indexPath : indexJsPath
       const content = fs.readFileSync(actualPath, 'utf8')
-      if (content.match(/export\s*{[^}]*\buse[A-Z]/)) {
+      if (publishesHook(content)) {
         log.error(`🔴 ${feature}: フックが公開されています（本番環境では致命的）`)
         results.critical = true
         criticalError = true
@@ -467,7 +490,7 @@ ${colors.blue}━━━━━━━━━━━━━━━━━━━━━━
   process.exit(readyToDeploy ? 0 : 1)
 }
 
-module.exports = { SECRET_NAME_PATTERN, findHardcodedSecrets, collectSourceFiles }
+module.exports = { SECRET_NAME_PATTERN, findHardcodedSecrets, collectSourceFiles, publishesHook }
 
 // 直接実行されたときだけ走らせる（テストから require できるようにするため）
 if (require.main === module) {
