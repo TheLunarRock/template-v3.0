@@ -137,7 +137,9 @@ export class MemoryCache<T = unknown> implements IMemoryCache<T> {
     }
 
     // サイズ制限チェックと削除戦略の実行
-    if (this.entries.size >= this.config.maxSize) {
+    // 既存キーの上書きは Map のサイズを増やさないため追い出さない。
+    // ここで追い出すと、上書き対象ではない無関係なエントリが消える。
+    if (!this.entries.has(normalizedKey) && this.entries.size >= this.config.maxSize) {
       this.evictEntry()
     }
 
