@@ -353,6 +353,7 @@ bash .claude/hooks/notify-repeat.sh stop-all
 10. **Slack 送信を `notify.sh` に戻さない** — 遅延中にキャンセルされたとき「通知は取り消されたのに Slack だけ飛ぶ」最悪の形になる。送信は必ず `notify-repeat.sh` のジョブ内で行う
 11. **承認待ちを遅延させない** — `permission_prompt` / `agent_needs_input` は人間が動かないと進まない
 12. **クリップボードへのコピーを復活させない** — 報告を `pbcopy` で受け渡す運用を壊す。「通知から報告を読み返せると便利」は 2026-09-01 に廃止済みの発想（SPECIFICATION.md §11.4.5）
+13. **同時起動の排他（`notify-repeat.sh` の `<key>.lock`）を外さない** — 共通フック（`~/.claude/settings.json`）とプロジェクトフックの両方から起動される構成では、ロックが無いと通知と Slack が二重に出る（2026-09-03 実測）。ロックで詰まったら待ち続けずに出す（通知を落とす方向には倒さない）（SPECIFICATION.md §11.10.7）
 
 ## トラブルシューティング
 

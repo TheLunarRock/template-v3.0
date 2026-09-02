@@ -45,6 +45,14 @@
 #   このキーは alerter の --group にもそのまま渡すため、--remove で消す対象が
 #   常に「自分のプロジェクトの通知だけ」になる。
 #
+# 同時起動を排他する理由（PIDDIR 配下の <key>.lock）:
+#   ~/.claude/settings.json（共通フック）とプロジェクトの .claude/settings.json の
+#   両方に通知フックがあると、1 回の Stop で start が同時に 2 回走る。先頭の
+#   stop_loop が互いの PID ファイル書き込みより先に走ると両方生き残り、通知と
+#   Slack が二重に出る（2026-09-03 実測）。start の stop_loop から PID ファイル
+#   書き込みまでを mkdir の原子性でプロジェクト単位に排他し、後発が先発を確実に
+#   破棄できるようにする。ロックで詰まっても通知は落とさない（上限で続行する）。
+#
 # 停止のされ方:
 #   操作を再開すると PreToolUse / UserPromptSubmit フックから notify-stop.sh が
 #   呼ばれて止まる。alerter 経路ではバツ印で消しても止まる（それが本来の目的）。
@@ -93,6 +101,59 @@ key_for() {
 
 pidfile_for() {
   printf '%s/%s.pid' "$PIDDIR" "$(key_for "$1")"
+}
+
+# ---- 同時起動の排他（start 経路のみ・プロジェクト単位）----
+# ロックは mkdir の原子性で取る。stop / stop-all は対象外（停止は何度走っても
+# 安全で、PreToolUse のたびに待たせたくない）。
+lockdir_for() {
+  printf '%s/%s.lock' "$PIDDIR" "$(key_for "$1")"
+}
+
+# ロックが取れないときに待つ上限（秒）。超えたらロック無しで続行する。
+# 通知を落とすより二重に出る方がましなため、待ち続けて出さない方向には倒さない。
+LOCK_WAIT_MAX=3
+LOCK_POLL=0.1
+
+# これより古いロックは、取得したプロセスが異常終了した残骸とみなして取り除く。
+# 排他区間はミリ秒単位なので、数十秒残っているものが生きていることはない。
+LOCK_STALE_SEC=30
+
+# 取得中のロック。release_lock が空にする（trap から二重に呼ばれても安全）。
+LOCKDIR=""
+
+release_lock() {
+  if [ -n "$LOCKDIR" ]; then
+    rmdir "$LOCKDIR" 2>/dev/null
+    LOCKDIR=""
+  fi
+}
+
+# 残骸かどうかを作成時刻で判定する。時刻が取れない環境では残骸扱いしない
+# （生きているロックを消す方向には倒さず、上限待ちで続行する）。
+lock_is_stale() {
+  local since now
+  since=$(date -r "$1" +%s 2>/dev/null) || return 1
+  [ -n "$since" ] || return 1
+  now=$(date +%s)
+  [ $((now - since)) -gt "$LOCK_STALE_SEC" ]
+}
+
+# 取れたら 0、上限を超えたら 1 を返す（呼び出し側はどちらでも続行する）。
+acquire_lock() {
+  local lock="$1" waited=0 ticks
+  ticks=$((LOCK_WAIT_MAX * 10))
+  while ! mkdir "$lock" 2>/dev/null; do
+    # 残骸なら取り除いて即座に取り直す（rmdir が失敗したら通常の待ちに回る）
+    if lock_is_stale "$lock" && rmdir "$lock" 2>/dev/null; then
+      continue
+    fi
+    [ "$waited" -lt "$ticks" ] || return 1
+    sleep "$LOCK_POLL"
+    waited=$((waited + 1))
+  done
+  LOCKDIR="$lock"
+  return 0
 }
 
 # 呼び出し元の Claude Code セッションの PID を辿る。
@@ -192,6 +253,17 @@ esac
 SLACK_URL="${CLAUDE_NOTIFY_SLACK_URL:-}"
 SLACK_TEXT="${CLAUDE_NOTIFY_SLACK_TEXT:-}"
 
+# ---- 排他区間ここから（プロジェクト単位）----
+# 共通フックとプロジェクトフックで start が同時に走ると、stop_loop が互いの
+# PID ファイル書き込みより先に走って両方生き残る。stop_loop から PID ファイル
+# 書き込みまでをロックで直列化し、後発が先発を確実に破棄できるようにする。
+# 区間は短く保つ（バックグラウンドジョブ本体は区間の外で動き続ける）。
+# 異常終了でロックが残らないよう、取得より前に trap を仕掛けておく。
+mkdir -p "$PIDDIR" 2>/dev/null || exit 0
+trap release_lock EXIT
+# 上限を超えたらロック無しで続行する（通知を落とすより二重に出る方がまし）
+acquire_lock "$(lockdir_for "$DIR")" || true
+
 # 同じプロジェクトの古い通知が残っていれば消してから始める（多重に出さない）。
 # 遅延待ちのジョブもここで破棄されるため、連続する Stop で二重に鳴らない。
 stop_loop "$DIR"
@@ -217,7 +289,6 @@ if [ -n "$WATCH_PID" ] && ! kill -0 "$WATCH_PID" 2>/dev/null; then
   exit 0
 fi
 
-mkdir -p "$PIDDIR" 2>/dev/null || exit 0
 PIDFILE=$(pidfile_for "$DIR")
 KEY=$(key_for "$DIR")
 
@@ -225,6 +296,10 @@ KEY=$(key_for "$DIR")
 # PID ファイルに入るのはこのジョブの PID だけなので、notify-stop.sh から
 # 丸ごとキャンセルできる（遅延中に kill されれば Slack も通知も起こらない）。
 (
+  # 親の EXIT trap（ロック解放）はこのジョブに引き継がない。
+  # ロックは起動側が PID ファイルを書き終えた時点で解放する。
+  trap - EXIT
+
   # ---- 遅延（この間にキャンセルされたら何も起こらない）----
   waited=0
   while [ "$waited" -lt "$DELAY" ]; do
@@ -302,4 +377,6 @@ KEY=$(key_for "$DIR")
 ) >/dev/null 2>&1 &
 
 echo $! > "$PIDFILE"
+# ---- 排他区間ここまで ----
+release_lock
 exit 0
