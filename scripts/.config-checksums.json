@@ -1,5 +1,5 @@
 {
-  "tsconfig.json": "3c60801c6f6acb63fc960f871cff7f58c39187de04d77247053f40e46330701e",
+  "tsconfig.json": "bdf7f01b3a79f169030afb1f907716651e611dde8510a0aba586f95cb30e51be",
   "eslint.config.mjs": "c1ee778907f4c946804e43f4b0371c407227ac01b18859ecf288cf5fa961b5d1",
   "vitest.config.ts": "108ba2631d29925ad4fe79a5b26ceac78155d77afd9faf624a095f5d7c2aa082",
   "next.config.mjs": "9673bb697710312bac6137844a3f12bb8516d26965d2f44bdeed9e8f2571ff3c",

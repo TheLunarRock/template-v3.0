@@ -72,7 +72,7 @@ claude
 
 ## 📋 Features
 
-- ⚡ **Next.js 15.5.x** with App Router / React 19
+- ⚡ **Next.js 16.x** with App Router / React 19
 - 🎨 **Tailwind CSS**
 - 📁 **Feature-based architecture** with boundary enforcement
 - 🤖 **SuperClaude integration** (コンテキストファイル同梱)
