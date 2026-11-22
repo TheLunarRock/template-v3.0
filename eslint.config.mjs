@@ -82,6 +82,13 @@ export default tseslint.config(
   // SonarJS plugin
   sonarjs.configs.recommended,
 
+  // sonarjs 4 で recommended から外れたが、非推奨ではないため明示して維持する
+  {
+    rules: {
+      "sonarjs/no-commented-code": "error",
+    },
+  },
+
   // Global settings for all files
   {
     languageOptions: {
