@@ -22,6 +22,7 @@
 const fs = require('fs')
 const path = require('path')
 const crypto = require('crypto')
+const { execSync } = require('child_process')
 
 // 保護対象の設定ファイル
 // CLAUDE.md「絶対に変更してはいけない設定ファイル」表と完全一致させること
@@ -66,11 +67,47 @@ function getCurrentChecksums() {
 }
 
 /**
- * チェックサムを初期化（初回実行時）
+ * 保護対象ファイルを、コミット時に lint-staged が行うのと同じ結果になるよう整形する。
+ *
+ * pre-commit は「この保護チェック → lint-staged（整形）」の順に動くため、
+ * 整形前の内容でチェックサムを記録すると、同じコミットの中で lint-staged が
+ * ファイルを整形し直した時点で記録と中身がずれる（回帰テスト 2026-11-22-001）。
+ * 対象のグロブとコマンドは .lintstagedrc.json から読み、lint-staged と食い違わないようにする
+ * （照合も lint-staged と同じく、パターンに / が無ければファイル名だけで照合する）。
+ * コマンドが失敗したら例外で止まり、チェックサムは記録しない。
  */
-function initializeChecksums() {
+function formatLikeLintStaged() {
+  const configPath = path.join(process.cwd(), '.lintstagedrc.json')
+  if (!fs.existsSync(configPath)) return
+
+  const config = JSON.parse(fs.readFileSync(configPath, 'utf8'))
+  const binDir = path.join(process.cwd(), 'node_modules', '.bin')
+  const env = { ...process.env, PATH: `${binDir}${path.delimiter}${process.env.PATH}` }
+
+  for (const file of PROTECTED_FILES) {
+    if (!fs.existsSync(path.join(process.cwd(), file))) continue
+
+    for (const [pattern, commands] of Object.entries(config)) {
+      const target = pattern.includes('/') ? file : path.basename(file)
+      if (!path.matchesGlob(target, pattern)) continue
+
+      for (const command of [].concat(commands)) {
+        console.log(`  整形: ${command} ${file}`)
+        execSync(`${command} ${JSON.stringify(file)}`, { stdio: 'inherit', env })
+      }
+    }
+  }
+}
+
+/**
+ * チェックサムを初期化（初回実行時）
+ * format: true のときは、記録の前に lint-staged と同じ整形をかける（--init / --update）
+ */
+function initializeChecksums({ format = false } = {}) {
+  if (format) formatLikeLintStaged()
   const checksums = getCurrentChecksums()
-  fs.writeFileSync(CHECKSUM_FILE, JSON.stringify(checksums, null, 2))
+  // 末尾の改行まで prettier の出力と同じ形にする（このファイル自体もコミット時に整形される）
+  fs.writeFileSync(CHECKSUM_FILE, `${JSON.stringify(checksums, null, 2)}\n`)
   console.log('✅ 設定ファイルのチェックサムを初期化しました')
   return checksums
 }
@@ -153,7 +190,7 @@ function main() {
 
   if (command === '--init') {
     // チェックサムを初期化
-    initializeChecksums()
+    initializeChecksums({ format: true })
     return
   }
 
@@ -161,7 +198,7 @@ function main() {
     // チェックサムを更新（管理者のみ使用）
     console.log('⚠️ 設定ファイルのチェックサムを更新します')
     console.log('この操作は管理者のみが実行してください！')
-    initializeChecksums()
+    initializeChecksums({ format: true })
     return
   }
 

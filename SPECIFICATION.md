@@ -883,6 +883,10 @@ husky v9以降ではshebang行（`#!/usr/bin/env sh`）と`. "$(dirname -- "$0")
 6. 🧪 ユニットテスト実行（vitest run）
 ```
 
+**設定ファイル保護と整形の順序（2026-11-22）:** 2 の保護チェックは 5 の lint-staged（prettier / eslint --fix）より先に走るため、整形前の内容でチェックサムを記録すると、同じコミットで保護対象ファイルが整形し直された時点で記録とずれる（2415758 で tsconfig.json に発生）。
+対策として `protect-config.js --update` / `--init` は、`.lintstagedrc.json` と同じ規則で保護対象を整形してからチェックサムを記録する。
+記録と現在の内容の一致は回帰テスト `2026-11-22-001`（`pnpm test:unit`）が pre-commit と CI の両方で検査する。
+
 #### 10.1.1 gitleaksシークレットスキャン
 
 ```bash

@@ -11,10 +11,10 @@ const config: Config = {
   theme: {
     extend: {
       fontFamily: {
-        'rounded': ['"M PLUS Rounded 1c"', 'sans-serif'],
-        'mono': ['Fira Code', 'monospace'],
-        'retro': ['Press Start 2P', 'cursive'],
-        'cyber': ['Orbitron', 'sans-serif'],
+        rounded: ['"M PLUS Rounded 1c"', 'sans-serif'],
+        mono: ['Fira Code', 'monospace'],
+        retro: ['Press Start 2P', 'cursive'],
+        cyber: ['Orbitron', 'sans-serif'],
       },
       colors: {
         // Cyberpunk colors
@@ -23,16 +23,16 @@ const config: Config = {
         'neon-blue': '#00ffff',
         'neon-yellow': '#ffff00',
         'neon-orange': '#ff8800',
-        
+
         // Glassmorphism
         'glass-white': 'rgba(255, 255, 255, 0.25)',
         'glass-black': 'rgba(0, 0, 0, 0.25)',
-        
+
         // Memphis/Bauhaus
         'bauhaus-red': '#e63946',
         'bauhaus-blue': '#2a9d8f',
         'bauhaus-yellow': '#f4a261',
-        
+
         // Natural/Organic
         'earth-brown': '#8b4513',
         'leaf-green': '#228b22',
@@ -41,19 +41,19 @@ const config: Config = {
       },
       boxShadow: {
         // Neumorphism shadows
-        'neumorphism': '20px 20px 60px #d1d1d1, -20px -20px 60px #ffffff',
+        neumorphism: '20px 20px 60px #d1d1d1, -20px -20px 60px #ffffff',
         'neumorphism-inset': 'inset 20px 20px 60px #d1d1d1, inset -20px -20px 60px #ffffff',
         'neumorphism-dark': '20px 20px 60px #0a0a0a, -20px -20px 60px #2a2a2a',
-        
+
         // Glassmorphism shadows
-        'glass': '0 8px 32px 0 rgba(31, 38, 135, 0.37)',
-        
+        glass: '0 8px 32px 0 rgba(31, 38, 135, 0.37)',
+
         // Brutalism shadows
-        'brutal': '10px 10px 0px #000',
+        brutal: '10px 10px 0px #000',
         'brutal-color': '10px 10px 0px #ff00ff',
-        
+
         // Cyberpunk glow
-        'neon': '0 0 10px currentColor, 0 0 20px currentColor, 0 0 30px currentColor',
+        neon: '0 0 10px currentColor, 0 0 20px currentColor, 0 0 30px currentColor',
       },
       backgroundImage: {
         // Gradient presets
@@ -63,26 +63,27 @@ const config: Config = {
         'gradient-forest': 'linear-gradient(135deg, #00b09b 0%, #96c93d 100%)',
         'gradient-cyberpunk': 'linear-gradient(135deg, #00ff00 0%, #ff00ff 100%)',
         'gradient-vaporwave': 'linear-gradient(135deg, #ff006e 0%, #8338ec 50%, #3a86ff 100%)',
-        
+
         // Retro patterns
         'pattern-dots': 'radial-gradient(circle, #000 1px, transparent 1px)',
-        'pattern-grid': 'linear-gradient(#000 1px, transparent 1px), linear-gradient(90deg, #000 1px, transparent 1px)',
+        'pattern-grid':
+          'linear-gradient(#000 1px, transparent 1px), linear-gradient(90deg, #000 1px, transparent 1px)',
       },
       backdropBlur: {
-        'xs': '2px',
-        'sm': '4px',
-        'md': '8px',
-        'lg': '12px',
-        'xl': '16px',
+        xs: '2px',
+        sm: '4px',
+        md: '8px',
+        lg: '12px',
+        xl: '16px',
         '2xl': '24px',
         '3xl': '40px',
       },
       animation: {
-        'glitch': 'glitch 1s infinite',
+        glitch: 'glitch 1s infinite',
         'pulse-neon': 'pulse-neon 2s infinite',
-        'float': 'float 6s ease-in-out infinite',
+        float: 'float 6s ease-in-out infinite',
         'gradient-shift': 'gradient-shift 8s ease infinite',
-        'typing': 'typing 3.5s steps(40, end)',
+        typing: 'typing 3.5s steps(40, end)',
       },
       keyframes: {
         glitch: {
@@ -118,7 +119,11 @@ const config: Config = {
   },
   plugins: [
     // カスタムユーティリティプラグイン
-    function({ addUtilities }: { addUtilities: (utilities: Record<string, Record<string, string>>) => void }) {
+    function ({
+      addUtilities,
+    }: {
+      addUtilities: (utilities: Record<string, Record<string, string>>) => void
+    }) {
       const newUtilities = {
         // Glassmorphism utilities
         '.glass': {
@@ -131,7 +136,7 @@ const config: Config = {
           backdropFilter: 'blur(10px)',
           border: '1px solid rgba(0, 0, 0, 0.18)',
         },
-        
+
         // Neumorphism utilities
         '.neumorphism': {
           background: '#e0e0e0',
@@ -141,7 +146,7 @@ const config: Config = {
           background: '#e0e0e0',
           boxShadow: 'inset 20px 20px 60px #d1d1d1, inset -20px -20px 60px #ffffff',
         },
-        
+
         // Text shadows for various styles
         '.text-neon': {
           textShadow: '0 0 10px currentColor, 0 0 20px currentColor',
@@ -152,7 +157,7 @@ const config: Config = {
         '.text-retro': {
           textShadow: '3px 3px 0px #ff00ff, 6px 6px 0px #00ffff',
         },
-        
+
         // Gradient text
         '.text-gradient': {
           backgroundClip: 'text',
@@ -160,7 +165,7 @@ const config: Config = {
           '-webkit-text-fill-color': 'transparent',
         },
       }
-      
+
       addUtilities(newUtilities)
     },
   ],
