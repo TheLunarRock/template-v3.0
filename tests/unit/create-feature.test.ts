@@ -85,9 +85,8 @@ describe('create-feature.js: 生成されるファイル名', () => {
     expect(files).toEqual([
       'src/app/user-profile/page.tsx',
       'src/features/user-profile/README.md',
+      'src/features/user-profile/api/user-profile-actions.ts',
       'src/features/user-profile/api/user-profile-api.ts',
-      'src/features/user-profile/components/UserProfileComponent.tsx',
-      'src/features/user-profile/hooks/useUserProfile.ts',
       'src/features/user-profile/index.ts',
       'src/features/user-profile/types/index.ts',
       'tests/unit/features/user-profile.test.ts',
@@ -96,28 +95,27 @@ describe('create-feature.js: 生成されるファイル名', () => {
 
   it('API ファイルはケバブケースで、キャメルケースと混在しない', () => {
     const { files } = generate('user-profile')
-    const apiFile = files.find((file) => file.includes('/api/'))
+    const apiFiles = files.filter((file) => file.includes('/api/'))
 
-    expect(apiFile).toBe('src/features/user-profile/api/user-profile-api.ts')
+    expect(apiFiles).toEqual([
+      'src/features/user-profile/api/user-profile-actions.ts',
+      'src/features/user-profile/api/user-profile-api.ts',
+    ])
     // 以前の user-profileApi.ts のような混在が復活していないこと
-    expect(apiFile).not.toMatch(/[a-z]-[a-z]+[A-Z]/)
+    apiFiles.forEach((file) => expect(file).not.toMatch(/[a-z]-[a-z]+[A-Z]/))
   })
 
-  it('コンポーネントは PascalCase、フックは camelCase を保つ', () => {
+  it('フックとコンポーネントの雛形を生成しない（画面の部品は app 側に置く）', () => {
     const { files } = generate('user-profile')
 
-    expect(files).toContain('src/features/user-profile/components/UserProfileComponent.tsx')
-    expect(files).toContain('src/features/user-profile/hooks/useUserProfile.ts')
+    expect(files.filter((file) => /\/(hooks|components)\//.test(file))).toEqual([])
   })
 
   it('単語が 3 つ以上でも各ファイル名が崩れない', () => {
     const { files } = generate('order-history-list')
 
     expect(files).toContain('src/features/order-history-list/api/order-history-list-api.ts')
-    expect(files).toContain(
-      'src/features/order-history-list/components/OrderHistoryListComponent.tsx'
-    )
-    expect(files).toContain('src/features/order-history-list/hooks/useOrderHistoryList.ts')
+    expect(files).toContain('src/features/order-history-list/api/order-history-list-actions.ts')
     expect(files).toContain('src/app/order-history-list/page.tsx')
     expect(files).toContain('tests/unit/features/order-history-list.test.ts')
   })
@@ -126,32 +124,84 @@ describe('create-feature.js: 生成されるファイル名', () => {
     const { files } = generate('auth')
 
     expect(files).toContain('src/features/auth/api/auth-api.ts')
-    expect(files).toContain('src/features/auth/components/AuthComponent.tsx')
-    expect(files).toContain('src/features/auth/hooks/useAuth.ts')
+    expect(files).toContain('src/features/auth/api/auth-actions.ts')
   })
 })
 
 describe('create-feature.js: 生成されたコードの参照先が実在する', () => {
-  it('index.ts の import 先が生成された API ファイルと一致する', () => {
+  it('index.ts の import 先が生成された取得・更新のファイルと一致する', () => {
     const { files, dir } = generate('user-profile')
     const indexContent = read(dir, 'src/features/user-profile/index.ts')
 
     expect(indexContent).toContain("from './api/user-profile-api'")
+    expect(indexContent).toContain("from './api/user-profile-actions'")
     expect(files).toContain('src/features/user-profile/api/user-profile-api.ts')
-  })
-
-  it('フックの import 先が生成された API ファイルと一致する', () => {
-    const { dir } = generate('user-profile')
-    const hookContent = read(dir, 'src/features/user-profile/hooks/useUserProfile.ts')
-
-    expect(hookContent).toContain("from '../api/user-profile-api'")
+    expect(files).toContain('src/features/user-profile/api/user-profile-actions.ts')
   })
 
   it('生成コード内の識別子はキャメル / パスカルのまま（ファイル名だけを揃えている）', () => {
     const { dir } = generate('user-profile')
     const apiContent = read(dir, 'src/features/user-profile/api/user-profile-api.ts')
+    const actionsContent = read(dir, 'src/features/user-profile/api/user-profile-actions.ts')
 
     expect(apiContent).toContain('getUserProfileData')
+    expect(actionsContent).toContain('createUserProfile')
+  })
+})
+
+describe('create-feature.js: 取得はサーバー側の関数、更新は Server Actions', () => {
+  /**
+   * 以前の雛形は、取得の関数が自分のアプリの /api/<name> を fetch していた。
+   * page.tsx（サーバーコンポーネント）から呼ぶとサーバー側の fetch は相対 URL を
+   * 受け付けないため、生成直後のページは必ずエラー表示になっていた。
+   * 実際のアプリの形（取得はサーバー側の関数を直接 await、更新は 'use server'）に合わせる。
+   */
+  it('取得の関数は fetch を含まない（自分のアプリの API を呼ばない）', () => {
+    const { dir } = generate('user-profile')
+    const apiContent = read(dir, 'src/features/user-profile/api/user-profile-api.ts')
+
+    expect(apiContent).toContain('export const getUserProfileData')
+    expect(apiContent).not.toMatch(/\bfetch\(/)
+    expect(apiContent).not.toContain('/api/')
+  })
+
+  it('取得の関数の冒頭に差し替え方と use cache の扱いが書かれている', () => {
+    const { dir } = generate('user-profile')
+    const apiContent = read(dir, 'src/features/user-profile/api/user-profile-api.ts')
+
+    expect(apiContent).toContain('実際の保存先')
+    expect(apiContent).toContain('Suspense')
+    expect(apiContent).toContain("'use cache'")
+    expect(apiContent).toContain('持ち主の承認')
+  })
+
+  it("更新の関数のファイルは先頭が 'use server' で、作成・更新・削除を持つ", () => {
+    const { dir } = generate('user-profile')
+    const actionsContent = read(dir, 'src/features/user-profile/api/user-profile-actions.ts')
+
+    expect(actionsContent.split('\n')[0]).toBe("'use server'")
+    expect(actionsContent).toMatch(/export async function createUserProfile\(/)
+    expect(actionsContent).toMatch(/export async function updateUserProfile\(/)
+    expect(actionsContent).toMatch(/export async function deleteUserProfile\(/)
+    expect(actionsContent).not.toMatch(/\bfetch\(/)
+  })
+
+  it('更新の関数の冒頭に権限の確認と入力の検証が書かれている', () => {
+    const { dir } = generate('user-profile')
+    const actionsContent = read(dir, 'src/features/user-profile/api/user-profile-actions.ts')
+
+    expect(actionsContent).toContain('権限')
+    expect(actionsContent).toContain('入力は必ず検証する')
+  })
+
+  it('生成されるテストは fetch をモックせず、関数を直接呼ぶ', () => {
+    const { dir } = generate('user-profile')
+    const testContent = read(dir, 'tests/unit/features/user-profile.test.ts')
+
+    expect(testContent).not.toContain('fetch')
+    expect(testContent).not.toContain('vi.fn')
+    expect(testContent).toContain('await getUserProfileData(')
+    expect(testContent).toContain('await createUserProfile(')
   })
 })
 

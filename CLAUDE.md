@@ -853,11 +853,12 @@ const sales = unitPrice * quantity // 再計算してはいけない！
 ```typescript
 // src/features/[feature-name]/index.ts
 
-// ✅ API関数（公開推奨）
-export { getFeatureData, createItem, updateItem, deleteItem } from './api/feature-api'
+// ✅ 取得（サーバー側の関数）と更新（Server Actions）
+export { getFeatureData } from './api/feature-api'
+export { createItem, updateItem, deleteItem } from './api/feature-actions'
 
 // ✅ ドメイン型のみ（公開可）
-export type { FeatureItem, FeatureConfig } from './types'
+export type { FeatureItem, FeatureInput } from './types'
 
 // ❌ フック（絶対公開禁止） - これが最重要！
 // ❌ UIコンポーネント（原則非公開）
@@ -868,12 +869,8 @@ export type { FeatureItem, FeatureConfig } from './types'
 
 ```
 src/features/[機能名]/
-├── api/          # API関数（公開推奨）
-├── components/   # UIコンポーネント（内部のみ）
-├── hooks/        # カスタムフック（内部のみ）
+├── api/          # 取得 *-api.ts・更新 *-actions.ts（'use server'）
 ├── types/        # 型定義（ドメイン型のみ公開）
-├── utils/        # ヘルパー（内部のみ）
-├── store/        # 状態管理（内部のみ）
 └── index.ts      # 公開API（最小限）
 ```
 

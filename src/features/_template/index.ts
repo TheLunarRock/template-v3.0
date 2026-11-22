@@ -1,11 +1,11 @@
 // Public API for this feature
 // Export only what other features should use
 
-// Components
-// export { FeatureName } from './components/FeatureName'
+// 取得の関数（サーバー側で動く）
+// export { getFeatureNameData } from './api/feature-name-api'
 
-// Hooks
-// export { useFeatureName } from './hooks/useFeatureName'
+// 更新の関数（Server Actions）
+// export { createFeatureName } from './api/feature-name-actions'
 
 // Types
 // export type { FeatureName } from './types'

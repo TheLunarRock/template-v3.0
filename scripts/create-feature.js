@@ -70,9 +70,10 @@ ${colors.red}エラー: フィーチャー名が指定されていません${col
   console.log(`\n${colors.bold}🚀 フィーチャー '${featureName}' を作成中...${colors.reset}\n`)
 
   // ディレクトリ構造作成
-  // テストは tests/unit/features/<名前>.test.ts に生成する（このスクリプト後半で作成）ため、
-  // フィーチャー配下に空の __tests__/ を作らない。
-  const dirs = ['api', 'components', 'hooks', 'types', 'utils', 'constants', 'store']
+  // 取得（api/<名前>-api.ts）と更新（api/<名前>-actions.ts）、型（types/）だけを生成する。
+  // 画面の部品はフィーチャーの外（src/app 側）に置くため、hooks/ と components/ は作らない。
+  // テストは tests/unit/features/<名前>.test.ts に生成する（このスクリプト後半で作成）。
+  const dirs = ['api', 'types']
   dirs.forEach((dir) => {
     const dirPath = path.join(featurePath, dir)
     fs.mkdirSync(dirPath, { recursive: true })
@@ -80,83 +81,127 @@ ${colors.red}エラー: フィーチャー名が指定されていません${col
   })
 
   // index.ts作成（フック公開なし）
-  const indexContent = `// ✅ API関数（公開推奨）
-export { 
-  get${pascalName}Data,
-  create${pascalName},
-  update${pascalName},
-  delete${pascalName}
-} from './api/${featureName}-api'
+  const indexContent = `// ✅ 取得の関数（サーバー側で動く。ページの PageContent から直接 await する）
+export { get${pascalName}Data } from './api/${featureName}-api'
+
+// ✅ 更新の関数（Server Actions）
+export { create${pascalName}, update${pascalName}, delete${pascalName} } from './api/${featureName}-actions'
 
 // ✅ ドメイン型のみ（公開可）
-export type { 
-  ${pascalName},
-  ${pascalName}Config 
-} from './types'
+export type { ${pascalName}, ${pascalName}Input } from './types'
 
 // ❌❌❌ フック（絶対に公開禁止）
 // export { use${pascalName} } from './hooks/use${pascalName}'  // 致命的エラー！
 
-// ❌ UIコンポーネント（原則非公開）
+// ❌ UIコンポーネント（原則非公開。画面の部品は src/app 側に置く）
 // export { ${pascalName}Component } from './components/${pascalName}Component'
 
 // ❌ 内部実装（公開禁止）
 // export { validate${pascalName} } from './utils/validators'
-// export { ${featureName}Store } from './store'
 `
 
   fs.writeFileSync(path.join(featurePath, 'index.ts'), indexContent)
   log.success('index.ts を作成（フック公開禁止を明記）')
 
-  // API ファイルのテンプレート
-  const apiContent = `// ${pascalName} API Functions
+  // 取得の関数（サーバー側で動く）
+  const apiContent = `// ${pascalName} の取得
 //
-// 他フィーチャーへ公開してよいのはこの純粋関数だけ。フックやコンポーネントは公開しない。
-// エンドポイントとフィールドは雛形なので、実際のバックエンドに合わせて差し替える。
+// ここは「データの保存先を読む場所」。ページの PageContent（サーバー側）から直接 await する。
+// 自分のアプリの API ルートを呼ばない。サーバー側の通信は相対 URL を受け付けない。
+//
+// - ここを実際の保存先（Supabase や DB）の読み取りに差し替える
+// - 差し替えると、取得はリクエストごとになる（ページ側の <Suspense> が必要）
+// - 作り置きにしたい場合だけ 'use cache' を書く。書く前に持ち主の承認を取る
+//
+// 雛形の段階では通信をせずに見本のデータを返す。クローン直後に外部サービスの鍵が
+// 無くても、ビルドと表示が通るようにするため。
 
 import type { ${pascalName} } from '../types'
 
-const ENDPOINT = '/api/${featureName}'
+/** 見本のデータの日時（保存先に差し替えたら消す） */
+const SAMPLE_DATE = new Date('2026-01-01T00:00:00.000Z')
 
-/** レスポンスを検証して JSON を取り出す */
-const parseResponse = async (response: Response): Promise<unknown> => {
-  if (!response.ok) {
-    throw new Error(\`${pascalName} API が失敗しました (\${response.status})\`)
-  }
-  return response.json()
-}
-
-export const get${pascalName}Data = async (id: string): Promise<${pascalName}> => {
-  const response = await fetch(\`\${ENDPOINT}/\${id}\`)
-  return (await parseResponse(response)) as ${pascalName}
-}
-
-export const create${pascalName} = async (data: Partial<${pascalName}>): Promise<${pascalName}> => {
-  const response = await fetch(ENDPOINT, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(data),
+export const get${pascalName}Data = async (id: string): Promise<${pascalName} | null> => {
+  // ここを保存先の読み取りに差し替える（見つからなければ null を返す）
+  const row = await Promise.resolve({
+    id,
+    name: '見本のデータ',
+    createdAt: SAMPLE_DATE,
+    updatedAt: SAMPLE_DATE,
   })
-  return (await parseResponse(response)) as ${pascalName}
-}
-
-export const update${pascalName} = async (id: string, data: Partial<${pascalName}>): Promise<${pascalName}> => {
-  const response = await fetch(\`\${ENDPOINT}/\${id}\`, {
-    method: 'PATCH',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(data),
-  })
-  return (await parseResponse(response)) as ${pascalName}
-}
-
-export const delete${pascalName} = async (id: string): Promise<void> => {
-  const response = await fetch(\`\${ENDPOINT}/\${id}\`, { method: 'DELETE' })
-  await parseResponse(response)
+  return row
 }
 `
 
   fs.writeFileSync(path.join(featurePath, 'api', `${featureName}-api.ts`), apiContent)
-  log.success(`api/${featureName}-api.ts を作成`)
+  log.success(`api/${featureName}-api.ts を作成（取得の関数）`)
+
+  // 更新の関数（Server Actions）
+  const actionsContent = `'use server'
+
+// ${pascalName} の更新（Server Actions）
+//
+// - Server Actions は外部から直接呼べる入口になる。関数ごとに、呼んだ人に
+//   その操作の権限があるかを必ず確かめる
+// - 入力は必ず検証する
+//
+// 雛形の段階では保存せずに、受け取った値をもとにした結果を返す。
+// 実際の保存先（Supabase や DB）への書き込みに差し替える。
+
+import type { ${pascalName}, ${pascalName}Input } from '../types'
+
+const NAME_MAX_LENGTH = 100
+
+/** ID を検証する。不正なら例外を投げる */
+const validateId = (id: unknown): string => {
+  if (typeof id !== 'string' || id.trim().length === 0) {
+    throw new Error('id を指定してください')
+  }
+  return id.trim()
+}
+
+/** 入力を検証して、保存してよい形に整える。不正なら例外を投げる */
+const validateInput = (input: unknown): ${pascalName}Input => {
+  const name =
+    typeof input === 'object' && input !== null && 'name' in input && typeof input.name === 'string'
+      ? input.name.trim()
+      : ''
+  if (name.length === 0 || name.length > NAME_MAX_LENGTH) {
+    throw new Error(\`name は 1〜\${NAME_MAX_LENGTH} 文字で指定してください\`)
+  }
+  return { name }
+}
+
+export async function create${pascalName}(input: ${pascalName}Input): Promise<${pascalName}> {
+  // 権限: ここで、呼んだ人に作成の権限があるかを確かめる
+  const valid = validateInput(input)
+  const now = new Date()
+  // ここを保存先への書き込みに差し替える
+  const saved = await Promise.resolve({ id: crypto.randomUUID(), ...valid, createdAt: now, updatedAt: now })
+  return saved
+}
+
+export async function update${pascalName}(id: string, input: ${pascalName}Input): Promise<${pascalName}> {
+  // 権限: ここで、呼んだ人にこの ${pascalName} を更新する権限があるかを確かめる
+  const validId = validateId(id)
+  const valid = validateInput(input)
+  const now = new Date()
+  // ここを保存先への書き込みに差し替える（差し替えると createdAt は保存先の値になる）
+  const saved = await Promise.resolve({ id: validId, ...valid, createdAt: now, updatedAt: now })
+  return saved
+}
+
+export async function delete${pascalName}(id: string): Promise<{ id: string }> {
+  // 権限: ここで、呼んだ人にこの ${pascalName} を削除する権限があるかを確かめる
+  const validId = validateId(id)
+  // ここを保存先からの削除に差し替える
+  await Promise.resolve()
+  return { id: validId }
+}
+`
+
+  fs.writeFileSync(path.join(featurePath, 'api', `${featureName}-actions.ts`), actionsContent)
+  log.success(`api/${featureName}-actions.ts を作成（更新の関数・Server Actions）`)
 
   // 型定義ファイル
   const typesContent = `// ${pascalName} Type Definitions
@@ -164,171 +209,18 @@ export const delete${pascalName} = async (id: string): Promise<void> => {
 /** ドメインモデル。フィーチャーの index.ts から公開してよい */
 export interface ${pascalName} {
   id: string
+  name: string
   // ドメイン固有のプロパティをここへ追加する
   createdAt: Date
   updatedAt: Date
 }
 
-/** フィーチャーの設定。必要な項目を足していく */
-export interface ${pascalName}Config {
-  /** 一覧の取得件数 */
-  limit?: number
-}
-
-/**
- * フックが返す内部状態。
- *
- * ⚠️ フィーチャーの index.ts からは公開しない（内部実装のため）。
- * このファイルから export しているのは、同じフィーチャー内の
- * hooks/ が import するためだけ。
- */
-export interface ${pascalName}State {
-  data: ${pascalName} | null
-  loading: boolean
-  error: string | null
-}
+/** 作成・更新で受け取る値。index.ts から公開してよい */
+export type ${pascalName}Input = Pick<${pascalName}, 'name'>
 `
 
   fs.writeFileSync(path.join(featurePath, 'types', 'index.ts'), typesContent)
   log.success('types/index.ts を作成')
-
-  // フック ファイル（内部使用のみ）- 無限ループ防止版
-  const hookContent = `import { useState, useEffect, useMemo, useRef } from 'react'
-import { get${pascalName}Data } from '../api/${featureName}-api'
-import type { ${pascalName}, ${pascalName}State } from '../types'
-import { useInfiniteLoopDetector } from '@/hooks/useInfiniteLoopDetector'
-
-// ⚠️ このフックは内部使用のみ！絶対にindex.tsから公開しない！
-// 🔥 無限ループ防止対策実装済み + リアルタイム検出
-
-interface Use${pascalName}Options {
-  category?: string
-  limit?: number
-  enabled?: boolean
-}
-
-export const use${pascalName} = (
-  id: string,
-  options?: Use${pascalName}Options
-): ${pascalName}State => {
-  const [data, setData] = useState<${pascalName} | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-  
-  // 🔥 無限ループ防止: オプションオブジェクトを安定化
-  const stableOptions = useMemo(
-    () => ({
-      category: options?.category ?? 'all',
-      limit: options?.limit ?? 10,
-      enabled: options?.enabled ?? true
-    }),
-    [options?.category, options?.limit, options?.enabled]  // プリミティブ値のみ
-  )
-  
-  // 🔥 無限ループ防止: 取得済みの ID を記憶する。
-  // state の data を effect 内で読むと依存配列に data が必要になり、
-  // それが再実行を招いてループの原因になるため ref で持つ。
-  const fetchedIdRef = useRef<string | null>(null)
-
-  // 🔍 リアルタイム無限ループ検出（開発環境のみ）
-  useInfiniteLoopDetector({
-    name: \`${pascalName}-\${id}\`,
-    threshold: 8,
-    customMessage: '${pascalName}フックでAPI呼び出しが頻発しています。依存配列またはstableOptionsを確認してください。'
-  })
-
-  useEffect(() => {
-    // オプションで無効化されている場合は実行しない
-    if (!stableOptions.enabled) {
-      return
-    }
-    
-    // 同じ ID を取得済みならスキップ
-    if (fetchedIdRef.current === id) {
-      return
-    }
-
-    fetchedIdRef.current = id
-    
-    let cancelled = false
-    
-    const fetchData = async () => {
-      try {
-        setLoading(true)
-        setError(null)
-        
-        const result = await get${pascalName}Data(id)
-        
-        // コンポーネントがアンマウントされていない場合のみ更新
-        if (!cancelled) {
-          setData(result)
-        }
-      } catch (err) {
-        if (!cancelled) {
-          setError(err instanceof Error ? err.message : 'エラーが発生しました')
-        }
-      } finally {
-        if (!cancelled) {
-          setLoading(false)
-        }
-      }
-    }
-    
-    // 戻り値を使わない Promise であることを明示する
-    void fetchData()
-
-    // クリーンアップ
-    return () => {
-      cancelled = true
-    }
-  }, [id, stableOptions])  // 安定した依存配列
-  
-  return { data, loading, error }
-}
-`
-
-  fs.writeFileSync(path.join(featurePath, 'hooks', `use${pascalName}.ts`), hookContent)
-  log.success(`hooks/use${pascalName}.ts を作成（内部使用のみ）`)
-
-  // コンポーネント ファイル（内部使用のみ）
-  const componentContent = `import React from 'react'
-import { use${pascalName} } from '../hooks/use${pascalName}'
-
-// ⚠️ このコンポーネントは内部使用のみ！他フィーチャーからは使用不可！
-interface ${pascalName}ComponentProps {
-  id: string
-}
-
-export const ${pascalName}Component: React.FC<${pascalName}ComponentProps> = ({ id }) => {
-  const { data, loading, error } = use${pascalName}(id)
-  
-  if (loading) {
-    return <div className="font-rounded">読み込み中...</div>
-  }
-  
-  if (error !== null) {
-    return <div className="font-rounded text-red-500">エラー: {error}</div>
-  }
-  
-  if (!data) {
-    return <div className="font-rounded">データが見つかりません</div>
-  }
-  
-  return (
-    <div className="bg-white rounded-lg shadow-lg p-6 font-rounded">
-      <h2 className="text-2xl font-bold mb-4">${pascalName}</h2>
-      {/* ここにこのフィーチャー独自の UI を実装する */}
-      <pre>{JSON.stringify(data, null, 2)}</pre>
-    </div>
-  )
-}
-`
-
-  fs.writeFileSync(
-    path.join(featurePath, 'components', `${pascalName}Component.tsx`),
-    componentContent
-  )
-  log.success(`components/${pascalName}Component.tsx を作成（内部使用のみ）`)
 
   // README.md
   const readmeContent = `# ${pascalName} Feature
@@ -337,46 +229,35 @@ export const ${pascalName}Component: React.FC<${pascalName}ComponentProps> = ({ 
 ${featureName} フィーチャーの実装
 
 ## 構造
-- \`api/\` - API関数（公開）
-- \`components/\` - UIコンポーネント（内部使用のみ）
-- \`hooks/\` - カスタムフック（内部使用のみ）
+- \`api/${featureName}-api.ts\` - 取得の関数（サーバー側で動く・公開）
+- \`api/${featureName}-actions.ts\` - 更新の関数（Server Actions・公開）
 - \`types/\` - 型定義（ドメイン型のみ公開）
-- \`utils/\` - ユーティリティ関数（内部使用のみ）
-- \`constants/\` - 定数定義
-- \`store/\` - 状態管理（内部使用のみ）
 
+画面の部品はこのフィーチャーではなく \`src/app/${featureName}/\` 側に置く。
 テストはこのディレクトリではなく \`tests/unit/features/${featureName}.test.ts\` に置く。
 
 ## 公開API（index.ts）
-- \`get${pascalName}Data()\` - データ取得
-- \`create${pascalName}()\` - 作成
-- \`update${pascalName}()\` - 更新
-- \`delete${pascalName}()\` - 削除
-- \`type ${pascalName}\` - ドメイン型
+- \`get${pascalName}Data()\` - 取得（サーバー側から直接 await する）
+- \`create${pascalName}()\` / \`update${pascalName}()\` / \`delete${pascalName}()\` - 更新（Server Actions）
+- \`type ${pascalName}\` / \`type ${pascalName}Input\` - ドメイン型
 
 ## ⚠️ 重要な注意事項
-1. **フックは絶対にindex.tsから公開しない**
-2. **UIコンポーネントは他フィーチャーから使用しない**
-3. **データ取得は純粋な関数として公開する**
-4. **内部実装の詳細は隠蔽する**
+1. **取得の関数は自分のアプリの API を fetch しない**（関数の中で保存先を読む）
+2. **Server Actions は外部から直接呼べる。関数ごとに権限を確かめ、入力を検証する**
+3. **フックは絶対にindex.tsから公開しない**
+4. **作り置き（'use cache'）は持ち主の承認を取ってから書く**
 
 ## 使用例
 \`\`\`typescript
-import { get${pascalName}Data, type ${pascalName} } from '@/features/${featureName}'
+// src/app/${featureName}/page.tsx（サーバーコンポーネント）
+import { get${pascalName}Data } from '@/features/${featureName}'
 
-// API関数を使用
 const data = await get${pascalName}Data('123')
 
-// 自フィーチャー内でフックを作成
-const useMyFeature = () => {
-  const [data, setData] = useState<${pascalName} | null>(null)
-  
-  useEffect(() => {
-    get${pascalName}Data('123').then(setData)
-  }, [])
-  
-  return data
-}
+// フォームから更新する（Server Actions）
+import { create${pascalName} } from '@/features/${featureName}'
+
+await create${pascalName}({ name: '新しい項目' })
 \`\`\`
 `
 
@@ -492,7 +373,7 @@ async function ${pascalName}PageContent() {
 
   // 単体テストファイル生成
   const unitTestPath = `tests/unit/features/${featureName}.test.ts`
-  const unitTestContent = `import { describe, it, expect, vi, afterEach } from 'vitest'
+  const unitTestContent = `import { describe, it, expect } from 'vitest'
 import {
   get${pascalName}Data,
   create${pascalName},
@@ -500,67 +381,41 @@ import {
   delete${pascalName},
 } from '@/features/${featureName}'
 
-/** fetch を差し替えて、1 回分のレスポンスを返す */
-const mockFetchOnce = (body: unknown, ok = true): void => {
-  global.fetch = vi.fn().mockResolvedValueOnce({
-    ok,
-    status: ok ? 200 : 500,
-    json: () => Promise.resolve(body),
-  } as Response)
-}
+// 取得の関数と更新の関数を直接呼んで検証する（通信のモックは使わない）。
+// 保存先に差し替えたら、ここも保存先の結果に合わせて書き換える。
 
-afterEach(() => {
-  vi.restoreAllMocks()
-})
-
-describe('${pascalName} API関数', () => {
-  it('get${pascalName}Data が ID を URL に含めて取得する', async () => {
-    mockFetchOnce({ id: 'test-id' })
-
+describe('${pascalName} 取得の関数', () => {
+  it('get${pascalName}Data が指定した ID のデータを返す', async () => {
     const result = await get${pascalName}Data('test-id')
 
-    expect(result.id).toBe('test-id')
-    expect(global.fetch).toHaveBeenCalledWith('/api/${featureName}/test-id')
+    expect(result?.id).toBe('test-id')
+  })
+})
+
+describe('${pascalName} 更新の関数（Server Actions）', () => {
+  it('create${pascalName} が検証済みの値で作成結果を返す', async () => {
+    const result = await create${pascalName}({ name: '  新しい項目  ' })
+
+    expect(result.name).toBe('新しい項目')
+    expect(result.id.length).toBeGreaterThan(0)
   })
 
-  it('create${pascalName} が本文を送って作成する', async () => {
-    mockFetchOnce({ id: 'new-id' })
-
-    const result = await create${pascalName}({ id: 'new-id' })
-
-    expect(result.id).toBe('new-id')
-    expect(global.fetch).toHaveBeenCalledWith(
-      '/api/${featureName}',
-      expect.objectContaining({ method: 'POST' })
-    )
+  it('create${pascalName} は空の name を拒否する', async () => {
+    await expect(create${pascalName}({ name: '   ' })).rejects.toThrow('name')
   })
 
-  it('update${pascalName} が ID を URL に含めて更新する', async () => {
-    mockFetchOnce({ id: 'test-id' })
+  it('update${pascalName} が指定した ID で更新結果を返す', async () => {
+    const result = await update${pascalName}('test-id', { name: '更新後' })
 
-    const result = await update${pascalName}('test-id', { id: 'test-id' })
-
-    expect(result.id).toBe('test-id')
-    expect(global.fetch).toHaveBeenCalledWith(
-      '/api/${featureName}/test-id',
-      expect.objectContaining({ method: 'PATCH' })
-    )
+    expect(result).toMatchObject({ id: 'test-id', name: '更新後' })
   })
 
-  it('delete${pascalName} が削除を実行する', async () => {
-    mockFetchOnce({})
-
-    await expect(delete${pascalName}('test-id')).resolves.toBeUndefined()
-    expect(global.fetch).toHaveBeenCalledWith(
-      '/api/${featureName}/test-id',
-      expect.objectContaining({ method: 'DELETE' })
-    )
+  it('update${pascalName} は空の ID を拒否する', async () => {
+    await expect(update${pascalName}('', { name: '更新後' })).rejects.toThrow('id')
   })
 
-  it('レスポンスが失敗なら例外を投げる', async () => {
-    mockFetchOnce({}, false)
-
-    await expect(get${pascalName}Data('test-id')).rejects.toThrow('${pascalName} API')
+  it('delete${pascalName} が削除した ID を返す', async () => {
+    await expect(delete${pascalName}('test-id')).resolves.toEqual({ id: 'test-id' })
   })
 })
 `
@@ -587,17 +442,16 @@ ${colors.green}━━━━━━━━━━━━━━━━━━━━━�
 
 📝 作成されたファイル:
   • index.ts (公開API定義)
-  • api/${featureName}-api.ts (API関数)
+  • api/${featureName}-api.ts (取得の関数 - サーバー側で動く)
+  • api/${featureName}-actions.ts (更新の関数 - Server Actions)
   • types/index.ts (型定義)
-  • hooks/use${pascalName}.ts (カスタムフック - 内部使用のみ)
-  • components/${pascalName}Component.tsx (UIコンポーネント - 内部使用のみ)
   • README.md (ドキュメント)
   • ${colors.green}tests/unit/features/${featureName}.test.ts (単体テスト)${colors.reset}
 
 ${colors.red}${colors.bold}⚠️  重要な注意事項:${colors.reset}
   1. ${colors.red}フックは絶対にindex.tsから公開しないでください${colors.reset}
-  2. UIコンポーネントは他フィーチャーから使用しないでください
-  3. データ取得は純粋な関数として公開してください
+  2. ${colors.red}Server Actions は外部から直接呼べます。関数ごとに権限を確かめ、入力を検証してください${colors.reset}
+  3. 取得の関数は自分のアプリの API を fetch せず、関数の中で保存先を読んでください
   4. ${colors.green}page.tsxは中間保護層パターンで実装済み${colors.reset}
 
 🔥 ${colors.bold}中間保護層パターンの効果:${colors.reset}
@@ -607,9 +461,10 @@ ${colors.red}${colors.bold}⚠️  重要な注意事項:${colors.reset}
 
 次のステップ:
   1. types/index.ts で型を定義
-  2. api/${featureName}-api.ts でAPI関数を実装
-  3. 必要に応じてコンポーネントとフックを実装
-  4. ${colors.green}pnpm test:unit でユニットテストを実行${colors.reset}
+  2. api/${featureName}-api.ts の見本のデータを、実際の保存先（Supabase や DB）の読み取りに差し替え
+  3. api/${featureName}-actions.ts の見本を、保存先への書き込みに差し替え（権限の確認を入れる）
+  4. 画面の部品は src/app/${featureName}/ 側に実装
+  5. ${colors.green}pnpm test:unit でユニットテストを実行${colors.reset}
 
 境界チェック:
   ${colors.yellow}pnpm check:boundaries${colors.reset}

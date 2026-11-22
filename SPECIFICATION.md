@@ -132,18 +132,15 @@ template-v3.0/
 
 ```
 src/features/[feature-name]/
-├── api/              # API関数（公開推奨）
-│   └── feature-api.ts
-├── components/       # UIコンポーネント（内部使用のみ）
-│   └── Component.tsx
-├── hooks/            # カスタムフック（内部使用のみ）
-│   └── useFeature.ts
-├── types/            # 型定義
+├── api/
+│   ├── feature-api.ts      # 取得の関数（サーバー側で動く・公開）
+│   └── feature-actions.ts  # 更新の関数（先頭に 'use server'・公開）
+├── types/                  # 型定義（ドメイン型のみ公開）
 │   └── index.ts
-├── utils/            # ヘルパー関数（内部使用のみ）
-├── store/            # 状態管理（内部使用のみ）
-└── index.ts          # 公開API（最小限）
+├── README.md
+└── index.ts                # 公開API（最小限）
 
+画面の部品はフィーチャーの外（src/app/<feature-name>/）に置く
 テストはフィーチャー配下ではなく tests/unit/features/<feature-name>.test.ts に置く
 （pnpm create:feature が生成する）
 ```
@@ -163,11 +160,12 @@ src/features/[feature-name]/
 ```typescript
 // src/features/[feature-name]/index.ts
 
-// ✅ API関数（公開推奨）
-export { getFeatureData, createItem } from './api/feature-api'
+// ✅ 取得（サーバー側の関数）と更新（Server Actions）
+export { getFeatureData } from './api/feature-api'
+export { createItem } from './api/feature-actions'
 
 // ✅ ドメイン型のみ（公開可）
-export type { FeatureItem, FeatureConfig } from './types'
+export type { FeatureItem, FeatureInput } from './types'
 
 // ❌ フック（公開禁止）
 // export { useFeature } from './hooks/useFeature'
@@ -179,7 +177,13 @@ export type { FeatureItem, FeatureConfig } from './types'
 ### 4.4 ページの型（ErrorBoundary → Suspense → PageContent）
 
 `pnpm create:feature` が生成する `src/app/[feature]/page.tsx` は、`FeatureErrorBoundary` の内側で async の `PageContent` を `<Suspense fallback={...}>` で囲む。`cacheComponents`（§5.2）が有効だと、`<Suspense>` の外でキャッシュしないデータ取得を行うページはビルドが失敗する。`FeatureErrorBoundary` は Suspense の代わりにならない。
-設定を入れる前は同じページが静的（○）として出力され、ビルド時に1回だけ取得した結果が固定されていた。囲むことで取得はリクエストごとになり、ルートは一部作り置き（◐）になる。回帰テストは `tests/unit/create-feature.test.ts`。
+設定を入れる前は同じページが静的（○）として出力され、ビルド時に1回だけ取得した結果が固定されていた。囲んでおけば、取得を保存先の読み取りに差し替えた時点でリクエストごとになり、ルートは一部作り置き（◐）になる（生成直後は見本のデータを返すだけなので ○）。回帰テストは `tests/unit/create-feature.test.ts`。
+
+### 4.5 生成される雛形の形（取得はサーバー側の関数、更新は Server Actions）
+
+`pnpm create:feature` は、取得の関数（`api/<name>-api.ts`）と更新の関数（`api/<name>-actions.ts`、先頭に `'use server'`）を生成し、フックとコンポーネントの雛形は生成しない（2026-11-23〜）。
+以前の雛形は、取得の関数が自分のアプリの `/api/<name>` を fetch していた。サーバーコンポーネントの page.tsx から呼ぶとサーバー側の fetch は相対 URL を受け付けないため、生成直後のページは必ずエラー表示になっていた。またブラウザ側の `useEffect` で取得するフックは、このテンプレートから作った実際のアプリでは使われていなかった（API ルート 0・useEffect で取得するフック 0）。実際のアプリの形（PageContent が取得の関数を直接 await し、関数の中で保存先を読む／更新は Server Actions／画面の部品は app 側）に雛形を合わせた。
+雛形の取得の関数は通信をせずに見本のデータを返す（クローン直後に外部サービスの鍵が無くてもビルドと表示が通るようにするため）。更新の関数は保存せずに、検証した入力をもとにした結果を返す。Server Actions は外部から直接呼べる入口になるため、関数ごとに権限を確かめ、入力を検証する。作り置き（`'use cache'`）は持ち主の承認を取ってから書く。
 
 ## 5. 設定ファイル仕様
 
