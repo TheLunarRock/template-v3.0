@@ -176,6 +176,11 @@ export type { FeatureItem, FeatureConfig } from './types'
 // export { FeatureComponent } from './components/FeatureComponent'
 ```
 
+### 4.4 ページの型（ErrorBoundary → Suspense → PageContent）
+
+`pnpm create:feature` が生成する `src/app/[feature]/page.tsx` は、`FeatureErrorBoundary` の内側で async の `PageContent` を `<Suspense fallback={...}>` で囲む。`cacheComponents`（§5.2）が有効だと、`<Suspense>` の外でキャッシュしないデータ取得を行うページはビルドが失敗する。`FeatureErrorBoundary` は Suspense の代わりにならない。
+設定を入れる前は同じページが静的（○）として出力され、ビルド時に1回だけ取得した結果が固定されていた。囲むことで取得はリクエストごとになり、ルートは一部作り置き（◐）になる。回帰テストは `tests/unit/create-feature.test.ts`。
+
 ## 5. 設定ファイル仕様
 
 ### 5.1 TypeScript設定（tsconfig.json）
@@ -247,6 +252,8 @@ const securityHeaders = [
 
 const nextConfig = {
   reactStrictMode: true,
+  cacheComponents: true,
+  partialPrefetching: true,
   async headers() {
     return [{ source: '/(.*)', headers: securityHeaders }]
   },
@@ -255,6 +262,8 @@ const nextConfig = {
 // Bundle Analyzer（省略）
 export default process.env.ANALYZE === 'true' ? withBundleAnalyzer(nextConfig) : nextConfig
 ```
+
+**`cacheComponents` / `partialPrefetching`（2026-11-22〜）:** データの取得を既定でリクエストごとにし、作り置きは `'use cache'` と明示した所だけにするため有効化している。どちらも Next.js の次のメジャー版で全体の既定になる予定で、公式ドキュメントも2つを一緒に有効にするよう案内している（`partialPrefetching` を書かないと警告が出る）。実測では、`<Suspense>` の外でのデータ取得や `cookies()` はビルドが失敗して止まる（ページの書き方は §4.4）。
 
 **セキュリティヘッダー（第8層防御・7種）:**
 

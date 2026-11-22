@@ -179,6 +179,42 @@ describe('create-feature.js: 生成コードの健全性', () => {
   })
 })
 
+describe('create-feature.js: page.tsx のデータ取得は <Suspense> の内側', () => {
+  /**
+   * next.config.mjs で cacheComponents を有効にしているため、<Suspense> の外で
+   * キャッシュしないデータ取得を行うページはビルドが失敗する（2026-11-22 実測）。
+   * FeatureErrorBoundary は Suspense の代わりにならない。
+   * 設定を入れる前は同じページが静的（○）として出力され、ビルド時に 1 回だけ
+   * 取得した結果が固定されていた。雛形からその形を取り除いたことを固定する。
+   */
+  const PAGE = 'src/app/user-profile/page.tsx'
+
+  it('react から Suspense を import している', () => {
+    const { dir } = generate('user-profile')
+    const page = read(dir, PAGE)
+
+    expect(page).toMatch(/import\s*\{[^}]*\bSuspense\b[^}]*\}\s*from\s*'react'/)
+  })
+
+  it('async の PageContent が <Suspense> の内側でだけ描画される', () => {
+    const { dir } = generate('user-profile')
+    const page = read(dir, PAGE)
+
+    expect(page).toMatch(/async function UserProfilePageContent\(/)
+    // fallback に JSX（> を含む）が入るため、<Suspense から </Suspense> までを切り出して調べる
+    const suspenseBlock = /<Suspense\b[\s\S]*?<\/Suspense>/.exec(page)?.[0] ?? ''
+    expect(suspenseBlock).toMatch(/<UserProfilePageContent\s*\/>\s*<\/Suspense>$/)
+    expect(page.match(/<UserProfilePageContent\b/g)).toHaveLength(1)
+  })
+
+  it('<Suspense> に fallback が指定されている', () => {
+    const { dir } = generate('user-profile')
+    const page = read(dir, PAGE)
+
+    expect(page).toMatch(/<Suspense\s+fallback=\{/)
+  })
+})
+
 describe('create-feature.js: 入力の検証', () => {
   it.each(['UserProfile', 'user_profile', 'userProfile'])(
     'ケバブケース以外は拒否する: %s',

@@ -385,24 +385,34 @@ const useMyFeature = () => {
 
   // 🔥 中間保護層パターン - app/[feature]/page.tsx を生成
   const appPagePath = `src/app/${featureName}/page.tsx`
-  const appPageContent = `import { FeatureErrorBoundary } from '@/components/ErrorBoundary'
+  const appPageContent = `import { Suspense } from 'react'
+import { FeatureErrorBoundary } from '@/components/ErrorBoundary'
 import { get${pascalName}Data } from '@/features/${featureName}'
 import type { ${pascalName} } from '@/features/${featureName}'
 
 /**
  * ${pascalName}ページ - 中間保護層パターン実装
- * 
+ *
  * 構造:
  * 1. ErrorBoundary: エラーを隔離し、他フィーチャーへの影響を防ぐ
- * 2. PageContent: 中間保護層として機能（フィーチャーAPIのみ使用）
- * 3. Feature API: 公開された純粋関数のみを呼び出す
- * 
+ * 2. Suspense: データ取得をリクエストごとに行い、取得中は fallback を表示する（外すとビルドが失敗する）
+ * 3. PageContent: 中間保護層として機能（フィーチャーAPIのみ使用）
+ * 4. Feature API: 公開された純粋関数のみを呼び出す
+ *
  * ⚠️ 重要: フィーチャーのコンポーネントやフックは直接使用しない
  */
 export default function ${pascalName}Page() {
   return (
     <FeatureErrorBoundary featureName="${featureName}">
-      <${pascalName}PageContent />
+      <Suspense
+        fallback={
+          <div className="p-8 bg-gray-50 rounded-lg">
+            <p className="text-gray-700">読み込み中…</p>
+          </div>
+        }
+      >
+        <${pascalName}PageContent />
+      </Suspense>
     </FeatureErrorBoundary>
   )
 }

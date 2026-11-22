@@ -661,7 +661,9 @@ const MCP_HINTS = {
 export default function FeaturePage() {
   return (
     <FeatureErrorBoundary featureName="feature-name">
-      <FeaturePageContent />  // 中間保護層
+      <Suspense fallback={<p>読み込み中…</p>}>
+        <FeaturePageContent />  // 中間保護層
+      </Suspense>
     </FeatureErrorBoundary>
   )
 }
