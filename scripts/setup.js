@@ -586,6 +586,7 @@ export default defineConfig({
     exclude: ['node_modules', '.next'],
     coverage: {
       provider: 'v8',
+      include: ['src/**/*.{ts,tsx}'],
       reporter: ['text', 'json', 'html'],
       exclude: ['node_modules/', 'tests/', '*.config.*', '.next/', 'scripts/'],
       // テンプレート段階ではカバレッジ強制（thresholds）を設けない設計（v3.7.5〜）。
@@ -614,15 +615,15 @@ export default defineConfig({
 
   // テストセットアップファイル
   if (!fs.existsSync('tests/setup.ts')) {
-    const setupContent = `import '@testing-library/jest-dom';
-import { vi } from 'vitest';
+    const setupContent = `import '@testing-library/jest-dom/vitest'
+import { vi } from 'vitest'
 
 // グローバルモック設定
 global.ResizeObserver = class ResizeObserver {
   observe() {}
   unobserve() {}
   disconnect() {}
-};
+}
 
 // localStorageモック
 const localStorageMock = {
@@ -632,8 +633,9 @@ const localStorageMock = {
   clear: vi.fn(),
   length: 0,
   key: vi.fn(),
-} as Storage;
-global.localStorage = localStorageMock;`
+} as Storage
+global.localStorage = localStorageMock
+`
     fs.writeFileSync('tests/setup.ts', setupContent)
     log.success('tests/setup.ts を作成しました')
     results.created.push('tests/setup.ts')

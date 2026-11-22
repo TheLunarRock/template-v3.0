@@ -34,12 +34,12 @@ function uniqueName(label: string): string {
 }
 
 interface ConsoleSpies {
-  group: ReturnType<typeof vi.spyOn>
-  groupEnd: ReturnType<typeof vi.spyOn>
-  error: ReturnType<typeof vi.spyOn>
-  warn: ReturnType<typeof vi.spyOn>
-  info: ReturnType<typeof vi.spyOn>
-  table: ReturnType<typeof vi.spyOn>
+  group: MockInstance<typeof console.group>
+  groupEnd: MockInstance<typeof console.groupEnd>
+  error: MockInstance<typeof console.error>
+  warn: MockInstance<typeof console.warn>
+  info: MockInstance<typeof console.info>
+  table: MockInstance<typeof console.table>
 }
 
 /** 検出時の出力を握りつぶしつつ、呼ばれ方を観察できるようにする */

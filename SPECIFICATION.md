@@ -53,7 +53,7 @@
 
 | パッケージ             | バージョン | 用途                         |
 | ---------------------- | ---------- | ---------------------------- |
-| Vitest                 | ^3.2.7     | ユニットテストフレームワーク |
+| Vitest                 | ^5.1.1     | ユニットテストフレームワーク |
 | @testing-library/react | ^16.3.2    | Reactコンポーネントテスト    |
 
 > **設計判断（2026-03-13）**: E2Eテスト（Playwright）はテンプレートから完全に削除済み。
@@ -318,6 +318,7 @@ export default defineConfig({
     exclude: ['node_modules', '.next'],
     coverage: {
       provider: 'v8',
+      include: ['src/**/*.{ts,tsx}'],
       reporter: ['text', 'json', 'html'],
       exclude: ['node_modules/', 'tests/', '*.config.*', '.next/', 'scripts/'],
       // v3.7.5〜: thresholds は削除（個人開発デフォルト=PR運用OFFと整合）
@@ -337,6 +338,8 @@ export default defineConfig({
   },
 })
 ```
+
+**`coverage.include`（2026-11-23〜・Vitest 5 への版上げで追加）:** Vitest 4 で `coverage.all` が無くなり、`include` が無いとテストから読み込まれたファイルしか集計されなくなった。さらに Vitest 5 では include / exclude をルートからの相対パスで照合するため、`exclude` の `'scripts/'` が scripts 配下に当たらず、テストが require する `scripts/*.js` が集計に混ざって全体が 91.7% → 62.85% に見えていた。`src/**/*.{ts,tsx}` を明示して、集計対象を版上げ前と同じ src のファイルに戻している。
 
 ### 5.4 Tailwind CSS設定
 

@@ -12,6 +12,7 @@ export default defineConfig({
     exclude: ['node_modules', '.next'],
     coverage: {
       provider: 'v8',
+      include: ['src/**/*.{ts,tsx}'],
       reporter: ['text', 'json', 'html'],
       exclude: ['node_modules/', 'tests/', '*.config.*', '.next/', 'scripts/'],
       // テンプレート段階ではカバレッジ強制（thresholds）を設けない設計（v3.7.5〜）。
