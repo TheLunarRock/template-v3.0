@@ -822,7 +822,7 @@ jobs:
 | 項目             | 値                                                 |
 | ---------------- | -------------------------------------------------- |
 | **ランナー**     | ubuntu-latest                                      |
-| **Node.js**      | `.nvmrc` 参照（現状: 20.19.0）                     |
+| **Node.js**      | `.nvmrc` 参照（現状: 24）                          |
 | **パッケージ**   | pnpm 9                                             |
 | **インストール** | `--frozen-lockfile`（lockfile厳密一致）            |
 | **真実の源**     | `.nvmrc` 1ファイル → CI / engines / nvm が同時参照 |
@@ -832,10 +832,10 @@ jobs:
 | ファイル                      | 役割                                       | 値の参照方法                  |
 | ----------------------------- | ------------------------------------------ | ----------------------------- |
 | `.nvmrc`                      | **唯一の真実の源**（バージョン番号を保持） | `nvm use` でローカル切替      |
-| `package.json` `engines.node` | パッケージ最小バージョン要件               | `>=20.19.0`（範囲指定）       |
+| `package.json` `engines.node` | 対応するメジャー版（Vercel が参照）        | `24.x`（メジャー版）          |
 | `.github/workflows/*.yml`     | CI上のNode.jsバージョン                    | `node-version-file: '.nvmrc'` |
 
-`.nvmrc` を更新するだけで、CI とローカルが同時に切り替わる。`engines.node` は範囲指定なので独立。
+`.nvmrc` を更新すると CI とローカルが同時に切り替わる。Vercel は `.nvmrc` を読まず `engines.node` で版を選ぶため、`engines.node` のメジャー版も合わせて更新する（不一致は `version-numbers.test.ts` が検出）。
 
 #### 9.3.2 カバレッジ計測
 
@@ -2767,7 +2767,7 @@ Neon は変化が速く、破壊的変更・デフォルト変更が定期的に
 
 ### 13.1 必須
 
-- Node.js >= 20.19.0
+- Node.js 24.x
 - pnpm >= 8.0.0
 - Git
 - gitleaks >= 8.30.0（`brew install gitleaks`）
@@ -3349,13 +3349,13 @@ PR運用 ON に切り替え時のみ `pnpm sc:enable-pr` で復活させる。
 
 ### 15.6 ビルド設定（Vercel ダッシュボード）
 
-| 設定              | 値                         |
-| ----------------- | -------------------------- |
-| Build Command     | `pnpm build`               |
-| Output Directory  | `.next`                    |
-| Install Command   | `pnpm install`             |
-| Node.js Version   | `.nvmrc` 参照（現状 20.x） |
-| Production Branch | `main`                     |
+| 設定              | 値                            |
+| ----------------- | ----------------------------- |
+| Build Command     | `pnpm build`                  |
+| Output Directory  | `.next`                       |
+| Install Command   | `pnpm install`                |
+| Node.js Version   | `engines.node` 参照（`24.x`） |
+| Production Branch | `main`                        |
 
 ### 15.7 デプロイ失敗時のトラブルシューティング
 

@@ -26,7 +26,7 @@ const pkg = JSON.parse(readFileSync(path.join(ROOT, 'package.json'), 'utf8')) as
 describe('整合性: バージョン番号がファイル間で一致する', () => {
   it('package.json engines.node が SETUP_GUIDE.md に記載されている', () => {
     const guide = readFileSync(path.join(ROOT, 'SETUP_GUIDE.md'), 'utf8')
-    // ">=20.19.0" → "20.19.0"
+    // "24.x" → "24.x"（先頭の ">=" 等の記号だけを除く）
     const minNodeVersion = pkg.engines.node.replace(/^[^\d]*/, '')
 
     if (!guide.includes(minNodeVersion)) {
@@ -156,29 +156,27 @@ describe('整合性: バージョン番号がファイル間で一致する', ()
     ).toBe(true)
   })
 
-  it('.nvmrc が package.json engines.node の最小要件を満たす', () => {
-    const nvmrc = readFileSync(path.join(ROOT, '.nvmrc'), 'utf8').trim()
-    const minNodeVersion = pkg.engines.node.replace(/^[^\d]*/, '')
-    const [nvmMajor, nvmMinor = '0', nvmPatch = '0'] = nvmrc.split('.').map(Number) as [
-      number,
-      number?,
-      number?,
-    ]
-    const [minMajor, minMinor = 0, minPatch = 0] = minNodeVersion.split('.').map(Number) as [
-      number,
-      number?,
-      number?,
-    ]
+  it('package.json engines.node がメジャー版＋".x" 形式で書かれている（Vercel の推奨形式）', () => {
+    // 範囲指定（">=20.19.0" 等）だと Vercel は使える最新のメジャー版を選び、CI と版がずれる
+    expect(
+      /^\d+\.x$/.test(pkg.engines.node),
+      `\npackage.json engines.node が "<メジャー版>.x" 形式ではありません: ${pkg.engines.node}\n` +
+        `Vercel は .nvmrc を読まず engines.node で Node.js の版を選ぶため、範囲指定だと\n` +
+        `CI（.nvmrc）と別の版でビルドされます。\n` +
+        `修正方法: engines.node を "24.x" のように .nvmrc と同じメジャー版で指定してください。`
+    ).toBe(true)
+  })
 
-    const meets =
-      nvmMajor > minMajor ||
-      (nvmMajor === minMajor && Number(nvmMinor) > minMinor) ||
-      (nvmMajor === minMajor && Number(nvmMinor) === minMinor && Number(nvmPatch) >= minPatch)
+  it('.nvmrc のメジャー版と package.json engines.node のメジャー版が一致する', () => {
+    const nvmrc = readFileSync(path.join(ROOT, '.nvmrc'), 'utf8').trim()
+    const nvmMajor = /^v?(\d+)/.exec(nvmrc)?.[1]
+    const enginesMajor = /^\D*(\d+)/.exec(pkg.engines.node)?.[1]
 
     expect(
-      meets,
-      `\n.nvmrc (${nvmrc}) が package.json engines.node (${pkg.engines.node}) の最小要件を満たしていません。\n` +
-        `修正方法: .nvmrc を ${minNodeVersion} 以上に更新してください。`
+      nvmMajor !== undefined && nvmMajor === enginesMajor,
+      `\n.nvmrc (${nvmrc}) と package.json engines.node (${pkg.engines.node}) のメジャー版が一致しません。\n` +
+        `CI は .nvmrc、Vercel は engines.node を読むため、ずれると環境ごとに別の版で動きます。\n` +
+        `修正方法: .nvmrc と engines.node を同じメジャー版にそろえてください（例: .nvmrc = 24, engines.node = "24.x"）。`
     ).toBe(true)
   })
 })

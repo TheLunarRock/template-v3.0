@@ -387,7 +387,7 @@ bash .claude/hooks/notify-repeat.sh stop-all
 
 ### Node.js バージョン管理の単一の真実の源
 
-`.nvmrc` を唯一の真実の源として、CI（`node-version-file: '.nvmrc'`）・ローカル（`nvm use`）・`engines.node`（範囲指定）が同期される。`.nvmrc` を更新するだけで全環境のバージョンが切り替わる。**Claude Codeルール**: CI/security ワークフローの Node バージョンを直書きせず、必ず `.nvmrc` 参照を使用すること。
+`.nvmrc` を唯一の真実の源として、CI（`node-version-file: '.nvmrc'`）・ローカル（`nvm use`）・`engines.node`（`24.x`）が同期される。`.nvmrc` を更新するだけで全環境のバージョンが切り替わる。**Claude Codeルール**: CI/security ワークフローの Node バージョンを直書きせず、必ず `.nvmrc` 参照を使用すること。
 
 ## E2Eテスト削除の設計判断（2026-03-13）
 

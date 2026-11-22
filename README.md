@@ -26,7 +26,7 @@ Claude Code に書かせる個人開発向け Next.js テンプレート。フ�
 
 ### 必須
 
-- **Node.js** >= 20.19.0（`.nvmrc` 参照）
+- **Node.js** 24.x（`.nvmrc` 参照）
 - **pnpm** 9.x
 - **Claude Code** CLI
 
