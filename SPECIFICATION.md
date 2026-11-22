@@ -65,7 +65,7 @@
 
 | パッケージ  | バージョン | 用途                   |
 | ----------- | ---------- | ---------------------- |
-| ESLint      | ^9.39.5    | コード品質チェック     |
+| ESLint      | ^10.15.0   | コード品質チェック     |
 | Prettier    | ^3.9.6     | コードフォーマット     |
 | Husky       | ^9.1.7     | Git hooks管理          |
 | lint-staged | ^16.4.0    | ステージファイルのlint |
@@ -3567,7 +3567,7 @@ const testResult = runCommand(`${pmRun} test:coverage`, true, true)
 
 ### 17.3 コード品質
 
-- ESLint 9 flat config（`eslint.config.mjs`）
+- ESLint 10 flat config（`eslint.config.mjs`）
 - Prettier統合
 - 境界違反ゼロトレランス
 

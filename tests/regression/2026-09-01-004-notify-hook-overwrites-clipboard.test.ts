@@ -209,7 +209,7 @@ describe.concurrent('Regression: 2026-09-01-004 - 通知フックがクリップ
       const log = await waitForFire(stub, 8000)
 
       // 通知は 1 回だけ出る
-      expect(log.split('\n').filter((l) => l.startsWith('alerter ')).length).toBe(1)
+      expect(log.split('\n').filter((l) => l.startsWith('alerter '))).toHaveLength(1)
       expect(log).toContain('--sound Glass')
       // Slack も従来どおり送る
       expect(countLine(log, 'curl')).toBe(1)

@@ -5,7 +5,7 @@
  *
  * このスクリプトは以下の設定ファイルが変更されていないことを確認します：
  * - tsconfig.json                            (TypeScript)
- * - eslint.config.mjs                        (ESLint v9 flat config)
+ * - eslint.config.mjs                        (ESLint v10 flat config)
  * - vitest.config.ts                         (Vitest)
  * - next.config.mjs                          (Next.js)
  * - tailwind.config.ts                       (Tailwind CSS)

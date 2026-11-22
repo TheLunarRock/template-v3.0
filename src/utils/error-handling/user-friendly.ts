@@ -215,12 +215,12 @@ export function formatDeveloperMessage(error: StructuredError): string {
  * `=` または `:` の後に値がある場合のみ一致するので、
  * 「Invalid password format」「The token has expired」のような文中の単語は伏せない。
  *
- * 走査対象はエラーメッセージ1件（人間が読める長さ）で、外部入力が
- * 無制限に長くなる経路では使わないため、後戻りの実害はない。
+ * 先頭の `\b` で一致の開始位置を語の先頭に限り、長い語の途中から何度も
+ * 走査し直す（入力長の2乗の後戻り）ことを防いでいる。置換は `$1` でキーを残すため、
+ * 開始位置を限っても出力は変わらない。
  */
 const SECRET_ASSIGNMENT_PATTERN =
-  // eslint-disable-next-line sonarjs/slow-regex -- 入力はエラーメッセージ1件のみで長さが実用上限られる
-  /([\w-]*(?:password|token|secret|api[_-]?key)[\w-]*)\s*[=:]\s*['"]?[^'"\s]+['"]?/gi
+  /\b([\w-]*(?:password|token|secret|api[_-]?key)[\w-]*)\s*[=:]\s*['"]?[^'"\s]+['"]?/gi
 
 /**
  * JSON 形式（`"key": "値"`）の機密情報
@@ -248,14 +248,12 @@ const BEARER_PATTERN = /\b(bearer)\s+([\w.~+/=-]{8,})/gi
  * `:` `@` が揃った形だけに一致するため、`https://example.com/docs` のような
  * 資格情報を持たない URL は変化しない。
  */
-// eslint-disable-next-line sonarjs/slow-regex -- 入力はエラーメッセージ1件のみで長さが実用上限られる
-const CONNECTION_CREDENTIALS_PATTERN = /([a-z][\w+.-]*:\/\/)[^\s:@/]+:[^\s@/]+@/gi
+const CONNECTION_CREDENTIALS_PATTERN = /(?<![\w+.-])([\w+.-]+:\/\/)[^\s:@/]+:[^\s@/]+@/gi
 
 /**
  * メールアドレス（ローカル部のみ伏せ、ドメインは調査のため残す）
  */
-// eslint-disable-next-line sonarjs/slow-regex -- Email regex is bounded and safe
-const EMAIL_PATTERN = /([a-zA-Z0-9._%+-]+)@([a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/g
+const EMAIL_PATTERN = /(?<![a-zA-Z0-9._%+-])([a-zA-Z0-9._%+-]+)@([a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/g
 
 /**
  * `Bearer` の後ろの語が資格情報らしいか判定する

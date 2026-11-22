@@ -7,7 +7,6 @@
  * Supabase クライアントには一切触れない。検証対象の関数はプレーンなオブジェクトと
  * コールバックだけを受け取るため、ネットワークアクセスは発生しない。
  */
-/* eslint-disable sonarjs/no-hardcoded-passwords -- サニタイズ対象のダミー値であり、実在の資格情報ではない */
 
 import { describe, it, expect, vi, afterEach } from 'vitest'
 import {

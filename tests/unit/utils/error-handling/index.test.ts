@@ -6,7 +6,6 @@
  * すべてが静かに狂う。特に stack は message と並べてコンソールに出るため、
  * サニタイズ漏れがそのまま機密情報の漏洩になる。
  */
-/* eslint-disable sonarjs/no-hardcoded-passwords -- サニタイズ対象のダミー値であり、実在の資格情報ではない */
 
 import { describe, it, expect, vi, afterEach } from 'vitest'
 import {

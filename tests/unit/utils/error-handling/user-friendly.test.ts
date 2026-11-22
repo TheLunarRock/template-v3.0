@@ -5,7 +5,6 @@
  * という経路でコンソールへ出るため、伏せ漏れがそのままログへの機密情報漏洩になる。
  * 「漏らさない」と「過剰に伏せない（調査できる形で残す）」の両方を検証する。
  */
-/* eslint-disable sonarjs/no-hardcoded-passwords -- サニタイズ対象のダミー値であり、実在の資格情報ではない */
 
 import { describe, it, expect } from 'vitest'
 import {

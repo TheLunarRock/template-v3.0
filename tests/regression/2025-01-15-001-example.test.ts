@@ -37,7 +37,7 @@ describe('Regression: 2025-01-15-001 - Example regression test', () => {
       return arr[0]
     }
 
-    expect(handleEmptyArray([])).toBe(null)
+    expect(handleEmptyArray([])).toBeNull()
     expect(handleEmptyArray([1])).toBe(1)
   })
 })

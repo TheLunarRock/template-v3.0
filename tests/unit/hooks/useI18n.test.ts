@@ -48,58 +48,50 @@ afterEach(() => {
 })
 
 describe('初期ロケールの決定順', () => {
-  it('localStorage の保存値が navigator.language より優先される', () => {
-    mockSavedLocale('en')
-    mockBrowserLanguage('ja-JP')
+  it.each<{ title: string; saved: string | null; browser: string; expected: Locale }>([
+    {
+      title: 'localStorage の保存値が navigator.language より優先される',
+      saved: 'en',
+      browser: 'ja-JP',
+      expected: 'en',
+    },
+    {
+      title: '保存値が無ければ navigator.language の言語部分を使う',
+      saved: null,
+      browser: 'en-US',
+      expected: 'en',
+    },
+    {
+      title: 'navigator.language が対応外なら defaultLocale になる',
+      saved: null,
+      browser: 'fr-FR',
+      expected: 'ja',
+    },
+    {
+      title: '保存値が対応外なら navigator.language へフォールバックする',
+      saved: 'fr',
+      browser: 'en-US',
+      expected: 'en',
+    },
+    {
+      title: '保存値も navigator.language も対応外なら defaultLocale になる',
+      saved: 'de',
+      browser: 'de-DE',
+      expected: 'ja',
+    },
+    {
+      title: '地域コードが無い navigator.language でも判定できる',
+      saved: null,
+      browser: 'en',
+      expected: 'en',
+    },
+  ])('$title', ({ saved, browser, expected }) => {
+    mockSavedLocale(saved)
+    mockBrowserLanguage(browser)
 
     const { result } = renderHook(() => useI18n())
 
-    expect(result.current.locale).toBe('en')
-  })
-
-  it('保存値が無ければ navigator.language の言語部分を使う', () => {
-    mockSavedLocale(null)
-    mockBrowserLanguage('en-US')
-
-    const { result } = renderHook(() => useI18n())
-
-    expect(result.current.locale).toBe('en')
-  })
-
-  it('navigator.language が対応外なら defaultLocale になる', () => {
-    mockSavedLocale(null)
-    mockBrowserLanguage('fr-FR')
-
-    const { result } = renderHook(() => useI18n())
-
-    expect(result.current.locale).toBe('ja')
-  })
-
-  it('保存値が対応外なら navigator.language へフォールバックする', () => {
-    mockSavedLocale('fr')
-    mockBrowserLanguage('en-US')
-
-    const { result } = renderHook(() => useI18n())
-
-    expect(result.current.locale).toBe('en')
-  })
-
-  it('保存値も navigator.language も対応外なら defaultLocale になる', () => {
-    mockSavedLocale('de')
-    mockBrowserLanguage('de-DE')
-
-    const { result } = renderHook(() => useI18n())
-
-    expect(result.current.locale).toBe('ja')
-  })
-
-  it('地域コードが無い navigator.language でも判定できる', () => {
-    mockSavedLocale(null)
-    mockBrowserLanguage('en')
-
-    const { result } = renderHook(() => useI18n())
-
-    expect(result.current.locale).toBe('en')
+    expect(result.current.locale).toBe(expected)
   })
 })
 

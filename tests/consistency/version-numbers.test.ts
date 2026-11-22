@@ -8,7 +8,7 @@
  * @category 整合性
  * @priority 🟡 important
  */
-/* eslint-disable sonarjs/slow-regex, security/detect-non-literal-fs-filename */
+/* eslint-disable security/detect-non-literal-fs-filename */
 
 import { describe, it, expect } from 'vitest'
 import { readFileSync } from 'fs'
@@ -91,7 +91,7 @@ describe('整合性: バージョン番号がファイル間で一致する', ()
           if (next.trim() === '') continue
           if (next.search(/\S/) <= baseIndent) break // 次のステップに入った
 
-          const match = /^\s*version:\s*(.+)$/.exec(next)
+          const match = /^\s*version:\s*(\S.*)$/.exec(next)
           if (match) found.push(match[1].trim())
         }
       })
@@ -124,13 +124,20 @@ describe('整合性: バージョン番号がファイル間で一致する', ()
   })
 
   it('CI/security ワークフローが .nvmrc を単一の真実の源として参照している', () => {
+    /**
+     * setup-node の参照ごとに、次の参照までの本文を切り出す。
+     * 複数行をまたぐ正規表現（[\s\S]*?）は後戻りが入力長の2乗になるため、
+     * ステップを切り出してから 1 行ずつの正規表現で調べる。
+     */
+    const setupNodeSteps = (yml: string): string[] => yml.split('setup-node@v').slice(1)
+
     const ciYml = readFileSync(path.join(ROOT, '.github/workflows/ci.yml'), 'utf8')
     const securityYml = readFileSync(path.join(ROOT, '.github/workflows/security.yml'), 'utf8')
 
     // 直書き禁止: setup-node の node-version: <数値リテラル> を検出して落とす
-    const directVersionRegex = /setup-node@v\d+[\s\S]*?node-version:\s*['"]?(\d[\d.]*)['"]?\s*$/gm
-    const ciDirect = [...ciYml.matchAll(directVersionRegex)]
-    const secDirect = [...securityYml.matchAll(directVersionRegex)]
+    const directVersionLine = /^[ \t]*node-version:[ \t]*['"]?\d[\d.]*['"]?[ \t]*$/m
+    const ciDirect = setupNodeSteps(ciYml).filter((step) => directVersionLine.test(step))
+    const secDirect = setupNodeSteps(securityYml).filter((step) => directVersionLine.test(step))
 
     expect(
       ciDirect.length + secDirect.length,
@@ -139,9 +146,9 @@ describe('整合性: バージョン番号がファイル間で一致する', ()
     ).toBe(0)
 
     // node-version-file: '.nvmrc' が両ファイルに存在することを確認
-    const nvmrcRefRegex = /setup-node@v\d+[\s\S]*?node-version-file:\s*['"]\.nvmrc['"]/g
-    const ciRefs = [...ciYml.matchAll(nvmrcRefRegex)]
-    const secRefs = [...securityYml.matchAll(nvmrcRefRegex)]
+    const nvmrcRefLine = /^[ \t]*node-version-file:[ \t]*['"]\.nvmrc['"]/m
+    const ciRefs = setupNodeSteps(ciYml).filter((step) => nvmrcRefLine.test(step))
+    const secRefs = setupNodeSteps(securityYml).filter((step) => nvmrcRefLine.test(step))
 
     expect(
       ciRefs.length > 0,

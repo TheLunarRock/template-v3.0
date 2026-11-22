@@ -8,7 +8,6 @@
  * @category 整合性
  * @priority 🟡 important
  */
-/* eslint-disable sonarjs/slow-regex */
 
 import { describe, it, expect } from 'vitest'
 import { readFileSync } from 'fs'
@@ -29,7 +28,9 @@ describe('整合性: 防御層の数がドキュメント間で一致する', ()
      *   "第8層防御・7種"    → 抽出しない（個別の第8層を指す）
      */
     const extract = (text: string): number[] => {
-      const layerCounts = [...text.matchAll(/(?<!第)(\d+)層防御/g)].map((m) => parseInt(m[1], 10))
+      const layerCounts = [...text.matchAll(/(?<![第\d])(\d+)層防御/g)].map((m) =>
+        parseInt(m[1], 10)
+      )
       return layerCounts
     }
 
