@@ -311,30 +311,27 @@ async function preflight() {
   log.section('セキュリティチェック')
 
   // 本番用の脆弱性チェック
+  // 基準は security.yml の「本番依存の脆弱性監査（high以上でブロック）」と同じにする
+  // （tests/consistency/audit-level.test.ts が一致を検査）。判定は終了コードで行い、
+  // 出力文字列は件数・重大度の表示にだけ使う。
   const auditResult = runCommand(
-    `${getPackageManagerCommand('auditProd')} --audit-level=critical`,
+    `${getPackageManagerCommand('auditProd')} --audit-level=high`,
     true
   )
-  const auditOutput = auditResult.output || auditResult.error?.stdout || ''
+  const auditOutput = auditResult.output || ''
+  const severityLine = /^Severity:.*$/m.exec(auditOutput)?.[0]
 
-  // より厳密な脆弱性チェック
-  if (
-    auditOutput.includes('found 0 vulnerabilities') ||
-    auditOutput.includes('no vulnerabilities') ||
-    (auditOutput.includes('found') && auditOutput.includes('0 critical'))
-  ) {
-    log.success('重大な脆弱性は見つかりませんでした')
+  if (auditResult.success) {
+    log.success('high 以上の脆弱性は見つかりませんでした')
     results.passed++
-  } else if (auditOutput.includes('critical')) {
-    log.error('重大な脆弱性が検出されました - デプロイを中止してください')
-    results.critical++
+  } else if (severityLine) {
+    log.error(`high 以上の脆弱性が検出されました - デプロイを中止してください（${severityLine}）`)
+    if (/critical/i.test(severityLine)) results.critical++
     results.errors++
-  } else if (auditOutput.includes('high')) {
-    log.warning('高リスクの脆弱性が検出されました - 修正を推奨')
-    results.warnings++
   } else {
-    log.success('重大な脆弱性は見つかりませんでした')
-    results.passed++
+    // 監査自体が失敗した（ネットワーク不通等）。CI と同じく通さない側に倒す
+    log.error('脆弱性監査を実行できませんでした - 結果を確認してから再実行してください')
+    results.errors++
   }
 
   // シークレットの漏洩チェック

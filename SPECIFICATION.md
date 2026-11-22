@@ -4433,9 +4433,9 @@ AI ファースト開発において、ドキュメントは **AI への命令�
 | **テスト基盤**       | Vitest（既存テストインフラを流用）                                                                                                                              |
 | **実行タイミング**   | pre-commitフック + CIの`test`ジョブ（自動）                                                                                                                     |
 | **失敗時の挙動**     | コミット・PRがブロックされる                                                                                                                                    |
-| **テストファイル数** | 12ファイル（ファイル数と一覧は `consistency-inventory.test.ts` が CLAUDE.md / SPECIFICATION.md の記載と自動照合。ケース数は随時増えるため固定値を持たない方針） |
+| **テストファイル数** | 13ファイル（ファイル数と一覧は `consistency-inventory.test.ts` が CLAUDE.md / SPECIFICATION.md の記載と自動照合。ケース数は随時増えるため固定値を持たない方針） |
 
-### 23.3 整合性テストファイル一覧（12ファイル）
+### 23.3 整合性テストファイル一覧（13ファイル）
 
 #### 🔴 Phase 1: 致命的問題の防止
 
@@ -4447,6 +4447,7 @@ AI ファースト開発において、ドキュメントは **AI への命令�
 | `vercel-config.test.ts`         | `vercel.json` の deploymentEnabled とブランチ運用記述（main直push）が整合                                                                                                                                                               |
 | `claude-workflow-guard.test.ts` | `claude.yml` の OWNER 起動ゲート・`@v1` 参照・v1廃止入力の不使用・`concurrency` 定義                                                                                                                                                    |
 | `dependency-versions.test.ts`   | SPECIFICATION.md §2 の依存バージョン表と `package.json` の厳密一致                                                                                                                                                                      |
+| `audit-level.test.ts`           | `preflight.js` と `security.yml` の本番依存の監査基準（`--audit-level`）が一致（手元は通るのに CI だけ落ちる乖離の防止）                                                                                                                |
 
 #### 🟡 Phase 2: 構造的整合性
 
@@ -4464,7 +4465,7 @@ AI ファースト開発において、ドキュメントは **AI への命令�
 | `agents-sync.test.ts`           | AGENTS.md と CLAUDE.md の always-on ルール抜粋が同期している（相互参照とキー概念の存在を検証）                             |
 | `consistency-inventory.test.ts` | `tests/consistency` のファイル数・一覧が CLAUDE.md / SPECIFICATION.md の記載と一致（目録の自己検証）                       |
 
-### 23.4 検証する整合性問題の12類型
+### 23.4 検証する整合性問題の13類型
 
 | #   | 類型                                           | 検出ファイル                                   |
 | --- | ---------------------------------------------- | ---------------------------------------------- |
@@ -4480,6 +4481,7 @@ AI ファースト開発において、ドキュメントは **AI への命令�
 | 10  | テスト目録の不整合（ファイル数・一覧）         | `consistency-inventory.test.ts`                |
 | 11  | ワークフロー設定の陳腐化・起動ゲート欠落       | `claude-workflow-guard.test.ts`                |
 | 12  | 依存バージョンの陳腐化（docs vs package.json） | `dependency-versions.test.ts`                  |
+| 13  | 脆弱性監査の基準の乖離（手元 preflight vs CI） | `audit-level.test.ts`                          |
 
 ### 23.5 失敗時のメッセージ設計
 

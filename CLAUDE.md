@@ -1234,7 +1234,7 @@ pnpm sc:disable-pr  # ON → OFF: ブランチ保護解除 + workflow削除 + �
 
 # ═══════════════════════════════════════════════════
 
-ドキュメントと実装の乖離は AI の信頼性を破壊するため、`tests/consistency/` 配下の **12ファイル**で自動検証する（ファイル数と一覧は `consistency-inventory.test.ts` が CLAUDE.md・SPECIFICATION.md の記載と一致することを保証するため、新規テスト追加時の更新漏れは自動でブロックされる）。pre-commit と CI で自動実行される。
+ドキュメントと実装の乖離は AI の信頼性を破壊するため、`tests/consistency/` 配下の **13ファイル**で自動検証する（ファイル数と一覧は `consistency-inventory.test.ts` が CLAUDE.md・SPECIFICATION.md の記載と一致することを保証するため、新規テスト追加時の更新漏れは自動でブロックされる）。pre-commit と CI で自動実行される。
 
 ## 整合性が保証される対象
 
@@ -1251,6 +1251,7 @@ pnpm sc:disable-pr  # ON → OFF: ブランチ保護解除 + workflow削除 + �
 | **Vercel設定**         | `vercel-config.test.ts`         | `vercel.json` の deploymentEnabled とブランチ運用記述（main直push）が整合                                                                                          |
 | **Claudeワークフロー** | `claude-workflow-guard.test.ts` | `claude.yml` の OWNER 起動ゲート・`@v1` 参照・廃止入力不使用・`concurrency` 定義                                                                                   |
 | **依存バージョン**     | `dependency-versions.test.ts`   | SPECIFICATION.md §2 の依存バージョン表と `package.json` が一致                                                                                                     |
+| **脆弱性監査の基準**   | `audit-level.test.ts`           | `preflight.js` と `security.yml` の本番依存の監査基準（`--audit-level`）が一致                                                                                     |
 | **テスト目録**         | `consistency-inventory.test.ts` | tests/consistency のファイル数・一覧が CLAUDE.md / SPECIFICATION.md の記載と一致                                                                                   |
 
 ## Claude Code への絶対指示

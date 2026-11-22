@@ -146,3 +146,6 @@ next-env.d.ts
 memo.txt
 todo.md
 scratch.*
+
+# リポジトリ直下に置かれる Claude の出力（無関係の PDF 等）を誤ってコミットしない
+Claude outputs/
