@@ -217,9 +217,12 @@ export type { FeatureItem, FeatureConfig } from './types'
       "@/*": ["./src/*"],
       "@features/*": ["./src/features/*"]
     }
-  }
+  },
+  "exclude": ["node_modules", ".next/dev/types/validator.ts"]
 }
 ```
+
+**`.next/dev/types/validator.ts` の除外（2026-11-23〜）:** 開発サーバーが作る `validator.ts` は API ルート用の import（`AppRouteHandlerRoutes` / `NextRequest`）を常に書くため、API ルートが無いと `noUnusedLocals` に引っかかり、`pnpm dev` を一度動かした後の `pnpm build` / `pnpm typecheck` が落ちていた（`.ts` なので `skipLibCheck` も効かない）。この1ファイルだけを除外し、ビルド用の `.next/types/validator.ts` と開発中の `routes.d.ts` は検査に残している。Next.js 側が開発サーバー用の `validator.ts` を直したら、この除外は外せる。回帰テストは `tests/regression/2026-11-23-001-dev-validator-breaks-typecheck.test.ts`。
 
 ### 5.2 Next.js設定（next.config.mjs）
 
