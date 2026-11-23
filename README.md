@@ -1,5 +1,12 @@
 # Claude Code 個人開発用 Next.js テンプレート
 
+## ⏸️ 更新を止めました（2026年11月）
+
+- このテンプレートの更新は、2026年11月の状態で止めました。
+- 止めた時点の構成: Next.js 16.4.6 / React 19 / TypeScript 6.0 / Node.js 24 / pnpm 9
+- これから先の依存パッケージの更新は、使う人が自分で行ってください。特に Next.js のセキュリティ更新は、公式の案内を見て上げてください。
+- 使い方とセットアップの手順は、これまでどおりこの README と [SETUP_GUIDE.md](./SETUP_GUIDE.md) のとおりです。
+
 [![Framework](https://img.shields.io/badge/SuperClaude-v4-blue)](https://github.com/SuperClaude-Org/SuperClaude_Framework)
 [![Architecture](https://img.shields.io/badge/Architecture-Feature--based-orange)](CLAUDE.md)
 
