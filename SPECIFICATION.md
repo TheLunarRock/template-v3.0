@@ -3220,12 +3220,12 @@ The Deployment was blocked because there was no git user associated with the com
 ```bash
 # 1. git commit author email を確認
 git log --format='%ae' -3
-# 例: hr150131@gmail.com
+# 例: <git の author のメールアドレス>
 
 # 2. Vercel アカウントの verified email を確認
 # https://vercel.com/account/settings/authentication
 # → "Email" セクションに表示されているアドレス
-# 例: nrb29293@nifty.com
+# 例: <Vercel のアカウントで確認済みのメールアドレス>
 
 # 3. 不一致なら deploy 失敗
 ```
@@ -3241,7 +3241,7 @@ Step 2: 「Email」セクション右の「Manage」ボタンをクリック
 Step 3: 「Add Another」をクリック
 
 Step 4: commit author email（git config user.email の値）を入力
-        例: hr150131@gmail.com
+        例: <git の author のメールアドレス>
 
 Step 5: チェックボックス「I understand that this email will have access to my account」にチェック
 
