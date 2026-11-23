@@ -21,7 +21,7 @@
 | Next.js    | ^16.4.6    | Reactフレームワーク（App Router） |
 | React      | ^19.3.1    | UIライブラリ                      |
 | React DOM  | ^19.3.1    | DOMレンダリング                   |
-| TypeScript | ^5.9.3     | 型安全な開発                      |
+| TypeScript | ~6.0.3     | 型安全な開発                      |
 
 ### 2.2 スタイリング
 

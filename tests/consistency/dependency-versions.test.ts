@@ -115,3 +115,50 @@ describe('整合性: SPECIFICATION.md §2 の依存バージョンが package.js
     ).toBe(actual)
   })
 })
+
+/**
+ * pnpm-lock.yaml に記録された typescript の版を、重複を除いて返す。
+ * パッケージの見出し行（行頭に空白 2 つ + `typescript@<版>:`）だけを数える。
+ */
+const lockedTypescriptVersions = (lockfile: string): string[] => {
+  const versions = new Set<string>()
+  for (const line of lockfile.split('\n')) {
+    if (!line.startsWith('  typescript@')) continue
+    const version = line.slice('  typescript@'.length).split(':')[0]
+    if (version) versions.add(version)
+  }
+  return [...versions]
+}
+
+describe('整合性: TypeScript がリポジトリに 1 つだけ入っている', () => {
+  it('取り出し関数は、版が 2 つ入った lockfile を 2 件と数える（検査が効くことの確認）', () => {
+    const sample = [
+      'packages:',
+      '  typescript@5.9.3:',
+      '    resolution: {integrity: sha512-x}',
+      '  typescript@6.0.3:',
+      '    resolution: {integrity: sha512-y}',
+      'snapshots:',
+      '  typescript@5.9.3: {}',
+      '  typescript@6.0.3: {}',
+      '  typescript-eslint@8.73.0(eslint@10.15.0)(typescript@6.0.3):',
+    ].join('\n')
+
+    expect(lockedTypescriptVersions(sample)).toEqual(['5.9.3', '6.0.3'])
+  })
+
+  it('pnpm-lock.yaml の typescript の版が 1 つだけ', () => {
+    const lockfile = readFileSync(path.join(ROOT, 'pnpm-lock.yaml'), 'utf8')
+    const versions = lockedTypescriptVersions(lockfile)
+
+    expect(
+      versions,
+      `\npnpm-lock.yaml に typescript が ${versions.length} 版入っています: ${versions.join(', ')}\n` +
+        `原因: 依存（eslint-plugin-sonarjs など）が typescript を自分の依存として持っていると、\n` +
+        `  package.json の版とは別の版が残り、TypeScript が 2 つ入ります。\n` +
+        `  そうなると型情報を使う lint ルールが誤検出を出します（2026-11-23 の 6.0.3 への版上げで 9 件）。\n` +
+        `修正方法: pnpm dedupe を実行して 1 つにそろえてください。\n` +
+        `  そろわない場合は、package.json の typescript の範囲が依存の対応範囲に収まっているかを確認してください。`
+    ).toHaveLength(1)
+  })
+})
